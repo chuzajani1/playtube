@@ -34,6 +34,7 @@ import json
 import time
 import threading
 import hashlib
+import html
 import secrets
 from datetime import datetime, timedelta
 from urllib.parse import quote, unquote
@@ -178,10 +179,24 @@ POPULAR_VIDEOS = [
         "channelId": "UCU0vOVvBIKl9h7rYH0KvTVA", "thumbnails": {"high": {"url": "https://i.ytimg.com/vi/9h30Bx4Klxg/hqdefault.jpg"}}}},
 ]
 
-# Database setup
-# Database setup for Vercel
+# Database setup — persistent data directory (Update 31).
+# PLAYTUBE_DATA_DIR env se badla ja sakta hai (Railway par volume ka path);
+# default: script ke sath 'playtube_data' folder. /tmp NAHI — wo har
+# restart/redeploy par ur jata tha, users aur counts reset ho jate the.
 import os
-DB_FILE = os.path.join("/tmp", "playtube_users.db")
+DATA_DIR = os.environ.get('PLAYTUBE_DATA_DIR') or os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), 'playtube_data')
+try:
+    os.makedirs(DATA_DIR, exist_ok=True)
+except Exception:
+    DATA_DIR = "/tmp"
+DB_FILE = os.path.join(DATA_DIR, "playtube_users.db")
+try:
+    _legacy_db = os.path.join("/tmp", "playtube_users.db")
+    if not os.path.exists(DB_FILE) and os.path.exists(_legacy_db):
+        shutil.copyfile(_legacy_db, DB_FILE)
+except Exception:
+    pass
 # ============ GMAIL VERIFICATION SYSTEM ============
 GMAIL_EMAIL = os.environ.get("GMAIL_EMAIL", "chuzajani1@gmail.com")
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
@@ -441,6 +456,30 @@ def init_db():
         )
     ''')
 
+    # Visitor counting (Update 31) — database mein, JSON file mein nahi
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS site_visits (
+            day TEXT PRIMARY KEY,
+            opens INTEGER NOT NULL DEFAULT 0,
+            uniq INTEGER NOT NULL DEFAULT 0
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS site_visit_ips (
+            day TEXT NOT NULL,
+            ip TEXT NOT NULL,
+            PRIMARY KEY (day, ip)
+        )
+    ''')
+    # Guest free downloads (Update 44) — per-device ginti, database mein
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS guest_downloads (
+            device_id TEXT PRIMARY KEY,
+            count INTEGER NOT NULL DEFAULT 0,
+            updated TEXT
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -496,8 +535,11 @@ init_premium_system()
 # Payment accounts are NOT hard-coded. The admin saves them from the
 # Admin Panel and they persist in playtube_settings.json.
 try:
-    SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 'playtube_settings.json')
+    SETTINGS_FILE = os.path.join(DATA_DIR, 'playtube_settings.json')
+    _legacy_settings = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    'playtube_settings.json')
+    if not os.path.exists(SETTINGS_FILE) and os.path.exists(_legacy_settings):
+        shutil.copyfile(_legacy_settings, SETTINGS_FILE)
     with open(SETTINGS_FILE, 'a'):
         pass
 except Exception:
@@ -552,7 +594,7 @@ def _rebuild_payment_accounts():
 FEATURE_DEFAULTS = {'ai_enabled': True, 'downloads_enabled': True,
                     'premium_enabled': True, 'social_enabled': True,
                     'signup_enabled': True, 'floating_enabled': True,
-                    'maintenance_mode': False}
+                    'maintenance_mode': False, 'hd_premium_only': True}
 
 
 def get_feature_toggles():
@@ -566,8 +608,90 @@ def feature_enabled(name):
     return bool(get_feature_toggles().get(name, FEATURE_DEFAULTS.get(name, True)))
 
 
+# ============ GUEST FREE DOWNLOADS (Update 44) ============
+def get_guest_limit():
+    """Bina account kitni free downloads — admin ki setting, default 10."""
+    try:
+        return max(0, int(load_site_settings().get('guest_download_limit', 10)))
+    except (TypeError, ValueError):
+        return 10
+
+
+def _guest_device_id():
+    did = request.cookies.get('pt_guest')
+    if did:
+        return did[:64]
+    import hashlib
+    raw = (request.remote_addr or '') + '|' + (request.headers.get('User-Agent') or '')
+    return 'h_' + hashlib.md5(raw.encode()).hexdigest()
+
+
+def _guest_count(device_id):
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute('SELECT count FROM guest_downloads WHERE device_id = ?',
+                    (device_id,))
+        row = cur.fetchone()
+        return int(row[0]) if row else 0
+    finally:
+        conn.close()
+
+
+def _guest_inc(device_id):
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute('INSERT INTO guest_downloads (device_id, count, updated) '
+                    'VALUES (?, 1, ?) ON CONFLICT(device_id) DO UPDATE SET '
+                    'count = count + 1, updated = excluded.updated',
+                    (device_id, datetime.now().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+guest_pending = {}
+
+
+@app.after_request
+def _pt_guest_cookie(resp):
+    try:
+        if not request.cookies.get('pt_guest'):
+            import uuid
+            resp.set_cookie('pt_guest', uuid.uuid4().hex,
+                            max_age=365 * 24 * 3600, httponly=True,
+                            samesite='Lax')
+    except Exception:
+        pass
+    return resp
+
+
 def get_announcement():
     return (load_site_settings().get('announcement') or '').strip()
+
+
+# ============ HOT DEALS (Update 32 — More tab, admin-managed) ============
+# Products admin panel se change hote hain. Default products ke links
+# KHALI hain (purane Daraz links kisi aur ke affiliate the) — admin
+# apne links khud lagata hai; link na ho to Buy button nahi dikhta.
+DEFAULT_DEALS = [
+    {'name': 'Sneakers', 'emoji': '👟', 'old_price': 2499, 'new_price': 1299, 'badge': '48%', 'link': ''},
+    {'name': 'Earbuds', 'emoji': '🎧', 'old_price': 3000, 'new_price': 729, 'badge': '76%', 'link': ''},
+    {'name': 'P47 Headphone', 'emoji': '🎧', 'old_price': 1999, 'new_price': 834, 'badge': '58%', 'link': ''},
+    {'name': 'MIC', 'emoji': '🎤', 'old_price': 1748, 'new_price': 999, 'badge': '43%', 'link': ''},
+    {'name': 'Nightwear', 'emoji': '👚', 'old_price': 2000, 'new_price': 790, 'badge': '61%', 'link': ''},
+    {'name': 'Scrubber', 'emoji': '🚿', 'old_price': 207, 'new_price': 179, 'badge': '14%', 'link': ''},
+    {'name': 'Wallet', 'emoji': '👝', 'old_price': 600, 'new_price': 253, 'badge': '58%', 'link': ''},
+    {'name': 'Phone', 'emoji': '📱', 'old_price': 0, 'new_price': 15999, 'badge': 'HOT', 'link': ''},
+]
+
+
+def get_deals():
+    d = load_site_settings().get('deals')
+    if isinstance(d, list):
+        return d
+    return [dict(x) for x in DEFAULT_DEALS]
 
 
 _MAINTENANCE_EXEMPT = ('/admin', '/api/admin', '/api/user-info', '/api/site-config',
@@ -595,7 +719,9 @@ def _v4_maintenance_gate():
                 'display:flex;align-items:center;justify-content:center;min-height:100vh;'
                 'margin:0;text-align:center;padding:20px"><div>'
                 '<h1 style="color:#8b6dff">PlayTube</h1>'
-                '<p>Site abhi maintenance me hai.<br>Thodi der baad dobara try karein.</p>'
+                '<p>' + (html.escape(load_site_settings().get(
+                    'maintenance_message') or '')
+                    or 'Site abhi maintenance me hai. Thodi der baad dobara try karein.') + '</p>'
                 '</div></body></html>'), 503
     except Exception:
         return None
@@ -1612,19 +1738,6 @@ HTML = '''
 <a href="/contact" style="color:#aaa; margin:0 10px; text-decoration:none;" data-i18n="contact">Contact</a>
     <p style="color:#666; margin-top:10px; font-size:0.8rem;">© 2026 PlayTube - All Rights Reserved</p>
 </div>
-<!-- Rating Section -->
-<div style="text-align:center; padding:20px; margin-top:20px; background:#1a1a1a; border-radius:10px; max-width:600px; margin:20px auto;">
-    <h3 style="color:#fff;">⭐ Rate PlayTube</h3>
-    <p style="color:#aaa; margin:10px 0;">Agar aapko app pasand aayi to rate karein!</p>
-    <div style="font-size:2rem; cursor:pointer;">
-        <span onclick="rateApp(1)">⭐</span>
-        <span onclick="rateApp(2)">⭐</span>
-        <span onclick="rateApp(3)">⭐</span>
-        <span onclick="rateApp(4)">⭐</span>
-        <span onclick="rateApp(5)">⭐</span>
-    </div>
-    <p id="ratingMessage" style="color:#4CAF50; margin-top:10px;"></p>
-</div>
     <!-- Premium Modal -->
     <div id="premiumModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:99999; overflow-y:auto; padding:20px;">
         <div style="background:#1a1a1a; padding:30px; border-radius:20px; max-width:500px; margin:20px auto;">
@@ -2524,266 +2637,10 @@ async function showUsageStats() {
             }
         }
     </script>
-    <!-- Cute Draggable Products - Click + Drag -->
-    <style>
-        .cute-products {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            justify-content: center;
-            margin: 30px auto;
-            padding: 15px;
-            max-width: 700px;
-            position: relative;
-            min-height: 300px;
-        }
-        .cute-card {
-            width: 85px;
-            background: #1a1a1a;
-            border-radius: 15px;
-            padding: 10px 5px;
-            text-align: center;
-            cursor: pointer;
-            position: absolute;
-            border: 2px solid #f57224;
-            box-shadow: 0 4px 15px rgba(245,114,36,0.3);
-            transition: transform 0.2s;
-            user-select: none;
-            touch-action: none;
-            z-index: 10;
-        }
-        .cute-card:hover {
-            transform: scale(1.1);
-            border-color: #ff0000;
-            box-shadow: 0 8px 25px rgba(255,0,0,0.5);
-            z-index: 100;
-        }
-        .cute-card:active {
-            cursor: grabbing;
-        }
-        .cute-emoji { font-size: 1.8rem; display: block; pointer-events: none; }
-        .cute-name {
-            color: #fff;
-            font-size: 0.6rem;
-            margin: 5px 0;
-            display: block;
-            min-height: 25px;
-            pointer-events: none;
-        }
-        .cute-price { display: block; font-size: 0.65rem; pointer-events: none; }
-        .cute-old { color: #666; text-decoration: line-through; display: block; }
-        .cute-new { color: #4CAF50; font-weight: bold; display: block; }
-        .cute-btn {
-            display: block;
-            background: #f57224;
-            color: #fff;
-            padding: 4px;
-            border-radius: 15px;
-            text-decoration: none;
-            font-size: 0.55rem;
-            margin-top: 5px;
-            pointer-events: auto;
-        }
-        .discount-badge {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            background: #ff0000;
-            color: #fff;
-            font-size: 0.5rem;
-            padding: 3px 6px;
-            border-radius: 10px;
-            font-weight: bold;
-            animation: pulse 1s infinite;
-            pointer-events: none;
-        }
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.2); }
-        }
-    </style>
-
-    <h3 style="color:#f57224; text-align:center; margin-top:30px; font-size:1.2rem;">🛒 Hot Deals</h3>
-    <p style="color:#666; text-align:center; font-size:0.7rem;">👆 Click karo ya Drag karo! ✨</p>
-
-    <div class="cute-products" id="cuteProducts">
-
-        <div class="cute-card" data-link="https://s.daraz.pk/s.XNutK?cc" style="left:10px; top:10px;">
-            <span class="discount-badge">48%</span>
-            <span class="cute-emoji">👟</span>
-            <span class="cute-name">Sneakers</span>
-            <span class="cute-price">
-                <span class="cute-old">Rs. 2,499</span>
-                <span class="cute-new">Rs. 1,299</span>
-            </span>
-            <a href="https://s.daraz.pk/s.XNutK?cc" target="_blank" class="cute-btn">Buy</a>
-        </div>
-
-        <div class="cute-card" data-link="https://s.daraz.pk/s.XNuDU?cc" style="left:105px; top:10px;">
-            <span class="discount-badge">76%</span>
-            <span class="cute-emoji">🎧</span>
-            <span class="cute-name">Earbuds</span>
-            <span class="cute-price">
-                <span class="cute-old">Rs. 3,000</span>
-                <span class="cute-new">Rs. 729</span>
-            </span>
-            <a href="https://s.daraz.pk/s.XNuDU?cc" target="_blank" class="cute-btn">Buy</a>
-        </div>
-
-        <div class="cute-card" data-link="https://s.daraz.pk/s.Xn1PV?cc" style="left:200px; top:10px;">
-            <span class="discount-badge">58%</span>
-            <span class="cute-emoji">🎧</span>
-            <span class="cute-name">P47 Headphone</span>
-            <span class="cute-price">
-                <span class="cute-old">Rs. 1,999</span>
-                <span class="cute-new">Rs. 834</span>
-            </span>
-            <a href="https://s.daraz.pk/s.Xn1PV?cc" target="_blank" class="cute-btn">Buy</a>
-        </div>
-
-        <div class="cute-card" data-link="https://s.daraz.pk/s.XNuyp?cc" style="left:295px; top:10px;">
-            <span class="discount-badge">43%</span>
-            <span class="cute-emoji">🎤</span>
-            <span class="cute-name">MIC</span>
-            <span class="cute-price">
-                <span class="cute-old">Rs. 1,748</span>
-                <span class="cute-new">Rs. 999</span>
-            </span>
-            <a href="https://s.daraz.pk/s.XNuyp?cc" target="_blank" class="cute-btn">Buy</a>
-        </div>
-
-        <div class="cute-card" data-link="https://s.daraz.pk/s.Xn14f?cc" style="left:390px; top:10px;">
-            <span class="discount-badge">61%</span>
-            <span class="cute-emoji">👚</span>
-            <span class="cute-name">Nightwear</span>
-            <span class="cute-price">
-                <span class="cute-old">Rs. 2,000</span>
-                <span class="cute-new">Rs. 790</span>
-            </span>
-            <a href="https://s.daraz.pk/s.Xn14f?cc" target="_blank" class="cute-btn">Buy</a>
-        </div>
-
-        <div class="cute-card" data-link="https://s.daraz.pk/s.XNuze?cc" style="left:485px; top:10px;">
-            <span class="discount-badge">14%</span>
-            <span class="cute-emoji">🚿</span>
-            <span class="cute-name">Scrubber</span>
-            <span class="cute-price">
-                <span class="cute-old">Rs. 207</span>
-                <span class="cute-new">Rs. 179</span>
-            </span>
-            <a href="https://s.daraz.pk/s.XNuze?cc" target="_blank" class="cute-btn">Buy</a>
-        </div>
-
-        <div class="cute-card" data-link="https://s.daraz.pk/s.XNFg7?cc" style="left:580px; top:10px;">
-            <span class="discount-badge">58%</span>
-            <span class="cute-emoji">👝</span>
-            <span class="cute-name">Wallet</span>
-            <span class="cute-price">
-                <span class="cute-old">Rs. 600</span>
-                <span class="cute-new">Rs. 253</span>
-            </span>
-            <a href="https://s.daraz.pk/s.XNFg7?cc" target="_blank" class="cute-btn">Buy</a>
-        </div>
-
-        <div class="cute-card" data-link="https://s.daraz.pk/s.XNuD5?cc" style="left:10px; top:160px;">
-            <span class="discount-badge">HOT</span>
-            <span class="cute-emoji">📱</span>
-            <span class="cute-name">Phone</span>
-            <span class="cute-price">
-                <span class="cute-new">Rs. 15,999</span>
-            </span>
-            <a href="https://s.daraz.pk/s.XNuD5?cc" target="_blank" class="cute-btn">Buy</a>
-        </div>
-
-    </div>
-
-<script>
-let activeCard = null;
-let isDragging = false;
-let startX = 0;
-let startY = 0;
-let origX = 0;
-let origY = 0;
-let moved = false;
-
-document.querySelectorAll('.cute-card').forEach(card => {
-    card.addEventListener('mousedown', startDrag);
-    card.addEventListener('touchstart', startDrag, {passive: false});
-    card.addEventListener('click', function(e) {
-        if (!moved) {
-            const link = this.getAttribute('data-link');
-            if (link) {
-                window.open(link, '_blank');
-            }
-        }
-        moved = false;
-    });
-});
-
-function startDrag(e) {
-    e.preventDefault();
-
-    activeCard = this;
-    moved = false;
-
-    const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-    const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-
-    const rect = activeCard.getBoundingClientRect();
-    const container = document.getElementById('cuteProducts').getBoundingClientRect();
-
-    startX = clientX;
-    startY = clientY;
-    origX = rect.left - container.left;
-    origY = rect.top - container.top;
-
-    activeCard.style.zIndex = '999';
-    activeCard.style.transition = 'none';
-
-    document.addEventListener('mousemove', moveCard);
-    document.addEventListener('touchmove', moveCard, {passive: false});
-    document.addEventListener('mouseup', stopDrag);
-    document.addEventListener('touchend', stopDrag);
-}
-
-function moveCard(e) {
-    if (!activeCard) return;
-    e.preventDefault();
-
-    const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-    const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
-
-    const diffX = Math.abs(clientX - startX);
-    const diffY = Math.abs(clientY - startY);
-
-    if (diffX > 5 || diffY > 5) {
-        moved = true;
-    }
-
-    const newX = origX + (clientX - startX);
-    const newY = origY + (clientY - startY);
-
-    activeCard.style.left = newX + 'px';
-    activeCard.style.top = newY + 'px';
-}
-
-function stopDrag() {
-    if (activeCard) {
-        activeCard.style.zIndex = '10';
-        activeCard.style.transition = 'transform 0.2s';
-        activeCard = null;
-    }
-
-    document.removeEventListener('mousemove', moveCard);
-    document.removeEventListener('touchmove', moveCard);
-    document.removeEventListener('mouseup', stopDrag);
-    document.removeEventListener('touchend', stopDrag);
-}
-</script>
     <!-- Visitor Counter -->
     <div style="text-align:center; padding:15px; background:#1a1a1a; margin-top:30px; border-top:1px solid #333;">
         <p style="color:#aaa; margin:0;">
-            👥 Visitors Today: <span id="visitorCount" style="color:#4CAF50; font-weight:bold;">0</span>
+            👥 Total Visits: <span id="visitorCount" style="color:#4CAF50; font-weight:bold;">0</span>
         </p>
         <p style="color:#666; margin:5px 0 0; font-size:0.8rem;">
             © 2026 PlayTube - Coded by Chuza
@@ -2795,7 +2652,7 @@ function stopDrag() {
         .then(res => res.json())
         .then(data => {
             document.getElementById(
-                'visitorCount').innerText = data.today_visitors;
+                'visitorCount').innerText = data.total_visitors;
         })
         .catch(err => {
             document.getElementById('visitorCount').innerText = '...';
@@ -2828,8 +2685,8 @@ function stopDrag() {
     .btn-download-mp4{ background:linear-gradient(90deg,#4f46e5,#7c6cf8) !important; }
     .btn-download-mp3{ background:linear-gradient(90deg,#0d9488,#2dd4bf) !important; color:#062a26 !important; font-weight:700; }
     input, select, textarea{ border-radius:10px !important; }
-    .pt2-fab{ position:fixed; right:18px; bottom:18px; z-index:99990; display:flex; flex-direction:column; gap:10px; }
-    .pt2-fab button{ width:56px; height:56px; border-radius:50%; border:none; cursor:pointer; font-size:1.25rem; color:#fff; box-shadow:0 10px 24px rgba(0,0,0,.4); }
+    .pt2-fab{ position:fixed; right:14px; bottom:96px; z-index:99990; display:flex; flex-direction:column; gap:8px; }
+    .pt2-fab button{ width:46px; height:46px; border-radius:50%; border:none; cursor:pointer; font-size:1.05rem; color:#fff; box-shadow:0 10px 24px rgba(0,0,0,.4); }
     #aiFab{ background:linear-gradient(135deg,#4f46e5,#0d9488); }
     #themeFab{ background:linear-gradient(135deg,#312e81,#4f46e5); }
     #aiDrawer{ position:fixed; top:0; right:-430px; width:410px; max-width:94vw; height:100vh; background:var(--bg-card); backdrop-filter:blur(18px); border-left:1px solid var(--border-color); z-index:99995; transition:right .3s; display:flex; flex-direction:column; box-shadow:-16px 0 40px rgba(0,0,0,.45); }
@@ -3321,7 +3178,7 @@ Downloads background me one by one chalte rahen ge.</div>
   .v4-searchrow{display:flex;align-items:center;background:var(--v4card);border:1px solid var(--v4border);border-radius:999px;padding:4px 4px 4px 14px;margin-bottom:14px}
   .v4-searchrow input{flex:1;background:none;border:none;outline:none;color:var(--v4text);font-size:14px;min-width:0}
   .v4-searchbtn{background:linear-gradient(135deg,var(--v4violet),#5a3ee0);color:#fff;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:15px;flex:none}
-  .v4-h{font-size:15px;font-weight:800;margin:8px 2px 10px}
+  .v4-h{font-size:15px;font-weight:800;margin:8px 2px 10px;background:linear-gradient(90deg,#a78bfa,#2dd4bf);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
   .v4-muted{color:var(--v4muted);font-size:12px}
   .v4-vcard{background:var(--v4card);border:1px solid var(--v4border);border-radius:14px;overflow:hidden;margin-bottom:12px}
   .v4-thumb{position:relative;aspect-ratio:16/9;background:#26224a;cursor:pointer}
@@ -3360,6 +3217,18 @@ Downloads background me one by one chalte rahen ge.</div>
   .v4-radio{width:17px;height:17px;border-radius:50%;border:2px solid var(--v4muted);flex:none;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#06231f}
   .v4-fmtrow.sel .v4-radio{background:var(--v4teal);border-color:var(--v4teal)}
   .v4-sect{font-size:11px;font-weight:700;color:var(--v4violet2);letter-spacing:.6px;margin:14px 0 2px}
+  .v4-dlstats{margin-top:10px;padding:10px 14px;border-radius:14px;background:linear-gradient(135deg,rgba(124,58,237,.22),rgba(13,148,136,.18));border:1px solid rgba(124,58,237,.35);font-weight:700;font-size:.9rem;color:var(--v4text)}
+  .v4-empty{text-align:center;padding:34px 18px 26px;border:1px dashed rgba(148,140,255,.35);border-radius:18px;margin-top:8px;background:rgba(124,58,237,.05)}
+  .v4-empty-ic{width:74px;height:74px;margin:0 auto 12px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#0d9488);display:flex;align-items:center;justify-content:center;font-size:34px}
+  .v4-empty-t{font-size:1.05rem;font-weight:800;margin-bottom:4px}
+  .v4-check{width:26px;height:26px;border-radius:50%;border:2px solid rgba(148,140,255,.55);display:flex;align-items:center;justify-content:center;color:transparent;font-size:.8rem;flex:none}
+  .v4-check.on{background:#0d9488;border-color:#0d9488;color:#fff}
+  .v4-dlrow.sel{outline:1px solid rgba(13,148,136,.75);background:rgba(13,148,136,.09)}
+  .v4-selbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;padding:8px 10px;border-radius:14px;background:rgba(13,148,136,.12);border:1px solid rgba(13,148,136,.45)}
+  .v4-admincard{background:var(--v4card);border:1px solid var(--v4border);border-radius:16px;padding:14px;margin-top:14px}
+  .v4-filterpop{position:absolute;top:calc(100% + 6px);right:0;z-index:70;background:var(--v4card);border:1px solid var(--v4border);border-radius:14px;padding:6px;min-width:196px;box-shadow:0 14px 34px rgba(0,0,0,.45)}
+  .v4-poprow{display:flex;width:100%;text-align:left;background:none;border:0;color:var(--v4text);padding:10px 12px;border-radius:10px;font-size:.9rem;cursor:pointer}
+  .v4-poprow.on{background:rgba(124,58,237,.18);font-weight:700}
   .v4-bigbtn{display:block;width:100%;background:linear-gradient(135deg,var(--v4violet),#5a3ee0);color:#fff;text-align:center;font-weight:700;font-size:14px;border:none;border-radius:12px;padding:13px;cursor:pointer;margin-top:14px}
   .v4-bigbtn[disabled]{opacity:.45;cursor:not-allowed}
   .v4-btn2{display:inline-block;background:var(--v4card);border:1px solid var(--v4border);color:var(--v4text);border-radius:10px;padding:9px 14px;font-size:13px;cursor:pointer;text-decoration:none}
@@ -3382,11 +3251,12 @@ Downloads background me one by one chalte rahen ge.</div>
   .v4-roundbtn{flex:none;width:34px;height:34px;border-radius:50%;border:2px solid var(--v4violet);background:none;color:var(--v4text);display:inline-flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;text-decoration:none}
   .v4-roundbtn.teal{background:var(--v4teal);border-color:var(--v4teal);color:#06231f}
   /* tools / profile / admin rows */
-  .v4-tools{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .v4-tool{background:var(--v4card);border:1px solid var(--v4border);border-radius:14px;padding:16px 12px;cursor:pointer}
-  .v4-tool .ic{font-size:22px}
-  .v4-tool .tn{font-size:13px;font-weight:600;margin-top:8px}
-  .v4-tool .td{font-size:10.5px;color:var(--v4muted);margin-top:2px}
+  .v4-tools{display:flex;flex-direction:column;gap:8px}
+  .v4-tool{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"ic tn ch" "ic td ch";align-items:center;column-gap:11px;background:var(--v4card);border:1px solid var(--v4border);border-radius:13px;padding:8px 12px;cursor:pointer;text-align:left}
+  .v4-tool .ic{grid-area:ic;width:37px;height:37px;border-radius:11px;background:linear-gradient(135deg,rgba(124,58,237,.35),rgba(13,148,136,.30));display:flex;align-items:center;justify-content:center;font-size:18px}
+  .v4-tool .tn{grid-area:tn;font-size:13.5px;font-weight:700}
+  .v4-tool .td{grid-area:td;font-size:11px;color:var(--v4muted);margin-top:0}
+  .v4-tool::after{content:'›';grid-area:ch;font-size:21px;color:var(--v4muted);font-weight:700}
   .v4-row{display:flex;align-items:center;gap:10px;padding:12px 2px;border-bottom:1px solid var(--v4border);font-size:13.5px}
   .v4-row .grow{flex:1;min-width:0}
   .v4-row .val{font-size:12.5px;color:var(--v4teal)}
@@ -3404,6 +3274,8 @@ Downloads background me one by one chalte rahen ge.</div>
   /* AI */
   .v4-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
   .v4-chip{font-size:11px;background:var(--v4card);border:1px solid var(--v4border);color:var(--v4text);border-radius:999px;padding:6px 10px;cursor:pointer}
+  .v4-fchip.on{background:linear-gradient(135deg,#7c5cff,#5a3ee0);color:#fff;border-color:transparent;font-weight:700}
+  .v4-plbadge{position:absolute;left:8px;bottom:8px;background:rgba(124,92,255,.94);color:#fff;font-size:10.5px;font-weight:700;border-radius:999px;padding:3px 9px}
   .v4-bubble{max-width:88%;font-size:13px;border-radius:14px;padding:10px 12px;margin-bottom:10px;line-height:1.45}
   .v4-bubble.me{background:linear-gradient(135deg,var(--v4violet),#5a3ee0);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
   .v4-bubble.ai{background:var(--v4card);border:1px solid var(--v4border);border-bottom-left-radius:4px}
@@ -3416,6 +3288,20 @@ Downloads background me one by one chalte rahen ge.</div>
   @media (min-width:1024px){ #v4-toast{bottom:30px} }
   .v4-plats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .v4-plat{background:var(--v4card);border:1px solid var(--v4border);border-radius:12px;padding:12px;font-size:13px;cursor:pointer}
+  .v4-deals{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .v4-deal{position:relative;background:var(--v4card);border:1px solid var(--v4border);border-radius:14px;padding:14px 12px;text-align:center}
+  .v4-deal .em{font-size:34px;display:block}
+  .v4-deal .nm{font-weight:700;font-size:13.5px;margin-top:6px}
+  .v4-deal .old{opacity:.55;text-decoration:line-through;font-size:11.5px;display:block;margin-top:4px}
+  .v4-deal .new{color:#2fe6c8;font-weight:800;font-size:14.5px;display:block}
+  .v4-deal .bdg{position:absolute;top:8px;right:8px;background:#e63946;color:#fff;font-size:10px;font-weight:800;border-radius:999px;padding:2px 7px}
+  .v4-deal .buy{display:block;margin-top:9px;background:linear-gradient(135deg,#7c5cff,#5a3ee0);color:#fff;border-radius:9px;padding:8px;font-size:12.5px;font-weight:700;text-decoration:none}
+  .v4-ratecard{margin-top:22px;text-align:center;padding:20px 16px;border-radius:16px;background:linear-gradient(160deg,rgba(124,92,255,.16),rgba(20,184,166,.10));border:1px solid var(--v4border)}
+  .v4-rate-t{font-size:16px;font-weight:800}
+  .v4-rate-sub{margin:8px 4px 4px;font-size:12.5px;line-height:1.55}
+  .v4-stars{font-size:34px;letter-spacing:6px;cursor:pointer;color:#4a4570;line-height:1.35;user-select:none}
+  .v4-stars .on{color:#ffc93c;text-shadow:0 0 14px rgba(255,201,60,.45)}
+  .v4-rate-msg{color:#2fe6c8;font-size:13px;min-height:18px;margin:6px 0 0;font-weight:600}
 </style>
 
 <div id="v4app">
@@ -3440,6 +3326,12 @@ Downloads background me one by one chalte rahen ge.</div>
         <input id="v4-q-home" placeholder="Video dhundein ya link paste karein..." autocomplete="off">
         <button class="v4-searchbtn" type="submit"><i class="fa-solid fa-magnifying-glass"></i></button>
       </form>
+      <div class="v4-chips">
+        <button class="v4-chip v4-fchip on" data-w="home" data-t="all" onclick="v4SetFilter(this)">All</button>
+        <button class="v4-chip v4-fchip" data-w="home" data-t="videos" onclick="v4SetFilter(this)">Videos</button>
+        <button class="v4-chip v4-fchip" data-w="home" data-t="playlists" onclick="v4SetFilter(this)">Playlists</button>
+        <button class="v4-chip v4-fchip" data-w="home" data-t="shorts" onclick="v4SetFilter(this)">Shorts</button>
+      </div>
       <div class="v4-h" id="v4-home-heading">Trending Videos</div>
       <div id="v4-home-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
     </section>
@@ -3449,6 +3341,12 @@ Downloads background me one by one chalte rahen ge.</div>
         <input id="v4-q-youtube" placeholder="YouTube par search karein..." autocomplete="off">
         <button class="v4-searchbtn" type="submit"><i class="fa-solid fa-magnifying-glass"></i></button>
       </form>
+      <div class="v4-chips">
+        <button class="v4-chip v4-fchip on" data-w="youtube" data-t="all" onclick="v4SetFilter(this)">All</button>
+        <button class="v4-chip v4-fchip" data-w="youtube" data-t="videos" onclick="v4SetFilter(this)">Videos</button>
+        <button class="v4-chip v4-fchip" data-w="youtube" data-t="playlists" onclick="v4SetFilter(this)">Playlists</button>
+        <button class="v4-chip v4-fchip" data-w="youtube" data-t="shorts" onclick="v4SetFilter(this)">Shorts</button>
+      </div>
       <div class="v4-h">YouTube Videos</div>
       <div id="v4-youtube-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
     </section>
@@ -3458,6 +3356,12 @@ Downloads background me one by one chalte rahen ge.</div>
         <input id="v4-q-music" placeholder="Gana / naat / song search karein..." autocomplete="off">
         <button class="v4-searchbtn" type="submit"><i class="fa-solid fa-magnifying-glass"></i></button>
       </form>
+      <div class="v4-chips">
+        <button class="v4-chip v4-fchip on" data-w="music" data-t="all" onclick="v4SetFilter(this)">All</button>
+        <button class="v4-chip v4-fchip" data-w="music" data-t="videos" onclick="v4SetFilter(this)">Videos</button>
+        <button class="v4-chip v4-fchip" data-w="music" data-t="playlists" onclick="v4SetFilter(this)">Playlists</button>
+        <button class="v4-chip v4-fchip" data-w="music" data-t="shorts" onclick="v4SetFilter(this)">Shorts</button>
+      </div>
       <div class="v4-h">Music</div>
       <div id="v4-music-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
     </section>
@@ -3482,6 +3386,14 @@ Downloads background me one by one chalte rahen ge.</div>
       <div class="v4-row" onclick="v4Show('history')"><span>🕘</span><div class="grow">Watch History</div><span>›</span></div>
       <div class="v4-row" onclick="window.location.href='/about'"><span>ℹ️</span><div class="grow">About PlayTube</div><span>›</span></div>
       <div class="v4-row" onclick="window.location.href='/contact'"><span>✉️</span><div class="grow">Contact</div><span>›</span></div>
+      <div class="v4-h" style="margin-top:20px">🛒 Hot Deals</div>
+      <div class="v4-deals" id="v4-deals"><p class="v4-muted">Load ho raha hai...</p></div>
+      <div class="v4-ratecard">
+        <div class="v4-rate-t">⭐ PlayTube ko Rate karein</div>
+        <p class="v4-muted v4-rate-sub">Agar PlayTube aap ko pasand aya hai to stars de kar hamari hosla-afzai karein — aap ki rating se hi PlayTube aur behtar banta hai. Shukriya!</p>
+        <div class="v4-stars" id="v4-stars"><span onclick="v4Rate(1)">★</span><span onclick="v4Rate(2)">★</span><span onclick="v4Rate(3)">★</span><span onclick="v4Rate(4)">★</span><span onclick="v4Rate(5)">★</span></div>
+        <p class="v4-rate-msg" id="v4-rate-msg"></p>
+      </div>
     </section>
 
     <section id="v4-view-watch" class="v4-view">
@@ -3497,14 +3409,19 @@ Downloads background me one by one chalte rahen ge.</div>
     </section>
 
     <section id="v4-view-downloads" class="v4-view">
-      <div style="display:flex;align-items:center;gap:8px">
+      <div id="v4-dl-filterwrap" style="display:flex;align-items:center;gap:8px;position:relative">
         <div class="v4-h" style="flex:1;margin:4px 2px">Downloads</div>
+        <button class="v4-iconbtn" onclick="v4DlFilterToggle()" title="Type ke hisab se filter karein"><i class="fa-solid fa-filter"></i> Filter</button>
+        <button class="v4-iconbtn" onclick="v4DlSelectMode()" title="Kai videos ek sath chunein">☑ Select</button>
         <button class="v4-iconbtn" onclick="v4DeleteAll()" title="Saare downloads delete karein">🗑 Sab delete</button>
+        <div id="v4-dl-typechips" class="v4-filterpop" style="display:none"></div>
       </div>
+      <div id="v4-dl-selbar" class="v4-selbar" style="display:none"></div>
       <div class="v4-searchrow" style="margin-top:6px">
         <input id="v4-dl-filter" placeholder="Downloads me dhundein..." oninput="v4RenderDownloads()" autocomplete="off">
         <button class="v4-searchbtn" type="button"><i class="fa-solid fa-magnifying-glass"></i></button>
       </div>
+      <div id="v4-dl-stats" class="v4-dlstats" style="display:none"></div>
       <div class="v4-sect">DOWNLOADING</div>
       <div id="v4-dl-active"><p class="v4-muted">Koi download nahi chal raha</p></div>
       <div class="v4-sect">DOWNLOADED</div>
@@ -3513,21 +3430,30 @@ Downloads background me one by one chalte rahen ge.</div>
 
     <section id="v4-view-ai" class="v4-view">
       <div class="v4-h">✦ AI Assistant</div>
-      <div class="v4-chips">
+      <div class="v4-chips" id="v4-ai-chips">
         <button class="v4-chip" onclick="v4AiChip(this)">Motu Patlu episode 1, 3GP download karo</button>
         <button class="v4-chip" onclick="v4AiChip(this)">Naat sharif MP3 320K me download karo</button>
         <button class="v4-chip" onclick="v4AiChip(this)">Drama episode 1 to 3, 360p download karo</button>
         <button class="v4-chip" onclick="v4AiChip(this)">Sab se chhoti quality me gana download karo</button>
       </div>
+      <p class="v4-muted" id="v4-ai-tip" style="margin:2px 0 8px"></p>
       <div id="v4-ai-msgs">
         <div class="v4-bubble ai">Assalam-o-Alaikum! Main PlayTube AI hoon. Bas command likhein — masalan kisi drama ke episodes, gana, ya quality bata kar download karwayein. Downloads background me one by one chalte rahen ge, aur tayyar videos Downloads me milen ge.</div>
       </div>
       <form class="v4-airow" onsubmit="v4AiSend(event)">
-        <input id="v4-ai-input" placeholder="AI ko command likhein..." autocomplete="off">
+        <button class="v4-searchbtn" type="button" title="Pic bhejein — AI parh kar download kare ga" onclick="v4$('v4-ai-file').click()">📎</button>
+        <input id="v4-ai-input" placeholder="AI ko command likhein, link ya pic bhejein..." autocomplete="off">
+        <input type="file" id="v4-ai-file" accept="image/*" style="display:none" onchange="v4AiImage(this)">
         <button class="v4-searchbtn" type="submit">➤</button>
       </form>
     </section>
 
+    <section id="v4-view-playlist" class="v4-view">
+      <button class="v4-btn2" onclick="v4Back()">← Back</button>
+      <div class="v4-h" id="v4-playlist-title" style="margin-top:10px">Playlist</div>
+      <p class="v4-muted" id="v4-playlist-count"></p>
+      <div id="v4-playlist-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
+    </section>
     <section id="v4-view-tools" class="v4-view">
       <div class="v4-h">Tools</div>
       <div class="v4-tools">
@@ -3539,7 +3465,22 @@ Downloads background me one by one chalte rahen ge.</div>
         <div class="v4-tool" onclick="v4ShareApp()"><div class="ic">🔗</div><div class="tn">Share App</div><div class="td">Doston ko bhejein</div></div>
         <div class="v4-tool" onclick="v4Show('settings')"><div class="ic">⚙️</div><div class="tn">Settings</div><div class="td">Folder, quality, language, theme</div></div>
         <div class="v4-tool" onclick="window.location.href='/contact'"><div class="ic">✉️</div><div class="tn">Contact</div><div class="td">Madad aur rabta</div></div>
+        <div class="v4-tool" onclick="v4Show('private')"><div class="ic">🔒</div><div class="tn">Private Folder</div><div class="td">PIN ke peeche chhupi downloads</div></div>
+        <div class="v4-tool" onclick="v4Show('compress')"><div class="ic">🗜️</div><div class="tn">Video Compressor</div><div class="td">Quality wohi — sirf size kam</div></div>
       </div>
+    </section>
+
+    <section id="v4-view-compress" class="v4-view">
+      <button class="v4-btn2" onclick="v4Show('tools')">← Tools</button>
+      <div class="v4-h" style="margin-top:10px">🗜️ Video Compressor</div>
+      <p class="v4-muted">Video ki quality aur HD bilkul wohi rahe gi — sirf file ka size kam hoga, taake storage bache aur bhejni asan ho. Nayi chhoti file Downloads mein "(Chhoti)" naam se aye gi; purani file bhi rahe gi.</p>
+      <div id="v4-cmp-list"><p class="v4-muted">Load ho raha hai...</p></div>
+    </section>
+
+    <section id="v4-view-private" class="v4-view">
+      <button class="v4-btn2" onclick="v4Show('tools')">← Tools</button>
+      <div class="v4-h" style="margin-top:10px">🔒 Private Folder</div>
+      <div id="v4-priv-body"></div>
     </section>
 
     <section id="v4-view-settings" class="v4-view">
@@ -3605,6 +3546,7 @@ Downloads background me one by one chalte rahen ge.</div>
     </section>
   </main>
 
+  <button id="v4-refresh-btn" title="Refresh — nayi videos" onclick="v4RefreshCurrent()" style="display:none;position:fixed;right:14px;bottom:84px;z-index:65;width:46px;height:46px;border-radius:50%;border:1px solid var(--v4border);background:linear-gradient(135deg,#7c5cff,#14b8a6);color:#fff;font-size:20px;box-shadow:0 6px 18px rgba(0,0,0,.45);cursor:pointer">↻</button>
   <nav id="v4-bottomnav">
     <button data-bn="home" class="active" onclick="v4Show('home')"><i class="fa-solid fa-house"></i>Home</button>
     <button data-bn="downloads" onclick="v4Show('downloads')"><i class="fa-solid fa-download"></i>Downloads<span class="v4-badge" id="v4-dl-badge">0</span></button>
@@ -3708,7 +3650,20 @@ function v4ImgFb(img){ const id = img.getAttribute('data-vid'); const st = parse
 /* ---------- navigation ---------- */
 const V4_TTMAP = {home:'search', youtube:'youtube', music:'music', social:'social', more:'more'};
 const V4_BNMAP = {home:'home', watch:'home', downloads:'downloads', ai:'ai', tools:'tools', settings:'tools', favorites:'tools', history:'tools', premium:'tools', app:'tools', profile:'profile', admin:'profile'};
+function v4RefreshCurrent(){
+  const map = {home:'v4-home-feed', youtube:'v4-youtube-feed', music:'v4-music-feed'};
+  const feedId = map[v4State.view]; if(!feedId) return;
+  v4FeedSession = Math.random().toString(36).slice(2, 10);
+  const st = v4FeedState[feedId];
+  const q = (st && st.q) || (v4State.view === 'youtube' ? 'trending videos' : (v4State.view === 'music' ? 'trending songs' : 'trending'));
+  const t = (st && st.type) || 'videos';
+  v4Toast('Refresh ho raha hai — nayi videos aa rahi hain');
+  v4LoadFeed(feedId, q, t);
+  window.scrollTo(0, 0);
+}
 function v4Show(view){
+  if(view === 'home' && v4State.view === 'home'){ v4FeedSession = Math.random().toString(36).slice(2, 10); const hh = v4$('v4-home-heading'); if(hh) hh.textContent = 'Trending Videos'; v4LoadFeed('v4-home-feed', 'trending'); }
+  const rb = v4$('v4-refresh-btn'); if(rb) rb.style.display = (view === 'home' || view === 'youtube' || view === 'music') ? 'block' : 'none';
   document.querySelectorAll('.v4-view').forEach(function(s){ s.classList.remove('active'); });
   const el = v4$('v4-view-' + view); if(el) el.classList.add('active');
   v4State.view = view;
@@ -3716,6 +3671,9 @@ function v4Show(view){
   document.querySelectorAll('#v4-bottomnav button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-bn') === (V4_BNMAP[view] || '')); });
   window.scrollTo(0, 0);
   if(view === 'downloads') v4LoadDownloads();
+  if(view === 'ai') v4RenderAiChips();
+  if(view === 'private') v4RenderPrivate();
+  if(view === 'compress') v4RenderCompress();
   if(view === 'profile') v4RenderProfile();
   if(view === 'admin') v4RenderAdmin();
   if(view === 'favorites') v4RenderFavs();
@@ -3724,7 +3682,7 @@ function v4Show(view){
   if(view === 'app') v4CheckApk();
   if(view === 'settings') v4FillSettings();
   if(view === 'youtube' && !v4State.loadedYt){ v4State.loadedYt = 1; v4LoadFeed('v4-youtube-feed', 'trending videos'); }
-  if(view === 'music' && !v4State.loadedMu){ v4State.loadedMu = 1; v4LoadFeed('v4-music-feed', 'new songs'); }
+  if(view === 'music' && !v4State.loadedMu){ v4State.loadedMu = 1; v4LoadFeed('v4-music-feed', 'trending songs'); }
   if((view === 'social' || view === 'more') && !v4State.platsDone) v4RenderPlats();
 }
 function v4TopTab(t){ v4Show(t === 'search' ? 'home' : t); }
@@ -3742,13 +3700,81 @@ function v4RenderCards(elId, items){
   if(!items || !items.length){ el.innerHTML = '<p class="v4-muted">Kuch nahi mila — dobara try karein.</p>'; return; }
   el.innerHTML = items.map(function(it){ const v = v4Norm(it); if(!v.videoId) return ''; v4Videos[v.videoId] = v; return v4CardHTML(v); }).join('');
 }
-async function v4LoadFeed(elId, q){
-  const el = v4$(elId); el.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
-  const r = await v4Fetch('/api/search?q=' + encodeURIComponent(q) + '&max=20');
-  if(r.ok && r.data && r.data.items) v4RenderCards(elId, r.data.items);
-  else el.innerHTML = '<p class="v4-muted">Results load nahi ho sake — net check karke dobara try karein.</p>';
+/* ---------- infinite feed (Update 33): scroll = nayi videos ---------- */
+const v4FeedState = {};
+let v4FeedSession = Math.random().toString(36).slice(2, 10);
+/* ---------- personalization (Update 34): jo zyada search/watch, waisa feed ---------- */
+function v4Interest(){ try{ return JSON.parse(localStorage.getItem('pt_interest') || '{}'); }catch(e){ return {}; } }
+function v4InterestAdd(phrase, w){
+  if(!phrase) return;
+  phrase = ('' + phrase).trim().toLowerCase().slice(0, 60);
+  if(phrase.length < 3) return;
+  const it = v4Interest(); it[phrase] = (it[phrase] || 0) + (w || 1);
+  const keys = Object.keys(it);
+  if(keys.length > 40){ keys.sort(function(a, b){ return it[a] - it[b]; }); keys.slice(0, keys.length - 40).forEach(function(k){ delete it[k]; }); }
+  try{ localStorage.setItem('pt_interest', JSON.stringify(it)); }catch(e){}
 }
-function v4HomeSearch(e){ e.preventDefault(); const q = v4$('v4-q-home').value.trim(); if(!q) return; if(q.indexOf('http') === 0){ v4SmartLink(q); return; } v4$('v4-home-heading').textContent = 'Results: ' + q; v4LoadFeed('v4-home-feed', q); }
+function v4InterestTop(n){
+  const it = v4Interest();
+  return Object.keys(it).sort(function(a, b){ return it[b] - it[a]; }).slice(0, n || 5);
+}
+const v4FeedObs = ('IntersectionObserver' in window) ? new IntersectionObserver(function(entries){
+  entries.forEach(function(en){ if(en.isIntersecting) v4FeedMore(en.target.getAttribute('data-feed')); });
+}, {rootMargin: '700px'}) : null;
+function v4FeedSentinelHTML(elId){
+  return '<div class="v4-more" data-feed="' + elId + '" style="grid-column:1 / -1;text-align:center;padding:16px"><span class="v4-muted">Aur videos load ho rahi hain...</span></div>';
+}
+async function v4LoadFeed(elId, q, type){
+  const el = v4$(elId); if(!el) return;
+  v4FeedState[elId] = {q:q, type:(type || 'videos'), page:0, seen:{}, loading:false, done:false};
+  el.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
+  await v4FeedMore(elId, true);
+}
+async function v4FeedMore(elId, first){
+  const st = v4FeedState[elId]; const el = v4$(elId);
+  if(!st || !el || st.loading || st.done) return;
+  st.loading = true;
+  let added = 0, tries = 0, failed = false;
+  while(tries < 3 && added < 8 && !st.done){
+    tries++;
+    const r = await v4Fetch('/api/feed?q=' + encodeURIComponent(st.q) + '&page=' + st.page + '&type=' + (st.type || 'videos') + '&r=' + v4FeedSession + '&int=' + encodeURIComponent(v4InterestTop(5).join('|')));
+    if(!(r.ok && r.data && r.data.items)){ failed = true; break; }
+    st.page++;
+    if(r.data.has_more === false) st.done = true;
+    let pageHtml = '', pageCount = 0;
+    r.data.items.forEach(function(it){
+      if(it.kind === 'playlist'){
+        const pid = (it.id && it.id.playlistId) || '';
+        if(pid && !st.seen['pl:' + pid]){ st.seen['pl:' + pid] = 1; pageHtml += v4PlaylistCardHTML(it); pageCount++; }
+      } else {
+        const v = v4Norm(it);
+        if(v.videoId && !st.seen[v.videoId]){ st.seen[v.videoId] = 1; v4Videos[v.videoId] = v; pageHtml += v4CardHTML(v); pageCount++; }
+      }
+    });
+    if(pageCount){
+      if(first && added === 0) el.innerHTML = pageHtml;
+      else { const old = el.querySelector('.v4-more'); if(old) old.remove(); el.insertAdjacentHTML('beforeend', pageHtml); }
+      added += pageCount;
+    }
+    if(!r.data.items.length) break;
+  }
+  const oldS = el.querySelector('.v4-more'); if(oldS) oldS.remove();
+  st.loading = false;
+  if(added > 0) st.empty = 0; else { st.empty = (st.empty || 0) + 1; if(st.empty >= 2) st.done = true; }
+  if(first && !added){
+    el.innerHTML = failed ? '<p class="v4-muted">Results load nahi ho sake — net check karke dobara try karein.</p>' : '<p class="v4-muted">Kuch nahi mila — dobara try karein.</p>';
+    return;
+  }
+  if(st.done){
+    el.insertAdjacentHTML('beforeend', '<p class="v4-muted" style="grid-column:1 / -1;text-align:center;padding:12px">Bas — filhal itni hi videos hain.</p>');
+    return;
+  }
+  el.insertAdjacentHTML('beforeend', v4FeedSentinelHTML(elId));
+  const s = el.querySelector('.v4-more');
+  if(s && v4FeedObs) v4FeedObs.observe(s);
+  if(s){ const rc = s.getBoundingClientRect(); if(rc.top < window.innerHeight + 700) v4FeedMore(elId); }
+}
+function v4HomeSearch(e){ e.preventDefault(); const q = v4$('v4-q-home').value.trim(); if(!q) return; if(q.indexOf('http') === 0){ v4SmartLink(q); return; } v4$('v4-home-heading').textContent = 'Results: ' + q; v4InterestAdd(q, 2); v4LoadFeed('v4-home-feed', q, 'all'); }
 async function v4SmartLink(q){
   const r = await v4Post('/api/smart-link', {url:q});
   if(r.ok && r.data){
@@ -3758,17 +3784,18 @@ async function v4SmartLink(q){
   }
   v4LoadFeed('v4-home-feed', q);
 }
-function v4FeedSearch(e, which){ e.preventDefault(); const q = v4$('v4-q-' + which).value.trim(); if(q) v4LoadFeed('v4-' + which + '-feed', q); }
+function v4FeedSearch(e, which){ e.preventDefault(); const q = v4$('v4-q-' + which).value.trim(); if(q){ v4InterestAdd(q, 2); v4LoadFeed('v4-' + which + '-feed', q, 'all'); } }
 
-/* ---------- watch (auth gate — Update 21) ---------- */
+/* ---------- watch (Update 42: play sab ke liye khula, bina account) ---------- */
 function v4WatchClick(id){
   if(!id || id === 'undefined'){ v4Toast('Video ID nahi mili — dobara try karein'); return; }
   const v = v4Videos[id] || {videoId:id, title:'', channel:''};
-  if(!v4State.user){ v4Pending = {type:'watch', id:id}; v4OpenAuth('signin'); return; }
   v4OpenWatch(v);
 }
 function v4OpenWatch(v){
   v4Current = v;
+  if(v.channel) v4InterestAdd(v.channel, 1);
+  if(v.title) v4InterestAdd(v.title.replace(/[^\p{L}\p{N} ]/gu, ' ').split(/\s+/).filter(function(w){ return w.length > 2; }).slice(0, 3).join(' '), 1);
   if(v4State.view !== 'watch') v4PrevView = v4State.view;
   v4$('v4-player').src = 'https://www.youtube.com/embed/' + v.videoId + '?autoplay=1&rel=0';
   v4$('v4-watch-title').textContent = v.title || '';
@@ -3785,7 +3812,7 @@ function v4WatchDownload(){ if(v4Current) v4OpenSheet(v4Current.videoId); }
 function v4DlClick(ev, id){
   if(ev) ev.stopPropagation();
   if(!id || id === 'undefined'){ v4Toast('Video ID nahi mili — dobara try karein'); return; }
-  if(!v4State.user){ v4Pending = {type:'sheet', id:id}; v4OpenAuth('signin'); return; }
+  /* Update 44: guest bhi sheet khol sakta hai — limit server bataye ga */
   v4OpenSheet(id);
 }
 async function v4OpenSheet(id){
@@ -3821,13 +3848,12 @@ function v4CloseSheet(){ v4$('v4-sheetwrap').classList.remove('open'); }
 function v4SheetDownload(){
   if(!v4Sheet.sel){ v4Toast('Pehle ek quality chunein'); return; }
   const params = {video_id: v4Sheet.id, format: v4Sheet.sel.format, quality: v4Sheet.sel.quality, title: v4$('v4-sheet-title').textContent || ''};
-  if(!v4State.user){ v4Pending = {type:'start', params:params}; v4CloseSheet(); v4OpenAuth('signin'); return; }
   v4StartDownload(params);
 }
 async function v4StartDownload(params){
   const body = Object.assign({}, params, {download_id: 'v4_' + Date.now()});
   const r = await v4Post('/api/start-download', body);
-  if(r.ok && r.data && r.data.success){ v4CloseSheet(); v4Toast('Download shuru ho gaya — Downloads me dekhein'); v4LoadDownloads(); return; }
+  if(r.ok && r.data && r.data.success){ v4CloseSheet(); if(r.data.guest_remaining != null){ const left = Math.max(0, r.data.guest_remaining - 1); v4Toast(left > 0 ? ('Download shuru — guest ke ab ' + left + ' free downloads baqi hain') : 'Download shuru — ye guest ka akhri free download hai, agli ke liye account banayein'); } else v4Toast('Download shuru ho gaya — Downloads me dekhein'); v4LoadDownloads(); return; }
   const d = r.data || {};
   if(d.login_required){ v4Pending = {type:'start', params:params}; v4CloseSheet(); v4OpenAuth('signin'); return; }
   if(d.premium_required){ v4CloseSheet(); v4Toast('HD quality ke liye Premium chahiye'); v4Show('premium'); return; }
@@ -3848,9 +3874,64 @@ function v4UpdateBadge(){
   Object.values(v4DlData.progress || {}).forEach(function(s){ if(['starting','downloading','processing'].indexOf(s.status) >= 0) n++; });
   const b = v4$('v4-dl-badge'); if(b){ b.textContent = n; b.style.display = n ? 'inline-block' : 'none'; }
 }
+let v4DlType = 'all';
+function v4DlFilterToggle(){
+  const el = v4$('v4-dl-typechips'); if(!el) return;
+  const show = el.style.display === 'none';
+  if(show){ v4RenderDlTypeChips(); el.style.display = ''; } else el.style.display = 'none';
+}
+function v4RenderDlTypeChips(){
+  const el = v4$('v4-dl-typechips'); if(!el) return;
+  const opts = [['all', '📋 Sab'], ['video', '🎬 Sirf Videos'], ['music', '🎵 Sirf Music'], ['failed', '⚠ Fail hui']];
+  el.innerHTML = opts.map(function(o){ return '<button class="v4-poprow' + (v4DlType === o[0] ? ' on' : '') + '" data-t="' + o[0] + '" onclick="v4DlSetType(this.dataset.t)">' + o[1] + (v4DlType === o[0] ? ' ✓' : '') + '</button>'; }).join('');
+}
+function v4DlSetType(t){ v4DlType = t; const el = v4$('v4-dl-typechips'); if(el) el.style.display = 'none'; v4RenderDownloads(); }
+document.addEventListener('click', function(e){
+  const p = v4$('v4-dl-typechips');
+  if(p && p.style.display !== 'none' && !e.target.closest('#v4-dl-filterwrap')) p.style.display = 'none';
+});
+function v4DlTypeMatch(d){
+  if(v4DlType === 'all') return true;
+  if(v4DlType === 'failed') return d.status === 'failed';
+  const fm = (d.format || '').toUpperCase();
+  if(v4DlType === 'music') return (fm === 'MP3' || fm === 'M4A') && d.status === 'completed';
+  return ['MP4', '3GP', 'MKV', 'WEBM'].indexOf(fm) >= 0 && d.status === 'completed';
+}
+let v4DlSel = {on: false, set: {}};
+function v4DlSelectMode(){ v4DlSel.on = !v4DlSel.on; if(!v4DlSel.on) v4DlSel.set = {}; v4RenderDownloads(); }
+function v4DlToggleSel(id){ if(v4DlSel.set[id]) delete v4DlSel.set[id]; else v4DlSel.set[id] = 1; v4RenderDownloads(); }
+function v4DlSelectAll(){
+  const ids = (v4DlData.list || []).map(function(d){ return d.downloadId; });
+  const allOn = ids.length && ids.every(function(id){ return v4DlSel.set[id]; });
+  v4DlSel.set = {}; if(!allOn) ids.forEach(function(id){ v4DlSel.set[id] = 1; });
+  v4RenderDownloads();
+}
+async function v4DlBulkPrivate(){
+  const ids = Object.keys(v4DlSel.set); if(!ids.length){ v4Toast('Pehle videos select karein'); return; }
+  for(let i = 0; i < ids.length; i++){ await v4Post('/api/downloads/private', {download_id: ids[i], private: true}); }
+  v4DlSel = {on: false, set: {}}; v4LoadDownloads(); v4Toast(ids.length + ' videos Private folder mein chali gayin');
+}
+async function v4DlBulkDelete(){
+  const ids = Object.keys(v4DlSel.set); if(!ids.length){ v4Toast('Pehle videos select karein'); return; }
+  if(!confirm(ids.length + ' select ki hui downloads delete kar dein?')) return;
+  for(let i = 0; i < ids.length; i++){ await v4Fetch('/api/delete-download/' + ids[i], {method: 'DELETE'}); }
+  v4DlSel = {on: false, set: {}}; v4LoadDownloads(); v4Toast(ids.length + ' downloads delete ho gayin');
+}
 function v4RenderDownloads(){
   const fEl = v4$('v4-dl-filter'); if(!fEl) return;
   const f = (fEl.value || '').toLowerCase();
+  const selbar = v4$('v4-dl-selbar');
+  if(selbar){
+    if(v4DlSel.on){
+      const n = Object.keys(v4DlSel.set).length;
+      selbar.style.display = '';
+      selbar.innerHTML = '<b style="flex:1">' + n + ' select hain</b>' +
+        '<button class="v4-iconbtn" onclick="v4DlSelectAll()">☑ Sab select</button>' +
+        '<button class="v4-iconbtn" onclick="v4DlBulkPrivate()">🔒 Private</button>' +
+        '<button class="v4-iconbtn" onclick="v4DlBulkDelete()">🗑 Delete</button>' +
+        '<button class="v4-iconbtn" onclick="v4DlSelectMode()">✕</button>';
+    } else selbar.style.display = 'none';
+  }
   const act = [];
   Object.keys(v4DlData.progress || {}).forEach(function(id){ const s = v4DlData.progress[id]; if(['starting','downloading','processing','paused'].indexOf(s.status) >= 0) act.push({id:id, s:s}); });
   const actIds = {}; act.forEach(function(a){ actIds[a.id] = 1; });
@@ -3868,16 +3949,35 @@ function v4RenderDownloads(){
   const rowDone = function(d){
     const title = d.title || ''; if(f && title.toLowerCase().indexOf(f) < 0) return '';
     const vid = d.videoId || '';
+    const selOn = v4DlSel.on, isSel = !!v4DlSel.set[d.downloadId];
+    const chk = selOn ? '<span class="v4-check' + (isSel ? ' on' : '') + '">✓</span>' : '';
+    const rowOpen = '<div class="v4-dlrow' + (selOn && isSel ? ' sel' : '') + '"' + (selOn ? ' data-id="' + d.downloadId + '" onclick="v4DlToggleSel(this.dataset.id)"' : '') + '>';
     if(d.status === 'failed'){
-      return '<div class="v4-dlrow">' + (vid ? v4Img(vid) : '<span style="width:64px"></span>') + '<div class="tt"><div class="t1">' + v4Esc(title) + '</div><div class="t2" style="color:var(--v4danger)">Fail ho gaya: ' + v4Esc(d.error || 'error') + '</div></div>' + (vid ? '<button class="v4-roundbtn" title="Dobara try" data-id="' + vid + '" onclick="v4DlClick(event, this.dataset.id)">↻</button>' : '') + '<button class="v4-roundbtn" title="Delete" data-id="' + d.downloadId + '" onclick="v4DeleteDl(this.dataset.id)">🗑</button></div>';
+      return rowOpen + chk + (vid ? v4Img(vid) : '<span style="width:64px"></span>') + '<div class="tt"><div class="t1">' + v4Esc(title) + '</div><div class="t2" style="color:var(--v4danger)">Fail ho gaya: ' + v4Esc(d.error || 'error') + '</div></div>' + (selOn ? '' : (vid ? '<button class="v4-roundbtn" title="Dobara try" data-id="' + vid + '" onclick="v4DlClick(event, this.dataset.id)">↻</button>' : '') + '<button class="v4-roundbtn" title="Delete" data-id="' + d.downloadId + '" onclick="v4DeleteDl(this.dataset.id)">🗑</button>') + '</div>';
     }
-    return '<div class="v4-dlrow">' + (vid ? v4Img(vid) : '<span style="width:64px"></span>') + '<div class="tt"><div class="t1">' + v4Esc(title) + '</div><div class="t2">' + v4Esc([d.quality || d.format || '', v4MB(d.file_size)].filter(Boolean).join(' • ')) + '</div></div>' +
+    return rowOpen + chk + (vid ? v4Img(vid) : '<span style="width:64px"></span>') + '<div class="tt"><div class="t1">' + v4Esc(title) + '</div><div class="t2">' + v4Esc([d.quality || d.format || '', v4MB(d.file_size)].filter(Boolean).join(' • ')) + '</div></div>' +
+      (selOn ? '' :
       '<a class="v4-roundbtn teal" title="Play" href="/api/download-file/' + d.downloadId + '">▶</a>' +
       '<a class="v4-roundbtn" title="Phone me save karein" href="/api/download-file/' + d.downloadId + '" download>⬇</a>' +
-      '<button class="v4-roundbtn" title="Delete" data-id="' + d.downloadId + '" onclick="v4DeleteDl(this.dataset.id)">🗑</button></div>';
+      '<button class="v4-roundbtn" title="Share — video + website link" data-id="' + d.downloadId + '" data-t="' + v4Esc(d.title || '') + '" data-f="' + (d.format || 'MP4') + '" onclick="v4ShareDl(this.dataset.id, this.dataset.t, this.dataset.f)">📤</button>' +
+      '<button class="v4-roundbtn" title="Private folder me chhupao" data-id="' + d.downloadId + '" onclick="v4PrivToggle(this.dataset.id, true)">🔒</button>' +
+      '<button class="v4-roundbtn" title="Delete" data-id="' + d.downloadId + '" onclick="v4DeleteDl(this.dataset.id)">🗑</button>') + '</div>';
   };
-  const doneList = (v4DlData.list || []).filter(function(d){ return !actIds[d.downloadId]; });
-  v4$('v4-dl-done').innerHTML = doneList.length ? doneList.map(rowDone).join('') : '<p class="v4-muted">Abhi tak koi download nahi</p>';
+  const doneList = (v4DlData.list || []).filter(function(d){ return !actIds[d.downloadId] && v4DlTypeMatch(d); });
+  const statsEl = v4$('v4-dl-stats');
+  if(statsEl){
+    const comp = doneList.filter(function(d){ return d.status === 'completed'; });
+    if(comp.length && !f){
+      let tot = 0; comp.forEach(function(d){ tot += (d.file_size || 0); });
+      statsEl.style.display = '';
+      statsEl.textContent = '📥 ' + comp.length + ' downloads • Kul size: ' + v4MB(tot);
+    } else statsEl.style.display = 'none';
+  }
+  const rendered = doneList.map(rowDone).join('');
+  if(rendered) v4$('v4-dl-done').innerHTML = rendered;
+  else if(f || v4DlType !== 'all') v4$('v4-dl-done').innerHTML = '<p class="v4-muted">Is filter mein koi download nahi mili</p>';
+  else if(act.length) v4$('v4-dl-done').innerHTML = '<p class="v4-muted">Abhi tak koi download mukammal nahi</p>';
+  else v4$('v4-dl-done').innerHTML = '<div class="v4-empty"><div class="v4-empty-ic">🎬</div><div class="v4-empty-t">Abhi tak koi download nahi</div><p class="v4-muted">Jo videos aap download karein ge, wo yahan mehfooz milengi — baghair internet ke dekhne ke liye.</p><button class="v4-bigbtn" style="max-width:240px;margin:10px auto 0" data-v="home" onclick="v4Show(this.dataset.v)">Videos dekhein</button></div>';
 }
 async function v4PauseDl(id){ await v4Post('/api/cancel-download/' + id, {}); v4LoadDownloads(); }
 async function v4ResumeDl(id){ const r = await v4Post('/api/resume-download/' + id, {}); if(!r.ok) v4Toast((r.data && r.data.error) || 'Resume nahi ho saka'); v4LoadDownloads(); }
@@ -3895,6 +3995,32 @@ function v4Tick(){
 
 /* ---------- AI assistant ---------- */
 function v4AiChip(el){ v4$('v4-ai-input').value = el.textContent.trim(); v4AiSend(null); }
+/* ---------- AI suggestions LIVE (Update 40): har dafa naye chips ----------
+   User ki apni zyada use ki hui commands + us ki pasand + random naye pool se */
+const V4_AI_POOL = ['Motu Patlu episode 1, 3GP download karo', 'Naat sharif MP3 320K me download karo', 'Drama episode 1 to 3, 360p download karo', 'Sab se chhoti quality me gana download karo', 'Coke Studio gana 720p download karo', 'Cartoon episode 5, 360p download karo', 'Islami bayan MP3 me download karo', 'Punjabi gana 320K MP3 download karo', 'Comedy video 360p download karo', 'Qawwali MP3 download karo', 'Hindi gana 720p download karo', 'Kids cartoon episode 1 download karo', 'Tilawat Quran MP3 download karo', 'Funny video sab se chhoti quality me download karo'];
+const V4_AI_TIPS = ['Tip: Quality bhi likhein — 3GP, 360p, 720p ya MP3 320K', 'Tip: Episode range bhi chalti hai — "episode 1 to 5"', 'Tip: Waqt bhi de sakte hain — "10 minute baad download karo"', 'Tip: Sirf awaz chahiye to MP3 likh dein', 'Tip: Playlist ka link paste kar dein, saari videos aa jayengi'];
+function v4AiCmds(){ try{ return JSON.parse(localStorage.getItem('pt_ai_cmds') || '{}'); }catch(e){ return {}; } }
+function v4AiCmdRecord(text){
+  const it = v4AiCmds(); const k = ('' + text).trim().slice(0, 80); if(k.length < 4) return;
+  it[k] = (it[k] || 0) + 1;
+  const keys = Object.keys(it);
+  if(keys.length > 20){ keys.sort(function(a, b){ return it[a] - it[b]; }); keys.slice(0, keys.length - 20).forEach(function(x){ delete it[x]; }); }
+  try{ localStorage.setItem('pt_ai_cmds', JSON.stringify(it)); }catch(e){}
+}
+function v4RenderAiChips(){
+  const box = v4$('v4-ai-chips'); if(!box) return;
+  const picks = [];
+  const mine = v4AiCmds();
+  Object.keys(mine).sort(function(a, b){ return mine[b] - mine[a]; }).slice(0, 2).forEach(function(cmd){ if(picks.indexOf(cmd) < 0) picks.push(cmd); });
+  const top = v4InterestTop(1)[0];
+  if(top && picks.length < 3){ const sug = top.charAt(0).toUpperCase() + top.slice(1) + ' ki video 360p download karo'; if(picks.indexOf(sug) < 0) picks.push(sug); }
+  const pool = V4_AI_POOL.slice();
+  for(let i = pool.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp; }
+  for(let i = 0; i < pool.length && picks.length < 4; i++){ if(picks.indexOf(pool[i]) < 0) picks.push(pool[i]); }
+  box.innerHTML = picks.map(function(cmd){ return '<button class="v4-chip" onclick="v4AiChip(this)">' + v4Esc(cmd) + '</button>'; }).join('');
+  const tip = v4$('v4-ai-tip');
+  if(tip) tip.textContent = '💡 ' + V4_AI_TIPS[Math.floor(Math.random() * V4_AI_TIPS.length)];
+}
 function v4AiBubble(text, me){
   const d = document.createElement('div');
   d.className = 'v4-bubble ' + (me ? 'me' : 'ai');
@@ -3906,11 +4032,14 @@ function v4AiBubble(text, me){
 async function v4AiSend(e){
   if(e) e.preventDefault();
   const inp = v4$('v4-ai-input'); const text = inp.value.trim(); if(!text) return;
+  /* Update 42: AI download bhi ek download hai — pehle account */
+  if(!v4State.user){ v4Pending = {type:'ai', text:text}; v4OpenAuth('signin'); return; }
   inp.value = '';
+  v4AiCmdRecord(text);
   v4AiBubble(text, true);
   const r = await v4Post('/api/ai/command', {command:text});
   const d = r.data || {};
-  if(!r.ok){ v4AiBubble(d.error || 'Command nahi chali — dobara try karein'); return; }
+  if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai', text:text}; v4OpenAuth('signin'); return; } v4AiBubble(d.error || 'Command nahi chali — dobara try karein'); return; }
   if(d.intent === 'search'){
     const b = v4AiBubble(d.message || 'Results mil gaye:');
     (d.results || []).forEach(function(it){
@@ -3931,6 +4060,114 @@ async function v4AiSend(e){
   }
   const b = v4AiBubble(d.message || 'Job shuru ho gaya');
   if(d.job_id){ const holder = document.createElement('div'); holder.id = 'v4-job-' + d.job_id; b.appendChild(holder); v4PollJob(d.job_id); }
+}
+/* Update 43: AI ko pic bhejo — parh kar khud download start */
+function v4AiImage(input){
+  const file = input.files && input.files[0];
+  input.value = '';
+  if(!file) return;
+  if(!v4State.user){ v4Pending = {type:'ai'}; v4OpenAuth('signin'); v4Toast('Pic download ke liye pehle account banayein'); return; }
+  const rd = new FileReader();
+  rd.onload = function(){
+    const img = new Image();
+    img.onload = function(){
+      const max = 1280;
+      let w = img.width, h = img.height;
+      if(w > max || h > max){ const s = max / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = cv.toDataURL('image/jpeg', 0.85);
+      const ub = v4AiBubble('🖼 Pic bheji', true);
+      const im = document.createElement('img'); im.src = dataUrl; im.style.cssText = 'max-width:200px;border-radius:10px;display:block;margin-top:6px'; ub.appendChild(im);
+      const b = v4AiBubble('🤖 Pic parh raha hoon...');
+      v4Post('/api/ai/image', {image: dataUrl}).then(function(r){
+        const d = r.data || {};
+        if(!r.ok || !d.success){ b.textContent = d.message || d.error || 'Pic se download nahi ho saka — naam likh kar try karein'; return; }
+        b.textContent = d.message;
+        if(d.job_id){ const holder = document.createElement('div'); holder.id = 'v4-job-' + d.job_id; b.appendChild(holder); v4PollJob(d.job_id); }
+      });
+    };
+    img.src = rd.result;
+  };
+  rd.readAsDataURL(file);
+}
+/* Update 45: Private Folder (PIN) */
+async function v4RenderPrivate(){
+  const body = v4$('v4-priv-body'); if(!body) return;
+  const st = await v4Fetch('/api/private/status');
+  const d = (st && st.data) || {};
+  if(!d.pin_set){
+    body.innerHTML = '<p class="v4-muted">Pehli dafa apna PIN banayein (4-6 numbers). Isi PIN se private folder khule ga — PIN bhool na jana.</p>' +
+      '<input class="v4-input" id="v4-priv-newpin" type="password" inputmode="numeric" maxlength="6" placeholder="Naya PIN">' +
+      '<button class="v4-bigbtn" onclick="v4PrivSetPin()">PIN bana kar kholein</button>';
+    return;
+  }
+  if(!d.unlocked){
+    body.innerHTML = '<p class="v4-muted">Apna PIN likhein, private downloads dekhne ke liye.</p>' +
+      '<input class="v4-input" id="v4-priv-pin" type="password" inputmode="numeric" maxlength="6" placeholder="PIN">' +
+      '<button class="v4-bigbtn" onclick="v4PrivVerify()">Kholein</button>';
+    return;
+  }
+  body.innerHTML = '<p class="v4-muted">Ye downloads aam Downloads list mein NAHI aati. <button class="v4-btn2" onclick="v4PrivLock()">🔒 Band kar dein</button></p><div id="v4-priv-list"><p class="v4-muted">Load ho raha hai...</p></div>';
+  const r = await v4Fetch('/api/downloads-list?scope=private');
+  const list = (r.data && r.data.downloads) || [];
+  const box = v4$('v4-priv-list'); if(!box) return;
+  if(!list.length){ box.innerHTML = '<p class="v4-muted">Abhi koi private download nahi. Downloads mein kisi video par 🔒 dabakar yahan chhupayein.</p>'; return; }
+  box.innerHTML = list.map(function(x){
+    return '<div class="v4-dlrow">' + (x.videoId ? v4Img(x.videoId) : '<span style="width:64px"></span>') + '<div class="tt"><div class="t1">' + v4Esc(x.title || '') + '</div><div class="t2">' + v4Esc([x.quality || x.format || '', v4MB(x.file_size)].filter(Boolean).join(' • ')) + '</div></div>' +
+      '<a class="v4-roundbtn teal" title="Play" href="/api/download-file/' + x.downloadId + '">▶</a>' +
+      '<a class="v4-roundbtn" title="Phone me save karein" href="/api/download-file/' + x.downloadId + '" download>⬇</a>' +
+      '<button class="v4-roundbtn" title="Share — video + website link" data-id="' + x.downloadId + '" data-t="' + v4Esc(x.title || '') + '" data-f="' + (x.format || 'MP4') + '" onclick="v4ShareDl(this.dataset.id, this.dataset.t, this.dataset.f)">📤</button>' +
+      '<button class="v4-roundbtn" title="Private se bahar nikalo" data-id="' + x.downloadId + '" onclick="v4PrivToggle(this.dataset.id, false)">🔓</button>' +
+      '<button class="v4-roundbtn" title="Delete" data-id="' + x.downloadId + '" onclick="v4DeleteDl(this.dataset.id)">🗑</button></div>';
+  }).join('');
+}
+async function v4PrivSetPin(){ const pin = v4$('v4-priv-newpin').value.trim(); const r = await v4Post('/api/private/set-pin', {pin:pin}); if(r.ok && r.data.success){ v4Toast('PIN ban gaya — folder khul gaya'); v4RenderPrivate(); } else v4Toast((r.data && r.data.error) || 'PIN nahi bana'); }
+async function v4PrivVerify(){ const pin = v4$('v4-priv-pin').value.trim(); const r = await v4Post('/api/private/verify', {pin:pin}); if(r.ok && r.data.success){ v4RenderPrivate(); } else v4Toast('Galat PIN'); }
+async function v4PrivLock(){ await v4Post('/api/private/lock', {}); v4RenderPrivate(); }
+async function v4PrivToggle(id, make){ const r = await v4Post('/api/downloads/private', {download_id:id, private:make}); if(r.ok && r.data.success){ v4Toast(make ? 'Private folder mein chhupa di' : 'Private se bahar nikaal di'); v4LoadDownloads(); if(v4State.view === 'private') v4RenderPrivate(); } else v4Toast((r.data && r.data.error) || 'Nahi ho saka'); }
+/* Update 49: Share — video file + message ke sath website link */
+async function v4ShareDl(id, title, fmt){
+  const url = window.location.origin + '/';
+  const msg = '🎬 ' + (title || 'Video') + '\\n\\nYe video PlayTube se download ki hai — aap bhi free mein download karein:\\n' + url;
+  v4Toast('Share tayyar ho raha hai...');
+  try{
+    const resp = await fetch('/api/download-file/' + id);
+    if(resp.ok){
+      const blob = await resp.blob();
+      const badc = [92, 47, 58, 42, 63, 34, 60, 62, 124];
+      let fname = (title || 'video').split('').filter(function(ch){ return badc.indexOf(ch.charCodeAt(0)) < 0; }).join('').trim().slice(0, 120) || 'video';
+      const ext = (fmt || '').toUpperCase() === 'MP3' ? '.mp3' : '.mp4';
+      const file = new File([blob], fname + ext, {type: blob.type || 'video/mp4'});
+      if(navigator.canShare && navigator.canShare({files: [file]})){
+        await navigator.share({files: [file], text: msg});
+        return;
+      }
+    }
+  }catch(e){ /* file share nahi ho saka — neeche link wala tareeqa */ }
+  if(navigator.share){
+    try{ await navigator.share({title: title || 'PlayTube Video', text: msg, url: url}); return; }catch(e){}
+  }
+  try{ await navigator.clipboard.writeText(msg); v4Toast('Message + website link copy ho gaya — WhatsApp par paste kar dein. Video gallery ke PlayTube folder se bhej dein.'); }
+  catch(e){ v4Toast('Share is device par support nahi'); }
+}
+/* Update 45: Video Compressor — quality wohi, size kam */
+async function v4RenderCompress(){
+  const box = v4$('v4-cmp-list'); if(!box) return;
+  const r = await v4Fetch('/api/downloads-list');
+  const list = ((r.data && r.data.downloads) || []).filter(function(d){ return d.status === 'completed' && ['MP4','MKV','WEBM','3GP'].indexOf((d.format || '').toUpperCase()) >= 0 && (d.title || '').indexOf('(Chhoti)') < 0; });
+  if(!list.length){ box.innerHTML = '<p class="v4-muted">Abhi koi mukammal video download nahi — pehle koi video download karein.</p>'; return; }
+  box.innerHTML = list.map(function(d){
+    return '<div class="v4-dlrow">' + (d.videoId ? v4Img(d.videoId) : '<span style="width:64px"></span>') + '<div class="tt"><div class="t1">' + v4Esc(d.title || '') + '</div><div class="t2">' + v4Esc([d.quality || '', v4MB(d.file_size)].filter(Boolean).join(' • ')) + '</div></div>' +
+      '<button class="v4-roundbtn teal" title="Size kam karo" data-id="' + d.downloadId + '" onclick="v4CompressGo(this)">🗜</button></div>';
+  }).join('');
+}
+async function v4CompressGo(btn){
+  const id = btn.getAttribute('data-id');
+  btn.disabled = true; btn.textContent = '◌';
+  const r = await v4Post('/api/compress', {download_id: id});
+  if(r.ok && r.data.success){ v4Toast('Compress shuru — Downloads mein progress dekhein'); v4Show('downloads'); }
+  else { v4Toast((r.data && r.data.error) || 'Compress start nahi ho saka'); btn.disabled = false; btn.textContent = '🗜'; }
 }
 function v4PollJob(jobId){
   const tick = async function(){
@@ -3970,6 +4207,57 @@ function v4RenderPlats(){
   v4$('v4-plat-list').innerHTML = h;
 }
 function v4PlatClick(el){ v4Show('social'); const inp = v4$('v4-social-url'); inp.placeholder = el.getAttribute('data-p') + ' ka link yahan paste karein...'; inp.focus(); }
+function v4PlaylistCardHTML(it){
+  const pid = (it.id && it.id.playlistId) || '';
+  const sn = it.snippet || {};
+  const thumb = it.thumb_video ? v4Img(it.thumb_video) : '<div style="width:100%;height:100%;background:linear-gradient(135deg,#7c5cff,#14b8a6)"></div>';
+  return '<div class="v4-vcard"><div class="v4-thumb" data-pid="' + pid + '" data-title="' + v4Esc(sn.title || '') + '" onclick="v4OpenPlaylist(this.dataset.pid, this.dataset.title)">' + thumb + '<span class="v4-plbadge">📋 Playlist' + (it.video_count ? ' • ' + it.video_count + ' videos' : '') + '</span></div>' +
+    '<div class="v4-vrow"><div class="v4-vtexts"><div class="v4-vtitle">' + v4Esc(sn.title || '') + '</div>' + (sn.channelTitle ? '<div class="v4-vmeta">' + v4Esc(sn.channelTitle) + '</div>' : '') + '</div></div></div>';
+}
+async function v4OpenPlaylist(pid, title){
+  if(!pid) return;
+  v4PrevView = v4State.view;
+  v4Show('playlist');
+  v4$('v4-playlist-title').textContent = title || 'Playlist';
+  v4$('v4-playlist-count').textContent = '';
+  const grid = v4$('v4-playlist-feed');
+  grid.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
+  const r = await v4Fetch('/api/playlist?id=' + encodeURIComponent(pid));
+  if(r.ok && r.data && r.data.items){
+    if(r.data.title) v4$('v4-playlist-title').textContent = r.data.title;
+    v4$('v4-playlist-count').textContent = (r.data.count || 0) + ' videos — kisi video par tap karke download karein';
+    v4RenderCards('v4-playlist-feed', r.data.items);
+  } else grid.innerHTML = '<p class="v4-muted">Playlist load nahi ho saki — dobara try karein.</p>';
+}
+function v4SetFilter(btn){
+  const w = btn.getAttribute('data-w'), t = btn.getAttribute('data-t');
+  document.querySelectorAll('.v4-fchip[data-w="' + w + '"]').forEach(function(b){ b.classList.toggle('on', b === btn); });
+  const feedId = 'v4-' + w + '-feed';
+  const st = v4FeedState[feedId];
+  const q = (st && st.q) || (w === 'youtube' ? 'trending videos' : (w === 'music' ? 'trending songs' : 'trending'));
+  v4LoadFeed(feedId, q, t);
+}
+function v4RenderDeals(deals){
+  const box = v4$('v4-deals'); if(!box) return;
+  if(!deals || !deals.length){ box.innerHTML = '<p class="v4-muted">Abhi koi deal nahi hai</p>'; return; }
+  box.innerHTML = deals.map(function(d){
+    return '<div class="v4-deal">' + (d.badge ? '<span class="bdg">' + v4Esc(d.badge) + '</span>' : '') +
+      '<span class="em">' + v4Esc(d.emoji || '🛒') + '</span><div class="nm">' + v4Esc(d.name || '') + '</div>' +
+      (d.old_price ? '<span class="old">Rs. ' + Number(d.old_price).toLocaleString('en-PK') + '</span>' : '') +
+      '<span class="new">Rs. ' + Number(d.new_price || 0).toLocaleString('en-PK') + '</span>' +
+      (d.link ? '<a class="buy" href="' + v4Esc(d.link) + '" target="_blank" rel="noopener">Buy</a>' : '') + '</div>';
+  }).join('');
+}
+function v4RateShow(n){
+  const box = v4$('v4-stars'); if(!box) return;
+  const stars = box.children;
+  for(let i = 0; i < stars.length; i++){ stars[i].className = (i < n) ? 'on' : ''; }
+  if(n > 0){ const m = v4$('v4-rate-msg'); if(m) m.innerText = 'Shukriya! Aap ne ' + n + ' stars diye ❤'; }
+}
+function v4Rate(n){
+  try{ localStorage.setItem('pt_rating', String(n)); }catch(e){}
+  v4RateShow(n);
+}
 async function v4SocialFetch(e){
   if(e) e.preventDefault();
   const url = v4$('v4-social-url').value.trim();
@@ -4120,16 +4408,21 @@ async function v4RenderAdmin(){
   const cfg = res[0].data || {}, t = cfg.toggles || {}, ss = res[1].data || {};
   const tog = function(key, label){ return '<div class="v4-row"><div class="grow">' + label + '</div><button class="v4-switch' + (t[key] ? ' on' : '') + '" data-key="' + key + '" onclick="v4AdminToggle(this)"><i></i></button></div>'; };
   let h = '<div class="v4-stats"><div class="v4-stat"><b>' + (ss.total_users || 0) + '</b><span>Total Users</span></div><div class="v4-stat"><b>' + (ss.downloads_today || 0) + '</b><span>Aaj ke Downloads</span></div><div class="v4-stat"><b>' + (ss.pending_premium_requests || 0) + '</b><span>Premium Requests</span></div></div>';
-  h += '<div class="v4-sect">WEBSITE ON / OFF</div>';
-  h += tog('ai_enabled', 'AI Assistant') + tog('downloads_enabled', 'Downloads') + tog('premium_enabled', 'Premium System') + tog('social_enabled', 'Social Tab') + tog('signup_enabled', 'Naya Signup (registration)') + tog('floating_enabled', 'Floating Button (APK)') + tog('maintenance_mode', 'Maintenance (site band)');
-  h += '<div class="v4-sect">ELAAN (ANNOUNCEMENT)</div><input class="v4-input" id="v4-adm-ann" placeholder="Home par sab ko dikhne wala message" value="' + v4Esc(cfg.announcement || '') + '"><button class="v4-btn2" onclick="v4AdminSaveAnn()">Save Elaan</button>';
+  h += '<div class="v4-stats"><div class="v4-stat"><b>' + (ss.total_visits || 0) + '</b><span>Total Visits</span></div><div class="v4-stat"><b>' + (ss.today_visits || 0) + '</b><span>Aaj ke Visits</span></div><div class="v4-stat"><b>' + (ss.today_unique || 0) + '</b><span>Aaj ke Visitors (alag log)</span></div></div>';
+  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">WEBSITE ON / OFF</div>';
+  h += tog('ai_enabled', 'AI Assistant') + tog('downloads_enabled', 'Downloads') + tog('premium_enabled', 'Premium System') + tog('social_enabled', 'Social Tab') + tog('signup_enabled', 'Naya Signup (registration)') + tog('floating_enabled', 'Floating Button (APK)') + tog('maintenance_mode', 'Maintenance (site band)') + '</div>';
+  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">ELAAN (ANNOUNCEMENT)</div><input class="v4-input" id="v4-adm-ann" placeholder="Home par sab ko dikhne wala message" value="' + v4Esc(cfg.announcement || '') + '"><button class="v4-btn2" onclick="v4AdminSaveAnn()">Save Elaan</button></div>';
+  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">MAINTENANCE MESSAGE</div><input class="v4-input" id="v4-adm-maintmsg" placeholder="Maintenance on ho to ye message dikhe ga" value="' + v4Esc(cfg.maintenance_message || '') + '"><button class="v4-btn2" onclick="v4AdminSaveMaintMsg()">Message Save karein</button></div>';
+  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">DOWNLOADS SETTING</div>';
+  h += tog('hd_premium_only', 'HD (720p+) sirf Premium ke liye') + '<div class="v4-muted">Ye off karein to HD quality sab ke liye free ho jayegi</div>';
+  h += '<div class="v4-row" style="margin-top:10px"><div class="grow">Guest free downloads (bina account)<div class="v4-muted">0 likhein to guest download band — sab ko account banana pare ga</div></div><input class="v4-input" style="width:110px;margin:0" id="v4-adm-guest-limit" type="number" min="0" max="1000" value="' + (cfg.guest_download_limit != null ? cfg.guest_download_limit : 10) + '"></div><button class="v4-btn2" onclick="v4AdminSaveGuestLimit()">Guest Limit Save karein</button></div>';
   const pr = cfg.prices || {};
-  h += '<div class="v4-sect">PREMIUM PRICES (Rs)</div>';
+  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">PREMIUM PRICES (Rs)</div>';
   h += '<div class="v4-row"><div class="grow">Weekly</div><input class="v4-input" style="width:110px;margin:0" id="v4-pr-weekly" type="number" value="' + (pr.weekly || 200) + '"></div>';
   h += '<div class="v4-row"><div class="grow">Monthly</div><input class="v4-input" style="width:110px;margin:0" id="v4-pr-monthly" type="number" value="' + (pr.monthly || 500) + '"></div>';
   h += '<div class="v4-row"><div class="grow">Yearly</div><input class="v4-input" style="width:110px;margin:0" id="v4-pr-yearly" type="number" value="' + (pr.yearly || 3000) + '"></div>';
-  h += '<button class="v4-btn2" onclick="v4AdminSavePrices()" style="margin-top:8px">Prices Save karein</button>';
-  h += '<div class="v4-sect">PAYMENT NUMBERS</div>';
+  h += '<button class="v4-btn2" onclick="v4AdminSavePrices()" style="margin-top:8px">Prices Save karein</button></div>';
+  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">PAYMENT NUMBERS</div>';
   const pa = cfg.payment_accounts || {};
   ['jazzcash','easypaisa'].forEach(function(m){
     const a = pa[m] || {};
@@ -4138,29 +4431,59 @@ async function v4RenderAdmin(){
       '<input class="v4-input" id="v4-pa-' + m + '-title" placeholder="Account title" value="' + v4Esc(a.account_title || '') + '">' +
       '<button class="v4-btn2" data-m="' + m + '" onclick="v4AdminSaveAccount(this.dataset.m)">Save ' + m + '</button>';
   });
+  h += '</div>';
   const plist = (res[3].data && res[3].data.payments) || [];
-  h += '<div class="v4-sect">PREMIUM REQUESTS</div>';
+  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">PREMIUM REQUESTS</div>';
   if(!plist.length) h += '<p class="v4-muted">Koi pending request nahi</p>';
   plist.forEach(function(p){
     h += '<div class="v4-dlrow"><div class="tt"><div class="t1">' + v4Esc(p.username || '') + ' — ' + v4Esc(p.plan_type || '') + ' (Rs ' + v4Esc(p.amount_pkr || '') + ')</div><div class="t2">' + v4Esc(p.payment_method || '') + ' • Txn: ' + v4Esc(p.transaction_id || '') + '</div></div>' +
       '<button class="v4-roundbtn teal" title="Approve" data-pid="' + p.id + '" data-ap="1" onclick="v4AdminPay(this)">✓</button>' +
       '<button class="v4-roundbtn" title="Reject" data-pid="' + p.id + '" data-ap="0" onclick="v4AdminPay(this)">✕</button></div>';
   });
+  h += '</div>';
   const ulist = (res[2].data && res[2].data.users) || [];
-  h += '<div class="v4-sect">USERS</div>';
+  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">USERS</div>';
   ulist.forEach(function(u){
-    h += '<div class="v4-row"><div class="grow">' + v4Esc(u.username) + ' <span class="v4-muted">' + v4Esc(u.email) + '</span></div>' +
+    h += '<div class="v4-row"><div class="grow">' + v4Esc(u.username) + ' <span class="v4-muted">' + v4Esc(u.email) + '</span><div class="v4-muted">Join: ' + v4Esc((u.created_at || '').slice(0, 10)) + ' • ID ' + u.id + '</div></div>' +
       (u.is_owner ? '<span class="v4-badge2 owner">Owner</span>'
         : (u.is_premium ? '<span class="v4-badge2 prem">Premium</span><button class="v4-btn2" data-uid="' + u.id + '" data-grant="0" onclick="v4AdminUserPrem(this)">Band karein</button>'
                        : '<button class="v4-btn2" data-uid="' + u.id + '" data-grant="1" onclick="v4AdminUserPrem(this)">Premium dein</button>')) + '</div>';
   });
+  h += '</div>';
+  const dlist = cfg.deals || [];
+  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">HOT DEALS (MORE TAB)</div>';
+  h += '<div id="v4-deals-edit">';
+  dlist.forEach(function(d){ h += v4DealRow(d); });
+  h += '</div><button class="v4-btn2" onclick="v4DealAdd()">+ Naya Product</button> <button class="v4-btn2" onclick="v4AdminSaveDeals()">Deals Save karein</button></div>';
+  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">PRIVATE FOLDER</div><div class="v4-row"><div class="grow">PIN ki halat<div class="v4-muted">' + (cfg.pin_set ? 'PIN set hai' : 'Abhi PIN set nahi hai') + '</div></div>' + (cfg.pin_set ? '<button class="v4-btn2" onclick="v4AdminResetPin()">PIN Reset karein</button>' : '') + '</div><div class="v4-muted">PIN bhool jayein to yahan se reset karein — phir naya PIN banana pare ga.</div></div>';
   h += '<button class="v4-bigbtn" style="background:var(--v4card);border:1px solid var(--v4border)" onclick="v4AdminLogout()">Admin Logout</button>';
   body.innerHTML = h;
+}
+function v4DealRowDel(btn){ const r = btn.closest('.v4-dealrow'); if(r) r.remove(); }
+function v4DealRow(d){
+  d = d || {};
+  return '<div class="v4-dealrow" style="border:1px solid var(--v4border);border-radius:12px;padding:10px;margin-bottom:8px">' +
+    '<div style="display:flex;gap:6px"><input class="v4-input dl-em" style="width:56px;margin:0" placeholder="🛒" value="' + v4Esc(d.emoji || '') + '"><input class="v4-input dl-nm" style="flex:1;margin:0" placeholder="Product ka naam" value="' + v4Esc(d.name || '') + '"><button class="v4-btn2" onclick="v4DealRowDel(this)">✕</button></div>' +
+    '<div style="display:flex;gap:6px;margin-top:6px"><input class="v4-input dl-old" type="number" style="flex:1;margin:0" placeholder="Purani price" value="' + (d.old_price || '') + '"><input class="v4-input dl-new" type="number" style="flex:1;margin:0" placeholder="Nayi price" value="' + (d.new_price || '') + '"><input class="v4-input dl-bdg" style="width:76px;margin:0" placeholder="Badge %" value="' + v4Esc(d.badge || '') + '"></div>' +
+    '<input class="v4-input dl-lnk" style="margin-top:6px" placeholder="Buy link (https://...)" value="' + v4Esc(d.link || '') + '"></div>';
+}
+function v4DealAdd(){ const box = v4$('v4-deals-edit'); if(box) box.insertAdjacentHTML('beforeend', v4DealRow({})); }
+async function v4AdminSaveDeals(){
+  const rows = document.querySelectorAll('#v4-deals-edit .v4-dealrow'); const deals = [];
+  rows.forEach(function(r){
+    const nm = r.querySelector('.dl-nm').value.trim(); if(!nm) return;
+    deals.push({name: nm, emoji: r.querySelector('.dl-em').value.trim() || '🛒', old_price: parseInt(r.querySelector('.dl-old').value) || 0, new_price: parseInt(r.querySelector('.dl-new').value) || 0, badge: r.querySelector('.dl-bdg').value.trim(), link: r.querySelector('.dl-lnk').value.trim()});
+  });
+  const r = await v4Post('/api/admin/v4-settings', {deals: deals});
+  if(r.ok){ v4Toast('Deals save ho gayi'); v4LoadConfig(); } else v4Toast('Save nahi ho saki');
 }
 async function v4AdminLogin(){ const key = v4$('v4-admin-key').value; const r = await v4Post('/api/admin/login', {key:key}); if(r.ok && r.data && r.data.success){ v4Toast('Admin login ho gaya'); v4RenderAdmin(); } else v4Toast('Galat admin key'); }
 async function v4AdminLogout(){ await v4Post('/api/admin/logout', {}); v4RenderAdmin(); }
 async function v4AdminToggle(el){ const key = el.getAttribute('data-key'); const on = !el.classList.contains('on'); el.classList.toggle('on', on); const body = {toggles:{}}; body.toggles[key] = on; const r = await v4Post('/api/admin/v4-settings', body); if(r.ok){ v4Toast('Setting save ho gayi'); v4LoadConfig(); } else { el.classList.toggle('on', !on); v4Toast('Save nahi ho saki'); } }
 async function v4AdminSaveAnn(){ const r = await v4Post('/api/admin/v4-settings', {announcement: v4$('v4-adm-ann').value}); if(r.ok){ v4Toast('Elaan save ho gaya'); v4LoadConfig(); } }
+async function v4AdminSaveMaintMsg(){ const r = await v4Post('/api/admin/v4-settings', {maintenance_message: v4$('v4-adm-maintmsg').value}); if(r.ok) v4Toast('Maintenance message save ho gaya'); else v4Toast('Save nahi ho saka'); }
+async function v4AdminResetPin(){ if(!confirm('Private Folder ka PIN reset kar dein? Phir naya PIN banana pare ga.')) return; const r = await v4Post('/api/admin/v4-settings', {reset_private_pin: true}); if(r.ok){ v4Toast('PIN reset ho gaya'); v4RenderAdmin(); } else v4Toast('Reset nahi ho saka'); }
+async function v4AdminSaveGuestLimit(){ const n = parseInt(v4$('v4-adm-guest-limit').value, 10); if(isNaN(n) || n < 0){ v4Toast('Sahi number likhein (0 ya zyada)'); return; } const r = await v4Post('/api/admin/v4-settings', {guest_download_limit: n}); if(r.ok){ v4Toast('Guest limit save ho gayi: ' + n + ' free downloads'); v4LoadConfig(); } else v4Toast('Save nahi ho saki'); }
 async function v4AdminSavePrices(){ const p = {weekly: parseInt(v4$('v4-pr-weekly').value), monthly: parseInt(v4$('v4-pr-monthly').value), yearly: parseInt(v4$('v4-pr-yearly').value)}; const r = await v4Post('/api/admin/v4-settings', {prices:p}); if(r.ok) v4Toast('Prices save ho gayi'); }
 async function v4AdminSaveAccount(m){ const body = {payment_accounts:{}}; body.payment_accounts[m] = {account_number: v4$('v4-pa-' + m + '-num').value, account_title: v4$('v4-pa-' + m + '-title').value}; const r = await v4Post('/api/admin/v4-settings', body); if(r.ok) v4Toast(m + ' account save ho gaya'); }
 async function v4AdminPay(el){ const id = el.getAttribute('data-pid'); const approve = el.getAttribute('data-ap') === '1'; const r = await v4Post('/api/admin/' + (approve ? 'approve' : 'reject') + '-payment/' + id, {}); if(r.ok){ v4Toast(approve ? 'Premium approve ho gaya' : 'Request reject ho gayi'); v4RenderAdmin(); } else v4Toast('Action nahi ho saka'); }
@@ -4283,6 +4606,7 @@ function v4AfterAuth(){
   else if(p.type === 'sheet'){ v4OpenSheet(p.id); }
   else if(p.type === 'start'){ v4StartDownload(p.params); }
   else if(p.type === 'social'){ v4SocialInfo = {url:p.url, info:{}}; v4SocialDownload(p.format); }
+  else if(p.type === 'ai'){ v4Show('ai'); if(p.text){ v4$('v4-ai-input').value = p.text; v4AiSend(null); } }
 }
 
 /* ---------- shared link + clipboard (Update 25) ---------- */
@@ -4330,6 +4654,7 @@ async function v4LoadConfig(){
   const el = v4$('v4-announce');
   if(ann){ el.textContent = '📢 ' + ann; el.style.display = 'block'; } else el.style.display = 'none';
   const t = r.data.toggles || {};
+  v4RenderDeals(r.data.deals);
   if(t.social_enabled === false){ const b = v4$('v4-tt-social'); if(b) b.style.display = 'none'; }
   if(t.ai_enabled === false){ const b = v4$('v4-bn-ai'); if(b) b.style.display = 'none'; }
 }
@@ -4337,7 +4662,9 @@ async function v4LoadConfig(){
   v4LoadConfig();
   v4Fetch('/api/user-info').then(function(r){ v4State.user = (r.ok && r.data) ? r.data.user : null; });
   v4LoadFeed('v4-home-feed', 'trending');
+  const rb0 = v4$('v4-refresh-btn'); if(rb0) rb0.style.display = 'block';
   v4SyncThemeBtn();
+  try{ const sr = parseInt(localStorage.getItem('pt_rating') || '0'); if(sr > 0) v4RateShow(sr); }catch(e){}
   const sp = new URLSearchParams(window.location.search).get('shared');
   if(sp){ setTimeout(function(){ v4HandleShared(sp); }, 500); }
   else { setTimeout(v4ClipCheck, 1500); }
@@ -4394,7 +4721,7 @@ def api_search():
                             'id': {'videoId': entry['id']},
                             'snippet': {
                                 'title': entry.get('title', 'Unknown'),
-                                'channelTitle': entry.get('channel', entry.get('uploader', 'Unknown')),
+                                'channelTitle': (entry.get('channel') or entry.get('uploader') or 'Unknown'),
                                 'channelId': entry.get('channel_id', ''),
                                 'thumbnails': {
                                     'high': {'url': entry.get('thumbnail', '')},
@@ -4432,6 +4759,326 @@ def api_search():
     # Method 4: Fallback
     data = {'items': POPULAR_VIDEOS[:max_results]}
     return jsonify(data)
+
+
+# ============ INFINITE FEED (Update 33) ============
+# YouTube-style feed: har page par NAYI videos. Trending ke liye topic
+# pool ghoomta hai aur har topic ke variants bhi — is liye wohi purani
+# 20 videos bar bar nahi atin. Frontend duplicates khud bhi rokta hai.
+FEED_TRENDING_POOL = [
+    'trending videos', 'viral videos today', 'trending naat',
+    'pakistani drama latest episode', 'funny comedy videos',
+    'trending songs', 'kids cartoon hindi', 'cricket highlights',
+    'motu patlu new episode', 'pubg gameplay', 'cooking recipes viral',
+    'tech news today', 'islamic bayan', 'punjabi songs new',
+    'bollywood songs', 'pakistan vlogs',
+]
+FEED_MUSIC_POOL = [
+    'trending songs', 'viral songs', 'new songs', 'punjabi songs new',
+    'bollywood songs new', 'naat sharif new', 'qawwali best',
+    'hindi songs new', 'urdu songs new',
+]
+FEED_SHORTS_POOL = [
+    'naat shorts #shorts', 'islamic shorts #shorts',
+    'poetry shorts #shorts', 'dance shorts #shorts',
+    'cricket shorts #shorts', 'motu patlu shorts #shorts',
+    'comedy shorts hindi #shorts', 'funny shorts #shorts',
+    'viral shorts #shorts', 'pubg shorts #shorts',
+    'trending shorts #shorts', 'sad shorts #shorts',
+]
+FEED_VARIANTS = [' latest', ' new', '', ' viral', ' best', ' 2026']
+
+
+def _feed_search_items(query, n=30):
+    cache_key = f"feed_{query}_{n}"
+    if cache_key in search_cache:
+        cached_data, timestamp = search_cache[cache_key]
+        if time.time() - timestamp < CACHE_DURATION:
+            return cached_data
+    items = []
+    try:
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'no_check_certificate': True,
+            'extract_flat': True,
+            'skip_download': True,
+            'ignoreerrors': True,
+        }
+        info = _extract_with_clients(f"ytsearch{n}:{query}", ydl_opts)
+        if info and 'entries' in info:
+            for entry in info['entries']:
+                if entry and entry.get('id'):
+                    items.append({
+                        'id': {'videoId': entry['id']},
+                        'snippet': {
+                            'title': entry.get('title', 'Unknown'),
+                            'channelTitle': (entry.get('channel')
+                                             or entry.get('uploader')
+                                             or 'Unknown'),
+                            'channelId': entry.get('channel_id', ''),
+                            'thumbnails': {
+                                'high': {'url': entry.get('thumbnail', '')},
+                                'medium': {'url': entry.get('thumbnail', '')},
+                                'default': {'url': entry.get('thumbnail', '')}
+                            }
+                        },
+                        'duration': entry.get('duration'),
+                        'view_count': entry.get('view_count')
+                    })
+    except Exception:
+        pass
+    if not items:
+        try:
+            items = search_youtube_web(query, n) or []
+        except Exception:
+            items = []
+    if items:
+        search_cache[cache_key] = (items, time.time())
+    return items
+
+
+def search_playlists_web(query, max_results=12):
+    """YouTube search (playlist filter) — playlists: naam, channel, count.
+    (Update 36)"""
+    cache_key = f"pl_{query}_{max_results}"
+    if cache_key in search_cache:
+        cached_data, timestamp = search_cache[cache_key]
+        if time.time() - timestamp < CACHE_DURATION:
+            return cached_data
+    items = []
+    try:
+        import urllib.parse as _up
+        url = ('https://www.youtube.com/results?search_query='
+               + _up.quote(query) + '&sp=EgIQAw%3D%3D')
+        resp = requests.get(url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                          'AppleWebKit/537.36',
+            'Accept-Language': 'en-US,en;q=0.9'}, timeout=12)
+        m = re.search(r'var ytInitialData = (\{.*?\});</script>',
+                      resp.text, re.S)
+        if m:
+            data = json.loads(m.group(1))
+            renderers = []
+            lockups = []
+
+            def _walk(node):
+                if isinstance(node, dict):
+                    pr = node.get('playlistRenderer')
+                    if pr and pr.get('playlistId'):
+                        renderers.append(pr)
+                    lv = node.get('lockupViewModel')
+                    if lv and lv.get('contentId'):
+                        lockups.append(lv)
+                    for v in node.values():
+                        _walk(v)
+                elif isinstance(node, list):
+                    for v in node:
+                        _walk(v)
+            _walk(data)
+            seen_pl = set()
+
+            def _add(pid, title, channel, vc, thumb_vid):
+                if not pid or pid in seen_pl or len(items) >= max_results:
+                    return
+                seen_pl.add(pid)
+                items.append({
+                    'kind': 'playlist',
+                    'id': {'playlistId': pid},
+                    'snippet': {'title': title or '',
+                                'channelTitle': channel or ''},
+                    'video_count': vc,
+                    'thumb_video': thumb_vid or ''})
+
+            for pr in renderers:
+                t_obj = pr.get('title') or {}
+                title = t_obj.get('simpleText') or ''.join(
+                    r.get('text', '') for r in (t_obj.get('runs') or []))
+                vc = pr.get('videoCount') or ''
+                if not vc:
+                    vct = (pr.get('videoCountText') or {}).get(
+                        'simpleText', '')
+                    vc = re.sub(r'[^0-9]', '', vct)
+                byline = (pr.get('longBylineText')
+                          or pr.get('shortBylineText') or {})
+                bruns = byline.get('runs') or []
+                channel = bruns[0].get('text', '') if bruns else ''
+                thumb_vid = ''
+                for t in ((pr.get('thumbnail') or {}).get('thumbnails')
+                          or []):
+                    mm = re.search(r'/vi/([^/]+)/', t.get('url', ''))
+                    if mm:
+                        thumb_vid = mm.group(1)
+                        break
+                _add(pr.get('playlistId'), title, channel,
+                     int(vc) if str(vc).isdigit() else None, thumb_vid)
+
+            for lv in lockups:
+                if lv.get('contentType') != 'LOCKUP_CONTENT_TYPE_PLAYLIST':
+                    continue
+                md = ((lv.get('metadata') or {})
+                      .get('lockupMetadataViewModel') or {})
+                title = ((md.get('title') or {}).get('content')) or ''
+                channel = ''
+                vc = None
+                rows = (((md.get('metadata') or {})
+                         .get('contentMetadataViewModel') or {})
+                        .get('metadataRows') or [])
+                for ri, row in enumerate(rows):
+                    parts = [((pt.get('text') or {}).get('content') or '')
+                             for pt in (row.get('metadataParts') or [])]
+                    if ri == 0 and parts:
+                        channel = parts[0]
+                    for part in parts:
+                        mm = re.match(r'^([\d,]+)\s+videos$',
+                                      part.strip())
+                        if mm:
+                            vc = int(mm.group(1).replace(',', ''))
+                if vc is None:
+                    mm = re.search(r'"content":\s*"([\d,]+) videos"',
+                                   json.dumps(lv))
+                    if mm:
+                        vc = int(mm.group(1).replace(',', ''))
+                vids = re.findall(r'/vi/([^/]+)/',
+                                  json.dumps(lv.get('contentImage') or {}))
+                _add(lv.get('contentId'), title, channel, vc,
+                     vids[0] if vids else '')
+    except Exception:
+        pass
+    if items:
+        search_cache[cache_key] = (items, time.time())
+    return items
+
+
+@app.route('/api/playlist')
+def api_playlist():
+    pid = (request.args.get('id', '') or '').strip()
+    if not pid:
+        return jsonify({'error': 'Playlist id chahiye'}), 400
+    cache_key = f"plfull_{pid}"
+    if cache_key in search_cache:
+        cached_data, timestamp = search_cache[cache_key]
+        if time.time() - timestamp < CACHE_DURATION:
+            return jsonify(cached_data)
+    items = []
+    title = ''
+    try:
+        ydl_opts = {
+            'quiet': True, 'no_warnings': True, 'no_check_certificate': True,
+            'extract_flat': True, 'skip_download': True,
+            'ignoreerrors': True, 'playlistend': 100,
+        }
+        info = _extract_with_clients(
+            f"https://www.youtube.com/playlist?list={pid}", ydl_opts)
+        if info:
+            title = info.get('title') or ''
+            for entry in (info.get('entries') or []):
+                if entry and entry.get('id'):
+                    items.append({
+                        'id': {'videoId': entry['id']},
+                        'snippet': {
+                            'title': entry.get('title', 'Unknown'),
+                            'channelTitle': (entry.get('channel')
+                                             or entry.get('uploader')
+                                             or 'Unknown'),
+                        },
+                        'duration': entry.get('duration'),
+                        'view_count': entry.get('view_count')
+                    })
+    except Exception:
+        pass
+    data = {'title': title, 'items': items, 'count': len(items)}
+    if items:
+        search_cache[cache_key] = (data, time.time())
+    return jsonify(data)
+
+
+@app.route('/api/feed')
+def api_feed():
+    q = (request.args.get('q', 'trending') or 'trending').strip()
+    try:
+        page = max(0, min(500, int(request.args.get('page', 0))))
+    except (TypeError, ValueError):
+        page = 0
+    # Session token (r): har app-open / refresh par naya — feed ka
+    # starting point badal jata hai, is liye har dafa nayi videos.
+    sess = (request.args.get('r', '') or '').strip()
+    offset = 0
+    if sess:
+        offset = int(hashlib.md5(sess.encode('utf-8')).hexdigest()[:6], 16)
+    # Personalization (Update 34): user ki top searches/watches (int)
+    raw_int = (request.args.get('int', '') or '')[:600]
+    interests = [p.strip()[:60] for p in raw_int.split('|')
+                 if len(p.strip()) >= 3][:6]
+    ql = q.lower()
+    if 'trend' in ql and 'song' not in ql and 'music' not in ql:
+        if interests:
+            pool = []
+            ti = 0
+            for i, tseed in enumerate(FEED_TRENDING_POOL):
+                if i % 2 == 0 and ti < len(interests) * 2:
+                    pool.append(interests[ti % len(interests)])
+                    ti += 1
+                pool.append(tseed)
+            while ti < len(interests) * 2:
+                pool.append(interests[ti % len(interests)])
+                ti += 1
+        else:
+            pool = list(FEED_TRENDING_POOL)
+    elif ql in ('new songs', 'songs', 'music', 'trending songs',
+                'viral songs'):
+        pool = list(FEED_MUSIC_POOL)
+    else:
+        pool = [q]
+    ftype = (request.args.get('type', 'all') or 'all').strip().lower()
+    if ftype not in ('all', 'videos', 'playlists', 'shorts'):
+        ftype = 'all'
+    shorts_pool_mode = False
+    if ftype == 'shorts' and ('trend' in ql or ql == 'shorts'):
+        pool = list(FEED_SHORTS_POOL)
+        shorts_pool_mode = True
+    eff = page + offset
+    seed = pool[eff % len(pool)]
+    variant = FEED_VARIANTS[(eff // len(pool)) % len(FEED_VARIANTS)]
+    seed_q = (seed + variant).strip()
+    total_pages = len(pool) * len(FEED_VARIANTS)
+    if ftype == 'playlists':
+        items = search_playlists_web(seed_q, 12)
+        return jsonify({'items': items, 'page': page,
+                        'has_more': page < 6})
+    if ftype == 'all' and page % 3 == 2:
+        items = search_playlists_web(seed_q, 6)
+        if items:
+            return jsonify({'items': items, 'page': page,
+                            'has_more': page < total_pages - 1})
+    if ftype == 'shorts':
+        # Sirf ASAL shorts (duration <= 65s) — lambi "shorts" naam wali
+        # compilations nahi. Kai seeds mila kar dhoondte hain.
+        merged = []
+        seen_ids = set()
+        tries = 6 if shorts_pool_mode else 3
+        for k in range(tries):
+            s_k = pool[(eff + k) % len(pool)]
+            if shorts_pool_mode:
+                q_k = s_k
+            else:
+                q_k = (s_k + FEED_VARIANTS[k % len(FEED_VARIANTS)]).strip()
+            for it in _feed_search_items(q_k, 30):
+                vid = (it.get('id') or {}).get('videoId')
+                if vid and vid not in seen_ids:
+                    seen_ids.add(vid)
+                    merged.append(it)
+            real_so_far = [it for it in merged
+                           if it.get('duration') and it['duration'] <= 65]
+            if len(real_so_far) >= 18:
+                break
+        items = [it for it in merged
+                 if it.get('duration') and it['duration'] <= 65]
+        return jsonify({'items': items, 'page': page,
+                        'has_more': page < total_pages - 1})
+    items = _feed_search_items(seed_q, 30)
+    has_more = page < (total_pages - 1)
+    return jsonify({'items': items, 'page': page, 'has_more': has_more})
 
 
 @app.route('/api/fetch-social-info', methods=['POST'])
@@ -5408,12 +6055,24 @@ def start_download():
     if not video_id:
         return jsonify({"error": "Video ID missing"}), 400
 
-    # Login check
+    # Update 44: bina account ke guest ko admin ki set ki hui tadad
+    # (default 10) tak free downloads; ginti sirf COMPLETE hone par
+    # badhti hai — fail ho jaye to guest ka number zaya nahi hota.
+    guest_device = None
+    guest_limit = get_guest_limit()
     if not session.get('user_id'):
-        return jsonify({
-            'error': 'Login required to download!',
-            'login_required': True
-        }), 403
+        if guest_limit <= 0:
+            return jsonify({
+                'error': 'Login required to download!',
+                'login_required': True
+            }), 403
+        guest_device = _guest_device_id()
+        if _guest_count(guest_device) >= guest_limit:
+            return jsonify({
+                'error': f'Guest ke {guest_limit} free downloads pure ho gaye — ab account banayein!',
+                'login_required': True, 'guest_limit': True,
+                'limit': guest_limit
+            }), 403
 
     if not feature_enabled('downloads_enabled'):
         return jsonify({'error': 'Downloads abhi band hain (admin ne off kiya hai)',
@@ -5426,7 +6085,7 @@ def start_download():
     if format_type in ('mp3', 'm4a'):
         pass  # audio is free at every bitrate
     elif quality not in FREE_QUALITIES:
-        if not is_premium_user(session['user_id']):
+        if feature_enabled('hd_premium_only') and not is_premium_user(session.get('user_id')):
             return jsonify({
                 'error': 'HD quality requires Premium!',
                 'premium_required': True
@@ -5448,6 +6107,10 @@ def start_download():
     thread.daemon = True
     thread.start()
 
+    if guest_device:
+        guest_pending[download_id] = guest_device
+        return jsonify({"success": True, "download_id": download_id,
+                        "guest_remaining": guest_limit - _guest_count(guest_device)})
     return jsonify({"success": True, "download_id": download_id})
 
 
@@ -5528,7 +6191,8 @@ def _speed_opts():
 
 
 def download_in_background(video_id, format_type, quality, download_id, user_id=None,
-                           clip_start=None, clip_end=None, _client_idx=0, title_hint=None):
+                           clip_start=None, clip_end=None, _client_idx=0, title_hint=None,
+                           _retry_pass=0):
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
     started_at = time.time()
 
@@ -5629,6 +6293,18 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(youtube_url, download=True)
+            if not info:
+                # ignoreerrors ki wajah se bot-block par exception nahi
+                # banta, info None reh jata hai — agle client se retry
+                # karo, warna asal wajah batao (Update 40)
+                if _client_idx < len(_YT_CLIENTS) - 1:
+                    print(f"[PlayTube] Empty extraction on download {download_id} - retry with client #{_client_idx + 1}")
+                    download_progress[download_id] = {'status': 'starting', 'percent': 0,
+                                                      'speed': '', 'error': None}
+                    return download_in_background(video_id, format_type, quality, download_id,
+                                                  user_id, clip_start, clip_end,
+                                                  _client_idx + 1, title_hint, _retry_pass)
+                error_msg = 'YouTube bot-check: is server se download roka gaya - kuch der baad dobara try karein'
             if info:
                 title = sanitize_filename(info.get('title', 'video'))
                 file_path = None
@@ -5687,6 +6363,11 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
                     }
                     save_downloads_db()
 
+                    # Update 44: guest ki ginti sirf complete hone par
+                    _gd = guest_pending.pop(download_id, None)
+                    if _gd:
+                        _guest_inc(_gd)
+
                     download_progress[download_id] = {
                         'status': 'completed', 'percent': 100, 'speed': '',
                         'error': None, 'file_path': file_path, 'title': title,
@@ -5710,7 +6391,7 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
                                               'speed': '', 'error': None}
             return download_in_background(video_id, format_type, quality, download_id,
                                           user_id, clip_start, clip_end,
-                                          _client_idx + 1, title_hint)
+                                          _client_idx + 1, title_hint, _retry_pass)
         error_msg = re.sub(r'\x1b\[[0-9;]*m', '', str(e))
 
     if download_control.get(download_id, {}).get('cancel'):
@@ -5720,8 +6401,21 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
                                           'speed': '', 'error': None}
         return
 
+    # Bot-block par saare clients fail ho jayein to ek akhri koshish:
+    # thodi dair ruk kar pehle client se dobara (Update 41 — fail na ho)
+    if _retry_pass == 0 and ('bot-check' in error_msg or _is_bot_block(error_msg)):
+        download_progress[download_id] = {'status': 'starting', 'percent': 0,
+                                          'speed': '', 'error': None}
+        time.sleep(15)
+        return download_in_background(video_id, format_type, quality, download_id,
+                                      user_id, clip_start, clip_end, 0, title_hint, 1)
+
     # Friendly errors
-    if 'Video unavailable' in error_msg:
+    if not error_msg:
+        error_msg = 'Download fail ho gaya - dobara try karein'
+    if 'bot-check' in error_msg or 'Sign in to confirm' in error_msg:
+        error_msg = 'YouTube bot-check: is server se download roka gaya - kuch der baad dobara try karein'
+    elif 'Video unavailable' in error_msg:
         error_msg = 'Video unavailable'
     elif 'Private video' in error_msg:
         error_msg = 'Private video'
@@ -5751,6 +6445,7 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
             'user_id': user_id}
         save_downloads_db()
 
+    guest_pending.pop(download_id, None)
     download_progress[download_id] = {
         'status': 'error',
         'percent': 0,
@@ -6033,12 +6728,12 @@ def download_subtitles():
             'subtitlesformat': 'srt',
         }
         
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(youtube_url, download=False)
-            
+        # Client rotation ke sath (bot-block par dusra tareeqa — Update 45)
+        info = _extract_with_clients(youtube_url, ydl_opts)
+        if info:
             subtitles = info.get('subtitles', {}).get(lang, [])
             auto_subtitles = info.get('automatic_captions', {}).get(lang, [])
-            
+
             all_subtitles = subtitles + auto_subtitles
             if all_subtitles:
                 sub_url = all_subtitles[0].get('url', '')
@@ -6048,10 +6743,11 @@ def download_subtitles():
                         file_path = os.path.join(SUBTITLE_DIR, f"{video_id}_{lang}.srt")
                         with open(file_path, 'wb') as f:
                             f.write(response.content)
-                        
+
                         return send_file(file_path, as_attachment=True, download_name=f"{video_id}_{lang}.srt")
-            
+
             return jsonify({"error": "No subtitles found for this language"}), 404
+        return jsonify({"error": "Video ki maloomat nahi mil sakin — dobara try karein"}), 502
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -6199,8 +6895,18 @@ def download_file(download_id):
 
 @app.route('/api/downloads-list')
 def get_downloads_list():
+    # Update 45: Private Folder — private downloads aam list me nahi,
+    # sirf PIN khulne par scope=private me milti hain
+    scope = request.args.get('scope')
+    if scope == 'private' and not session.get('pt_private'):
+        return jsonify({"downloads": [], "locked": True})
     downloads = []
     for download_id, info in downloaded_files.items():
+        is_priv = bool(info.get('private'))
+        if scope == 'private' and not is_priv:
+            continue
+        if scope != 'private' and is_priv:
+            continue
         downloads.append({
             'downloadId': download_id,
             'videoId': info.get('videoId', ''),
@@ -6210,12 +6916,152 @@ def get_downloads_list():
             'platform': info.get('platform', 'YouTube'),
             'status': info.get('status', 'completed'),
             'error': info.get('error'),
+            'private': is_priv,
             'file_size': info.get('file_size', 0),
             'timestamp': info.get('timestamp', datetime.now().isoformat())
         })
-    
+
     downloads.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
     return jsonify({"downloads": downloads})
+
+
+@app.route('/api/private/status')
+def api_private_status():
+    return jsonify({'pin_set': bool(load_site_settings().get('private_pin_hash')),
+                    'unlocked': bool(session.get('pt_private'))})
+
+
+@app.route('/api/private/set-pin', methods=['POST'])
+def api_private_set_pin():
+    pin = str((request.json or {}).get('pin') or '').strip()
+    if not (pin.isdigit() and 4 <= len(pin) <= 6):
+        return jsonify({'error': 'PIN 4 se 6 numbers ka hona chahiye'}), 400
+    settings = load_site_settings()
+    if settings.get('private_pin_hash'):
+        return jsonify({'error': 'PIN pehle se set hai'}), 400
+    import hashlib
+    settings['private_pin_hash'] = hashlib.sha256(pin.encode()).hexdigest()
+    save_site_settings(settings)
+    session['pt_private'] = True
+    return jsonify({'success': True})
+
+
+@app.route('/api/private/verify', methods=['POST'])
+def api_private_verify():
+    pin = str((request.json or {}).get('pin') or '').strip()
+    import hashlib
+    want = load_site_settings().get('private_pin_hash')
+    if want and hashlib.sha256(pin.encode()).hexdigest() == want:
+        session['pt_private'] = True
+        return jsonify({'success': True})
+    return jsonify({'error': 'Galat PIN'}), 403
+
+
+@app.route('/api/private/lock', methods=['POST'])
+def api_private_lock():
+    session.pop('pt_private', None)
+    return jsonify({'success': True})
+
+
+def _compress_worker(download_id, cmp_id):
+    """Smart compression (Update 45): resolution/quality wohi, size kam."""
+    rec = downloaded_files.get(download_id) or {}
+    src = rec.get('file_path')
+    label = (rec.get('title') or 'Video') + ' (Chhoti)'
+    try:
+        if not src or not os.path.exists(src):
+            download_progress[cmp_id] = {'status': 'error', 'percent': 0,
+                                         'speed': '', 'error': 'File nahi mili'}
+            return
+        base = os.path.splitext(os.path.basename(src))[0]
+        out = os.path.join(MP4_DIR, base + ' (Chhoti).mp4')
+        dur = 0.0
+        try:
+            pr = subprocess.run(['ffprobe', '-v', 'error', '-show_entries',
+                                 'format=duration', '-of', 'csv=p=0', src],
+                                capture_output=True, text=True, timeout=30)
+            dur = float((pr.stdout or '0').strip() or 0)
+        except Exception:
+            dur = 0.0
+        download_progress[cmp_id] = {'status': 'processing', 'percent': 0,
+                                     'speed': '', 'error': None,
+                                     'title': label,
+                                     'video_id': rec.get('videoId', '')}
+        cmd = ['ffmpeg', '-y', '-i', src, '-c:v', 'libx264', '-crf', '27',
+               '-preset', 'veryfast', '-c:a', 'aac', '-b:a', '96k',
+               '-movflags', '+faststart', '-progress', 'pipe:1',
+               '-nostats', out]
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                             stderr=subprocess.DEVNULL, text=True)
+        for line in p.stdout:
+            if line.startswith('out_time_ms=') and dur > 0:
+                try:
+                    ms = int(line.strip().split('=')[1])
+                    download_progress[cmp_id] = {
+                        'status': 'processing',
+                        'percent': min(99, int((ms / 1000000.0) / dur * 100)),
+                        'speed': '', 'error': None, 'title': label,
+                        'video_id': rec.get('videoId', '')}
+                except Exception:
+                    pass
+        p.wait()
+        if p.returncode == 0 and os.path.exists(out) and os.path.getsize(out) > 0:
+            new_size = os.path.getsize(out)
+            downloaded_files[cmp_id] = {
+                'downloadId': cmp_id, 'videoId': rec.get('videoId', ''),
+                'title': label, 'format': 'MP4',
+                'quality': rec.get('quality', 'Best'), 'file_path': out,
+                'file_size': new_size, 'status': 'completed',
+                'timestamp': datetime.now().isoformat()}
+            save_downloads_db()
+            download_progress[cmp_id] = {
+                'status': 'completed', 'percent': 100, 'speed': '',
+                'error': None, 'file_path': out, 'title': label,
+                'format': 'mp4', 'quality': rec.get('quality', 'Best'),
+                'file_size': new_size}
+        else:
+            download_progress[cmp_id] = {'status': 'error', 'percent': 0,
+                                         'speed': '',
+                                         'error': 'Compress nahi ho saka'}
+    except Exception as e:
+        download_progress[cmp_id] = {'status': 'error', 'percent': 0,
+                                     'speed': '',
+                                     'error': (str(e) or 'Compress error')[:120]}
+
+
+@app.route('/api/compress', methods=['POST'])
+def api_compress():
+    data = request.json or {}
+    did = data.get('download_id')
+    rec = downloaded_files.get(did)
+    if not rec or rec.get('status') != 'completed' or not rec.get('file_path'):
+        return jsonify({'error': 'Sirf mukammal downloads compress hoti hain'}), 400
+    if str(rec.get('format', '')).upper() not in ('MP4', 'MKV', 'WEBM', '3GP'):
+        return jsonify({'error': 'Ye sirf videos ke liye hai'}), 400
+    cmp_id = f"cmp_{int(time.time())}_{random.randint(100, 999)}"
+    download_progress[cmp_id] = {'status': 'processing', 'percent': 0,
+                                 'speed': '', 'error': None,
+                                 'title': (rec.get('title') or 'Video') + ' (Chhoti)',
+                                 'video_id': rec.get('videoId', '')}
+    th = threading.Thread(target=_compress_worker, args=(did, cmp_id))
+    th.daemon = True
+    th.start()
+    return jsonify({'success': True, 'compress_id': cmp_id})
+
+
+@app.route('/api/downloads/private', methods=['POST'])
+def api_downloads_private():
+    data = request.json or {}
+    did = data.get('download_id')
+    make = bool(data.get('private'))
+    if did not in downloaded_files:
+        return jsonify({'error': 'Download nahi mili'}), 404
+    if not make and not session.get('pt_private'):
+        return jsonify({'error': 'Private se nikalne ke liye pehle PIN kholein',
+                        'locked': True}), 403
+    downloaded_files[did]['private'] = make
+    save_downloads_db()
+    return jsonify({'success': True})
 
 @app.route('/api/delete-download/<download_id>', methods=['DELETE'])
 def delete_download(download_id):
@@ -6405,48 +7251,86 @@ def system_info():
         'premium_price': 'Rs. 500/month',
         'contact': 'chuzajani1@gmail.com'
     })
-    # ============ VISITOR TRACKING ============
-VISITORS_FILE = os.path.join(os.path.expanduser("~"), "visitors.json")
+# ============ VISITOR TRACKING (database - Update 31) ============
+# Har asal page-open gina jata hai aur SQLite database mein save hota
+# hai (purana visitors.json tareeqa khatam - wo reset ho jata tha).
+# Sirf dekhne ane wale sirf visit count mein add hote hain, user nahi bante.
+def _record_visit(ip):
+    today = datetime.now().strftime('%Y-%m-%d')
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+    cur.execute('INSERT INTO site_visits(day, opens, uniq) VALUES (?, 1, 0) '
+                'ON CONFLICT(day) DO UPDATE SET opens = opens + 1', (today,))
+    cur.execute('INSERT OR IGNORE INTO site_visit_ips(day, ip) VALUES (?, ?)',
+                (today, ip or ''))
+    if cur.rowcount:
+        cur.execute('UPDATE site_visits SET uniq = uniq + 1 WHERE day = ?',
+                    (today,))
+    conn.commit()
+    conn.close()
 
-def load_visitors():
-    try:
-        if os.path.exists(VISITORS_FILE):
-            with open(VISITORS_FILE, 'r') as f:
-                return json.load(f)
-    except:
-        pass
-    return {'total': 0, 'today': 0, 'date': '', 'ips': []}
 
-def save_visitors(data):
-    try:
-        with open(VISITORS_FILE, 'w') as f:
-            json.dump(data, f)
-    except:
-        pass
+def _visit_totals():
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+    cur.execute('SELECT COALESCE(SUM(opens), 0) FROM site_visits')
+    total = cur.fetchone()[0] or 0
+    today = datetime.now().strftime('%Y-%m-%d')
+    cur.execute('SELECT opens, uniq FROM site_visits WHERE day = ?', (today,))
+    row = cur.fetchone()
+    conn.close()
+    return {'total': total,
+            'today_opens': row[0] if row else 0,
+            'today_uniq': row[1] if row else 0,
+            'date': today}
+
+
+# Purani visitors.json ka total ek dafa database mein le ao (migration)
+try:
+    _vf = os.path.join(os.path.expanduser("~"), "visitors.json")
+    if os.path.exists(_vf):
+        with open(_vf, 'r') as _f:
+            _vd = json.load(_f)
+        if int(_vd.get('total', 0)) > 0:
+            _c = sqlite3.connect(DB_FILE)
+            _c.execute('INSERT INTO site_visits(day, opens, uniq) VALUES (?, ?, ?) '
+                       'ON CONFLICT(day) DO UPDATE SET opens = opens + excluded.opens',
+                       (_vd.get('date') or datetime.now().strftime('%Y-%m-%d'),
+                        int(_vd.get('total', 0)), int(_vd.get('today', 0))))
+            _c.commit()
+            _c.close()
+        os.rename(_vf, _vf + '.imported')
+except Exception:
+    pass
+
 
 @app.before_request
 def track_visitor():
-    ip = request.remote_addr
-    today = datetime.now().strftime('%Y-%m-%d')
-    
-    data = load_visitors()
-    
-    if data['date'] != today:
-        data = {'total': data['total'], 'today': 0, 'date': today, 'ips': []}
-    
-    if ip not in data['ips']:
-        data['ips'].append(ip)
-        data['today'] += 1
-        data['total'] += 1
-        save_visitors(data)
+    try:
+        if request.method != 'GET':
+            return
+        p = request.path or '/'
+        if p.startswith('/api/') or p.startswith('/static/'):
+            return
+        last = p.rsplit('/', 1)[-1]
+        if '.' in last and not p.endswith('.html'):
+            return  # assets / apk / manifest / sw - page open nahi
+        if p != '/' and 'text/html' not in (request.headers.get('Accept') or ''):
+            return
+        _record_visit(request.remote_addr)
+    except Exception:
+        pass
+
 
 @app.route('/api/visitor-stats')
 def visitor_stats():
-    data = load_visitors()
+    v = _visit_totals()
     return jsonify({
-        'total_visitors': data['total'],
-        'today_visitors': data['today'],
-        'date': data['date']
+        'total_visitors': v['total'],
+        'total_visits': v['total'],
+        'today_visitors': v['today_uniq'],
+        'today_visits': v['today_opens'],
+        'date': v['date']
     })
 # ============================================================
 # ============ PLAYTUBE v2 (CHUZA) NEW FEATURES ==============
@@ -6645,6 +7529,7 @@ _AI_FILLER = [
     'mein', 'me', 'mai', 'par', 'ko', 'ka', 'ki', 'ke', 'ho', 'hai',
     'chahiye', 'chahye', 'lagao', 'laga do', 'bana do', 'de do',
     'in', 'quality', 'karo', 'kr', 'hd', 'full', 'the', 'a',
+    'trending', 'viral', 'latest',
 ]
 
 
@@ -6654,7 +7539,7 @@ def ai_parse_command(text):
     t = ' ' + raw.lower() + ' '
     parsed = {'raw': raw, 'intent': 'download', 'title': '', 'episodes': [],
               'quality': '360p', 'format': 'mp4', 'schedule_at': None,
-              'schedule_in_seconds': None}
+              'schedule_in_seconds': None, 'category': None}
 
     # ---- schedule ----
     iso = re.search(r'(\d{4}-\d{2}-\d{2})[ t](\d{2}:\d{2})', t)
@@ -6735,6 +7620,21 @@ def ai_parse_command(text):
             and 'download' not in raw.lower():
         parsed['intent'] = 'search'
 
+    # ---- category / type (Update 40): movie manga to movie hi mile,
+    # gana manga to gana — type title se alag pehchano ----
+    if 'naat' in t:
+        parsed['category'] = 'naat'
+    elif 'cartoon' in t:
+        parsed['category'] = 'cartoon'
+    elif 'bayan' in t or 'lecture' in t:
+        parsed['category'] = 'bayan'
+    elif 'movie' in t or 'film' in t:
+        parsed['category'] = 'movie'
+    elif 'drama' in t or 'serial' in t:
+        parsed['category'] = 'drama'
+    elif 'song' in t or 'gana' in t or 'geet' in t:
+        parsed['category'] = 'song'
+
     # ---- title cleanup (punctuation first, so "kar do," matches "kar do") ----
     title = re.sub(r'[^a-z0-9 ]', ' ', t)
     title = ' ' + re.sub(r'\s+', ' ', title).strip() + ' '
@@ -6767,6 +7667,127 @@ def _ai_search_first(query):
     except Exception:
         pass
     return None, None
+
+
+def _ai_pick_best(parsed):
+    """Single (non-episode) download ke liye BEHTREEN match (Update 40).
+
+    Pehla search result andha-dhund nahi uthaya jata — keywords aur
+    type (movie/song/naat...) ki jaanch hoti hai. Ghalat type (movie ki
+    jagah songs playlist waghera) reject ho jati hai; kuch qualify na
+    kare to (None, None) — ghalat video download nahi hoti.
+    """
+    title = parsed.get('title') or ''
+    cat = parsed.get('category')
+    cat_word = {'movie': 'movie', 'song': 'song', 'naat': 'naat',
+                'drama': 'drama', 'cartoon': 'cartoon',
+                'bayan': 'bayan'}.get(cat or '', '')
+    query = title
+    if cat_word and cat_word not in title.lower():
+        query = (title + ' ' + cat_word).strip()
+    try:
+        info = _extract_with_clients(
+            f"ytsearch12:{query}",
+            {'quiet': True, 'no_warnings': True, 'no_check_certificate': True,
+             'extract_flat': True, 'skip_download': True,
+             'ignoreerrors': True, 'socket_timeout': 20,
+             'retries': 2, 'extractor_retries': 2})
+    except Exception:
+        return None, None
+    entries = [e for e in ((info or {}).get('entries') or [])
+               if e and e.get('id')]
+    if not entries:
+        return None, None
+    _stop = {'tv', 'hd', 'full', 'new', 'official', 'the', 'a', 'an',
+             'hai', 'aur', 'video', 'videos'}
+    kws = [w for w in re.findall(r'[a-z0-9]+', title.lower())
+           if len(w) >= 3 and w not in _stop]
+
+    def _score(e):
+        tl = (e.get('title') or '').lower()
+        dur = e.get('duration') or 0
+        s = 0
+        if kws:
+            hit = sum(1 for k in kws if k in tl)
+            if hit < max(1, int(len(kws) * 0.6)):
+                return -999
+            s += hit * 3
+        if 'playlist' in tl:
+            s -= 6
+        if 'jukebox' in tl or 'compilation' in tl:
+            s -= 5
+        if cat == 'movie':
+            if 'song' in tl or 'audio' in tl:
+                s -= 6
+            if dur >= 1200:
+                s += 3
+            elif dur and dur < 300:
+                s -= 4
+        elif cat == 'song':
+            if dur and 60 <= dur <= 600:
+                s += 2
+            if 'full movie' in tl or 'full episode' in tl:
+                s -= 5
+        elif cat == 'naat':
+            if 'naat' in tl:
+                s += 3
+        elif cat == 'drama':
+            if 'episode' in tl or 'drama' in tl:
+                s += 2
+        if cat_word and cat_word in tl:
+            s += 2
+        return s
+
+    best = None
+    for e in entries:
+        sc = _score(e)
+        if sc <= -999:
+            continue
+        if best is None or sc > best[0]:
+            best = (sc, e['id'], e.get('title', query))
+    if best is None:
+        return None, None
+    if kws and best[0] < 3:
+        return None, None
+    return best[1], best[2]
+
+
+def _video_meta(vid):
+    """Ek video ka title (flat extraction, tez)."""
+    try:
+        info = _extract_with_clients(
+            f"https://www.youtube.com/watch?v={vid}",
+            {'quiet': True, 'no_warnings': True, 'no_check_certificate': True,
+             'extract_flat': True, 'skip_download': True, 'ignoreerrors': True,
+             'socket_timeout': 20, 'retries': 2, 'extractor_retries': 2})
+        if info:
+            return info.get('title')
+    except Exception:
+        pass
+    return None
+
+
+def _playlist_items(pid, vid=None):
+    """Playlist ki videos ki list [{video_id, title}] (Update 43)."""
+    if pid.startswith('RD') and vid:
+        _url = f"https://www.youtube.com/watch?v={vid}&list={pid}"
+    else:
+        _url = f"https://www.youtube.com/playlist?list={pid}"
+    try:
+        info = _extract_with_clients(
+            _url,
+            {'quiet': True, 'no_warnings': True, 'no_check_certificate': True,
+             'extract_flat': 'in_playlist', 'skip_download': True,
+             'ignoreerrors': True, 'socket_timeout': 25,
+             'retries': 2, 'extractor_retries': 2, 'playlistend': 60})
+        items = []
+        for e in (info or {}).get('entries') or []:
+            if e and e.get('id'):
+                items.append({'video_id': e['id'],
+                              'title': e.get('title') or 'Video'})
+        return items
+    except Exception:
+        return []
 
 
 def _ai_find_episode(show_title, ep):
@@ -6854,9 +7875,17 @@ def _ai_run_job(job_id):
         _save_ai_jobs()
     parsed = job['parsed']
     episodes = parsed.get('episodes') or [None]
+    direct_items = job.get('direct_items') or []
+    if direct_items:
+        episodes = [None] * len(direct_items)
     done = 0
     for idx, ep in enumerate(episodes):
-        query = f"{parsed['title']} episode {ep}" if ep else parsed['title']
+        if direct_items:
+            query = direct_items[idx]['title']
+        elif ep:
+            query = f"{parsed['title']} episode {ep}"
+        else:
+            query = parsed['title']
         with ai_jobs_lock:
             job['episodes_status'][idx] = {'episode': ep, 'query': query,
                                            'status': 'searching', 'attempts': 0}
@@ -6864,15 +7893,18 @@ def _ai_run_job(job_id):
         ok = False
         last_err = ''
         for attempt in range(1, 4):  # 1 try + up to 2 auto-retries
-            if ep:
+            if direct_items:
+                vid, vtitle = (direct_items[idx]['video_id'],
+                               direct_items[idx]['title'])
+            elif ep:
                 vid, vtitle, _found = _ai_find_episode(parsed['title'], ep)
                 if not _found:
                     last_err = f"Episode {ep} nahi mila - koi sahi result nahi aaya"
                     break
             else:
-                vid, vtitle = _ai_search_first(query)
+                vid, vtitle = _ai_pick_best(parsed)
             if not vid:
-                last_err = 'Search me nahi mila'
+                last_err = 'Search me sahi video nahi mili — naam thoda aur saaf likh kar try karein'
                 continue
             dl_id = f"ai_{job_id}_{idx}_{attempt}_{int(time.time())}"
             download_progress[dl_id] = {'status': 'starting', 'percent': 0,
@@ -6965,6 +7997,58 @@ def api_ai_command():
                         'ai_disabled': True}), 403
     parsed = ai_parse_command(text)
 
+    # Update 42: play/search sab ke liye khula, lekin AI DOWNLOAD
+    # (jo asal me ek download hai) ke liye account lazmi hai
+    if parsed['intent'] in ('download', 'playlist') and not session.get('user_id'):
+        return jsonify({'error': 'Download ke liye pehle account banayein / sign in karein',
+                        'login_required': True}), 403
+
+    # Update 43: AI ko LINK do to search ghumaye baghair seedha download —
+    # video link = wohi video, playlist link = poori playlist (pehli 50)
+    _urlm = re.search(r'https?://\S+', text)
+    if _urlm and parsed['intent'] in ('download', 'playlist'):
+        _url = _urlm.group(0).rstrip('.,)')
+        _vidm = re.search(r'(?:v=|youtu\.be/|/shorts/|/live/)([A-Za-z0-9_-]{11})', _url)
+        _listm = re.search(r'[?&]list=([A-Za-z0-9_-]+)', _url)
+        _want_pl = bool(_listm) and (parsed['intent'] == 'playlist'
+                                     or 'playlist' in _url or not _vidm)
+        _direct = None
+        if _want_pl:
+            _items = _playlist_items(_listm.group(1),
+                                     _vidm.group(1) if _vidm else None)
+            if _items:
+                _direct = _items[:50]
+                parsed['title'] = f"Playlist ({len(_direct)} videos)"
+            else:
+                return jsonify({'success': False, 'parsed': parsed,
+                                'message': '😔 Playlist khul nahi saki — link check karke dobara bhejein.'})
+        elif _vidm:
+            _t = _video_meta(_vidm.group(1))
+            _direct = [{'video_id': _vidm.group(1), 'title': _t or 'Video'}]
+            parsed['title'] = _direct[0]['title']
+        if _direct:
+            parsed['episodes'] = []
+            _jid = f"job_{int(time.time())}_{random.randint(1000, 9999)}"
+            _job = {'job_id': _jid, 'command': text, 'parsed': parsed,
+                    'status': 'queued', 'run_at_epoch': time.time(),
+                    'created_at': datetime.now().isoformat(),
+                    'direct_items': _direct,
+                    'episodes_status': [{'episode': None, 'status': 'pending',
+                                         'title': _it['title']} for _it in _direct],
+                    'completed_count': 0, 'total_count': len(_direct)}
+            with ai_jobs_lock:
+                ai_jobs[_jid] = _job
+                _save_ai_jobs()
+            _th = threading.Thread(target=_ai_run_job, args=(_jid,))
+            _th.daemon = True
+            _th.start()
+            _q = parsed['quality'] if parsed['format'] == 'mp4' else 'MP3'
+            return jsonify({'success': True, 'intent': 'download',
+                            'job_id': _jid, 'parsed': parsed,
+                            'message': (f"🔗 Link mil gaya! '{parsed['title']}' ki "
+                                        f"{len(_direct)} video(s) {_q} me download start kar di hain. "
+                                        f"Background me one by one hongi. Job ID: {_jid}")})
+
     # Non-download intents handled instantly
     if parsed['intent'] == 'search':
         items = []
@@ -7049,6 +8133,102 @@ def api_ai_command():
                     'parsed': parsed, 'message': msg})
 
 
+def _ocr_image(path):
+    """Tesseract se pic ka text parho. Binary na ho to None."""
+    try:
+        r = subprocess.run(['tesseract', path, 'stdout', '--psm', '6'],
+                           capture_output=True, text=True, timeout=60)
+        if r.returncode == 0:
+            return r.stdout or ''
+    except Exception:
+        pass
+    return None
+
+
+def _ocr_pick_title(ocr_text):
+    """OCR text se video ke title jaisi line chuno (Update 43)."""
+    lines = []
+    for ln in (ocr_text or '').splitlines():
+        ln = re.sub(r'\s+', ' ', ln).strip(' |•·-–—')
+        if len(ln) >= 4 and re.search(r'[A-Za-z]', ln):
+            lines.append(ln)
+    if not lines:
+        return ''
+    # UI junk lines hatao (views / subscribe / time waghera)
+    junk = ('views', 'subscribe', 'watching', 'premiered', 'streamed',
+            'subscribers', 'like', 'share', 'download')
+    good = [l for l in lines if not any(j in l.lower() for j in junk)]
+    pick = (good or lines)[:2]
+    title = ' '.join(pick)
+    title = re.sub(r'[^A-Za-z0-9 ]', ' ', title)
+    return re.sub(r'\s+', ' ', title).strip()
+
+
+@app.route('/api/ai/image', methods=['POST'])
+def api_ai_image():
+    """Update 43: AI ko pic do — title parh kar khud download start."""
+    if not session.get('user_id'):
+        return jsonify({'error': 'Download ke liye pehle account banayein / sign in karein',
+                        'login_required': True}), 403
+    if not feature_enabled('ai_enabled'):
+        return jsonify({'error': 'AI Assistant abhi band hai (admin ne off kiya hai)'}), 403
+    data = request.json or {}
+    b64 = (data.get('image') or '').split(',')[-1]
+    if not b64:
+        return jsonify({'success': False, 'message': 'Pic mili nahi — dobara bhejein.'}), 400
+    try:
+        raw = base64.b64decode(b64)
+    except Exception:
+        return jsonify({'success': False, 'message': 'Pic sahi nahi ayi — dobara bhejein.'}), 400
+    if len(raw) > 7 * 1024 * 1024:
+        return jsonify({'success': False, 'message': 'Pic bohat bari hai — chhoti pic bhejein.'}), 400
+    tmp_dir = os.path.join(DATA_DIR, 'ocr_tmp')
+    os.makedirs(tmp_dir, exist_ok=True)
+    path = os.path.join(tmp_dir, f"ocr_{int(time.time())}_{random.randint(100, 999)}.jpg")
+    with open(path, 'wb') as f:
+        f.write(raw)
+    try:
+        text = _ocr_image(path)
+    finally:
+        try:
+            os.remove(path)
+        except Exception:
+            pass
+    if text is None:
+        return jsonify({'success': False,
+                        'message': 'Pic parhne wala system (OCR) abhi server par available nahi hai — video ka naam likh kar command dein.'})
+    cand = _ocr_pick_title(text)
+    if len(cand.split()) < 2:
+        return jsonify({'success': False,
+                        'message': 'Pic se video ka naam saaf nahi parha ja saka — naam wali jagah saaf dikh rahi ho to dobara try karein, warna naam likh dein.'})
+    parsed = {'raw': cand, 'intent': 'download', 'title': cand.title(),
+              'episodes': [], 'quality': str(data.get('quality') or '360p'),
+              'format': 'mp3' if data.get('format') == 'mp3' else 'mp4',
+              'schedule_at': None, 'schedule_in_seconds': None, 'category': None}
+    vid, vtitle = _ai_pick_best(parsed)
+    if not vid:
+        return jsonify({'success': False,
+                        'message': f"🖼 Pic se ye parha: '{cand}' — lekin is naam ki video nahi mili. Naam likh kar try karein."})
+    parsed['title'] = vtitle
+    jid = f"job_{int(time.time())}_{random.randint(1000, 9999)}"
+    job = {'job_id': jid, 'command': 'pic: ' + cand, 'parsed': parsed,
+           'status': 'queued', 'run_at_epoch': time.time(),
+           'created_at': datetime.now().isoformat(),
+           'direct_items': [{'video_id': vid, 'title': vtitle}],
+           'episodes_status': [{'episode': None, 'status': 'pending', 'title': vtitle}],
+           'completed_count': 0, 'total_count': 1}
+    with ai_jobs_lock:
+        ai_jobs[jid] = job
+        _save_ai_jobs()
+    th = threading.Thread(target=_ai_run_job, args=(jid,))
+    th.daemon = True
+    th.start()
+    return jsonify({'success': True, 'job_id': jid, 'title': vtitle,
+                    'read_text': cand,
+                    'message': (f"🖼 Pic parh li! '{cand}' — video mil gayi: '{vtitle}'. "
+                                f"Download start kar di hai. Job ID: {jid}")})
+
+
 @app.route('/api/ai/jobs')
 def api_ai_jobs():
     with ai_jobs_lock:
@@ -7083,6 +8263,10 @@ def api_site_config():
         'announcement': get_announcement(),
         'prices': {k: v['price'] for k, v in PREMIUM_PLANS_PKR.items()},
         'apk_available': os.path.exists(_apk_file_path()),
+        'deals': get_deals(),
+        'guest_limit': get_guest_limit(),
+        'guest_used': (None if session.get('user_id')
+                       else _guest_count(_guest_device_id())),
     })
 
 
@@ -7123,6 +8307,18 @@ def api_admin_v4_settings():
             settings['feature_toggles'] = t
         if 'announcement' in data:
             settings['announcement'] = str(data.get('announcement') or '')[:300]
+        if 'maintenance_message' in data:
+            settings['maintenance_message'] = str(
+                data.get('maintenance_message') or '')[:200]
+        if data.get('reset_private_pin'):
+            settings.pop('private_pin_hash', None)
+            session.pop('pt_private', None)
+        if 'guest_download_limit' in data:
+            try:
+                settings['guest_download_limit'] = min(
+                    1000, max(0, int(data['guest_download_limit'])))
+            except (TypeError, ValueError):
+                pass
         if isinstance(data.get('prices'), dict):
             prices = dict(settings.get('premium_prices') or {})
             for k in ('weekly', 'monthly', 'yearly'):
@@ -7147,6 +8343,31 @@ def api_admin_v4_settings():
                 else:
                     accounts.pop(method, None)
             settings['payment_accounts'] = accounts
+        if isinstance(data.get('deals'), list):
+            def _deal_int(v):
+                try:
+                    return max(0, int(v))
+                except (TypeError, ValueError):
+                    return 0
+            clean_deals = []
+            for it in data['deals'][:24]:
+                if not isinstance(it, dict):
+                    continue
+                dname = str(it.get('name', '')).strip()[:60]
+                if not dname:
+                    continue
+                dlink = str(it.get('link', '')).strip()[:500]
+                if dlink and not (dlink.startswith('http://')
+                                  or dlink.startswith('https://')):
+                    dlink = ''
+                clean_deals.append({
+                    'name': dname,
+                    'emoji': (str(it.get('emoji', '🛒')).strip()[:8] or '🛒'),
+                    'old_price': _deal_int(it.get('old_price')),
+                    'new_price': _deal_int(it.get('new_price')),
+                    'badge': str(it.get('badge', '')).strip()[:10],
+                    'link': dlink})
+            settings['deals'] = clean_deals
         save_site_settings(settings)
         _rebuild_payment_accounts()
         settings = load_site_settings()
@@ -7155,6 +8376,10 @@ def api_admin_v4_settings():
         'announcement': settings.get('announcement', ''),
         'prices': {k: v['price'] for k, v in PREMIUM_PLANS_PKR.items()},
         'payment_accounts': settings.get('payment_accounts', {}),
+        'deals': get_deals(),
+        'guest_download_limit': get_guest_limit(),
+        'maintenance_message': settings.get('maintenance_message', ''),
+        'pin_set': bool(settings.get('private_pin_hash')),
     })
 
 
@@ -7174,8 +8399,12 @@ def api_admin_v4_stats():
     downloads_today = sum(1 for v in downloaded_files.values()
                           if v.get('status', 'completed') == 'completed'
                           and str(v.get('timestamp', '')).startswith(today))
+    visits = _visit_totals()
     return jsonify({'total_users': total_users, 'downloads_today': downloads_today,
-                    'pending_premium_requests': pending})
+                    'pending_premium_requests': pending,
+                    'total_visits': visits['total'],
+                    'today_visits': visits['today_opens'],
+                    'today_unique': visits['today_uniq']})
 
 
 @app.route('/api/admin/v4-users')
