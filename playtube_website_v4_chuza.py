@@ -3418,6 +3418,14 @@ Downloads background me one by one chalte rahen ge.</div>
         <button class="v4-chip v4-fchip" data-w="home" data-t="movies" onclick="v4SetFilter(this)">🎬 Movies</button>
         <button class="v4-chip v4-fchip" data-w="home" data-t="kids" onclick="v4SetFilter(this)">🧒 Kids</button>
       </div>
+      <div class="v4-chips" id="v4-sub-home" style="display:none">
+        <button class="v4-chip v4-dchip on" data-w="home" data-s="all" onclick="v4SetDramaSub(this)">All</button>
+        <button class="v4-chip v4-dchip" data-w="home" data-s="pakistani" onclick="v4SetDramaSub(this)">🇵🇰 Pakistani</button>
+        <button class="v4-chip v4-dchip" data-w="home" data-s="indian" onclick="v4SetDramaSub(this)">🇮🇳 Indian</button>
+        <button class="v4-chip v4-dchip" data-w="home" data-s="turkish" onclick="v4SetDramaSub(this)">🇹🇷 Turkish</button>
+        <button class="v4-chip v4-dchip" data-w="home" data-s="dubbed" onclick="v4SetDramaSub(this)">🌐 Dubbed</button>
+        <button class="v4-chip v4-dchip" data-w="home" data-s="webseries" onclick="v4SetDramaSub(this)">🍿 Web Series</button>
+      </div>
       <div class="v4-h" id="v4-home-heading">Trending Videos</div>
       <div id="v4-home-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
     </section>
@@ -3435,6 +3443,14 @@ Downloads background me one by one chalte rahen ge.</div>
         <button class="v4-chip v4-fchip" data-w="youtube" data-t="dramas" onclick="v4SetFilter(this)">🎭 Dramas</button>
         <button class="v4-chip v4-fchip" data-w="youtube" data-t="movies" onclick="v4SetFilter(this)">🎬 Movies</button>
         <button class="v4-chip v4-fchip" data-w="youtube" data-t="kids" onclick="v4SetFilter(this)">🧒 Kids</button>
+      </div>
+      <div class="v4-chips" id="v4-sub-youtube" style="display:none">
+        <button class="v4-chip v4-dchip on" data-w="youtube" data-s="all" onclick="v4SetDramaSub(this)">All</button>
+        <button class="v4-chip v4-dchip" data-w="youtube" data-s="pakistani" onclick="v4SetDramaSub(this)">🇵🇰 Pakistani</button>
+        <button class="v4-chip v4-dchip" data-w="youtube" data-s="indian" onclick="v4SetDramaSub(this)">🇮🇳 Indian</button>
+        <button class="v4-chip v4-dchip" data-w="youtube" data-s="turkish" onclick="v4SetDramaSub(this)">🇹🇷 Turkish</button>
+        <button class="v4-chip v4-dchip" data-w="youtube" data-s="dubbed" onclick="v4SetDramaSub(this)">🌐 Dubbed</button>
+        <button class="v4-chip v4-dchip" data-w="youtube" data-s="webseries" onclick="v4SetDramaSub(this)">🍿 Web Series</button>
       </div>
       <div class="v4-h">YouTube Videos</div>
       <div id="v4-youtube-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
@@ -3868,9 +3884,9 @@ const v4FeedObs = ('IntersectionObserver' in window) ? new IntersectionObserver(
 function v4FeedSentinelHTML(elId){
   return '<div class="v4-more" data-feed="' + elId + '" style="grid-column:1 / -1;text-align:center;padding:16px"><span class="v4-muted">Aur videos load ho rahi hain...</span></div>';
 }
-async function v4LoadFeed(elId, q, type){
+async function v4LoadFeed(elId, q, type, sub){
   const el = v4$(elId); if(!el) return;
-  v4FeedState[elId] = {q:q, type:(type || 'videos'), page:0, seen:{}, loading:false, done:false};
+  v4FeedState[elId] = {q:q, type:(type || 'videos'), sub:(sub || ''), page:0, seen:{}, loading:false, done:false};
   el.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
   await v4FeedMore(elId, true);
 }
@@ -3881,7 +3897,7 @@ async function v4FeedMore(elId, first){
   let added = 0, tries = 0, failed = false;
   while(tries < 3 && added < 8 && !st.done){
     tries++;
-    const r = await v4Fetch('/api/feed?q=' + encodeURIComponent(st.q) + '&page=' + st.page + '&type=' + (st.type || 'videos') + '&r=' + v4FeedSession + '&int=' + encodeURIComponent(v4InterestTop(5).join('|')));
+    const r = await v4Fetch('/api/feed?q=' + encodeURIComponent(st.q) + '&page=' + st.page + '&type=' + (st.type || 'videos') + (st.sub ? '&sub=' + st.sub : '') + '&r=' + v4FeedSession + '&int=' + encodeURIComponent(v4InterestTop(5).join('|')));
     if(!(r.ok && r.data && r.data.items)){ failed = true; break; }
     st.page++;
     if(r.data.has_more === false) st.done = true;
@@ -3971,6 +3987,7 @@ function v4FrameLoadQualities(id){
     if(r.ok && r.data && r.data.qualities && r.data.qualities.length){
       r.data.qualities.forEach(function(q){ html += '<button data-q="' + q.height + '" onclick="v4FrameSetQ(' + q.height + ')" style="display:block;width:100%;text-align:left;background:none;border:0;color:#eceaf6;font-size:13.5px;padding:8px 10px;border-radius:8px;cursor:pointer">' + q.label + '</button>'; });
     }
+    html += '<button onclick="v4FrameFallback()" style="display:block;width:100%;text-align:left;background:none;border:0;color:#7ee8d8;font-size:13.5px;padding:8px 10px;border-radius:8px;cursor:pointer">📺 Sab se best HD — YouTube player</button>';
     mn.innerHTML = html; v4FrameMarkQ();
   });
 }
@@ -4672,7 +4689,23 @@ function v4SetFilter(btn){
   const feedId = 'v4-' + w + '-feed';
   const st = v4FeedState[feedId];
   const q = (st && st.q) || (w === 'youtube' ? 'trending videos' : (w === 'music' ? 'trending songs' : 'trending'));
-  v4LoadFeed(feedId, q, t);
+  const subRow = v4$('v4-sub-' + w);
+  if(t === 'dramas'){
+    let cur = 'all';
+    if(subRow){ subRow.style.display = ''; const onB = subRow.querySelector('.v4-dchip.on'); if(onB) cur = onB.getAttribute('data-s') || 'all'; }
+    v4LoadFeed(feedId, q, t, cur);
+  } else {
+    if(subRow) subRow.style.display = 'none';
+    v4LoadFeed(feedId, q, t);
+  }
+}
+function v4SetDramaSub(btn){
+  const w = btn.getAttribute('data-w'), s = btn.getAttribute('data-s');
+  document.querySelectorAll('.v4-dchip[data-w="' + w + '"]').forEach(function(b){ b.classList.toggle('on', b === btn); });
+  const feedId = 'v4-' + w + '-feed';
+  const st = v4FeedState[feedId];
+  const q = (st && st.q) || (w === 'youtube' ? 'trending videos' : 'trending');
+  v4LoadFeed(feedId, q, 'dramas', s);
 }
 function v4RenderDeals(deals){
   const box = v4$('v4-deals'); if(!box) return;
@@ -5682,7 +5715,20 @@ def api_feed():
         # Update 74: Dramas / Kids chips — generic feed par apna pool,
         # search par wohi lafz + category
         if ftype == 'dramas':
-            base_pool = list(FEED_DRAMA_POOL) if ('trend' in ql or not ql) else [q + ' drama episode']
+            # Update 75: Dramas ke andar 6 sub-options
+            _DRAMA_SUBS = {
+                'pakistani': (['pakistani drama episode', 'hum tv drama', 'ary digital drama', 'geo tv drama', 'green tv drama', 'new pakistani drama 2026'], ' pakistani drama'),
+                'indian': (['indian drama serial', 'hindi tv serial', 'star plus drama', 'zee tv serial', 'colors tv drama', 'indian serial episode'], ' indian drama serial'),
+                'turkish': (['turkish drama in urdu', 'turkish drama hindi dubbed', 'ertugrul in urdu', 'kurulus osman urdu dubbed', 'turkish serial urdu dubbed'], ' turkish drama urdu dubbed'),
+                'dubbed': (['korean drama hindi dubbed', 'chinese drama hindi dubbed', 'kdrama hindi dubbed', 'thai drama hindi dubbed', 'dubbed drama hindi urdu'], ' hindi dubbed drama'),
+                'webseries': (['netflix series hindi dubbed', 'english web series trending', 'amazon prime series hindi dubbed', 'mx player web series', 'best web series hindi dubbed'], ' web series'),
+            }
+            _sub = (request.args.get('sub', 'all') or 'all').strip().lower()
+            if _sub in _DRAMA_SUBS:
+                _pool, _suffix = _DRAMA_SUBS[_sub]
+                base_pool = list(_pool) if ('trend' in ql or not ql) else [q + _suffix]
+            else:
+                base_pool = list(FEED_DRAMA_POOL) if ('trend' in ql or not ql) else [q + ' drama episode']
         else:
             base_pool = list(FEED_KIDS_POOL) if ('trend' in ql or not ql) else [q + ' for kids']
         merged = []
