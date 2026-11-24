@@ -799,7 +799,14 @@ def is_premium_user(user_id):
 
 
 # Download directories
-DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), "Downloads", "Playza")
+# Update 67: downloads hamesha save — asal jagah persistent DATA_DIR
+# (Railway par /data volume) hai, taake website update/restart par
+# downloads aur un ki list na ure. PLAYTUBE_DL_LEGACY=1 ho to purani
+# home wali jagah istemal hoti hai.
+if os.environ.get('PLAYTUBE_DL_LEGACY'):
+    DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), "Downloads", "Playza")
+else:
+    DOWNLOAD_DIR = os.path.join(DATA_DIR, "downloads")
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
