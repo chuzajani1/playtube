@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg aria2 \
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY playtube_website_v2_chuza.py .
+COPY playtube_website_v3_chuza.py .
 
 ENV PYTHONUNBUFFERED=1
-EXPOSE 10000
-CMD ["sh", "-c", "gunicorn --workers 1 --threads 8 --timeout 300 --bind 0.0.0.0:$PORT playtube_website_v2_chuza:app"]
+EXPOSE 7860
+CMD ["sh", "-c", "gunicorn --workers 1 --threads 8 --timeout 300 --bind 0.0.0.0:${PORT:-7860} playtube_website_v3_chuza:app"]
