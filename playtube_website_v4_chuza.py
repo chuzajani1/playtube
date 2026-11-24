@@ -3518,7 +3518,7 @@ Downloads background me one by one chalte rahen ge.</div>
         <button class="v4-searchbtn" type="button"><i class="fa-solid fa-magnifying-glass"></i></button>
       </div>
       <div id="v4-dl-stats" class="v4-dlstats" style="display:none"></div>
-      <div class="v4-sect">DOWNLOADING</div>
+      <div class="v4-sect">DOWNLOADING <span id="v4-dl-actcount"></span></div>
       <div id="v4-dl-active"><p class="v4-muted">Koi download nahi chal raha</p></div>
       <div class="v4-sect">DOWNLOADED</div>
       <div id="v4-dl-done"><p class="v4-muted">Abhi tak koi download nahi</p></div>
@@ -4227,6 +4227,7 @@ function v4DlSelectMode(){ v4DlSel.on = !v4DlSel.on; if(!v4DlSel.on) v4DlSel.set
 function v4DlToggleSel(id){ if(v4DlSel.set[id]) delete v4DlSel.set[id]; else v4DlSel.set[id] = 1; v4RenderDownloads(); }
 function v4DlSelectAll(){
   const ids = (v4DlData.list || []).map(function(d){ return d.downloadId; });
+  Object.keys(v4DlData.progress || {}).forEach(function(id){ const s = v4DlData.progress[id]; if(['starting','downloading','processing','paused'].indexOf(s.status) >= 0 && ids.indexOf(id) < 0) ids.push(id); });
   const allOn = ids.length && ids.every(function(id){ return v4DlSel.set[id]; });
   v4DlSel.set = {}; if(!allOn) ids.forEach(function(id){ v4DlSel.set[id] = 1; });
   v4RenderDownloads();
@@ -4321,10 +4322,15 @@ function v4RenderDownloads(){
     const pct = s.percent || 0;
     const meta = [s.quality || s.format_type || '', s.status === 'paused' ? 'Ruka hua' : (pct + '%'), s.speed || ''].filter(Boolean).join(' • ');
     const btn = s.status === 'paused'
-      ? '<button class="v4-roundbtn teal" title="Resume" data-id="' + a.id + '" onclick="v4ResumeDl(this.dataset.id)">▶</button>'
-      : '<button class="v4-roundbtn" title="Pause" data-id="' + a.id + '" onclick="v4PauseDl(this.dataset.id)">❚❚</button>';
-    return '<div class="v4-dlrow">' + (vid ? v4Img(vid) : '<span style="width:64px"></span>') + '<div class="tt"><div class="t1">' + v4Esc(title) + '</div><div class="v4-bar"><i style="width:' + pct + '%"></i></div><div class="t2">' + v4Esc(meta) + '</div></div>' + btn + '</div>';
+      ? '<button class="v4-roundbtn teal" title="Resume" data-id="' + a.id + '" onclick="event.stopPropagation();v4ResumeDl(this.dataset.id)">▶</button>'
+      : '<button class="v4-roundbtn" title="Pause" data-id="' + a.id + '" onclick="event.stopPropagation();v4PauseDl(this.dataset.id)">❚❚</button>';
+    const del = '<button class="v4-roundbtn" title="Delete" data-id="' + a.id + '" onclick="event.stopPropagation();v4DeleteActiveDl(this.dataset.id)">🗑</button>';
+    const isSelA = v4DlSel.on && !!v4DlSel.set[a.id];
+    const chk = v4DlSel.on ? '<span class="v4-check' + (isSelA ? ' on' : '') + '">✓</span>' : '';
+    const rowClk = v4DlSel.on ? ' data-id="' + a.id + '" onclick="v4DlToggleSel(this.dataset.id)"' : '';
+    return '<div class="v4-dlrow' + (isSelA ? ' sel' : '') + '"' + rowClk + '>' + chk + (vid ? v4Img(vid) : '<span style="width:64px"></span>') + '<div class="tt"><div class="t1">' + v4Esc(title) + '</div><div class="v4-bar"><i style="width:' + pct + '%"></i></div><div class="t2">' + v4Esc(meta) + '</div></div>' + btn + del + '</div>';
   };
+  const acEl = v4$('v4-dl-actcount'); if(acEl) acEl.textContent = act.length ? '(' + act.length + ')' : '';
   v4$('v4-dl-active').innerHTML = act.length ? act.map(rowAct).join('') : '<p class="v4-muted">Koi download nahi chal raha</p>';
   const rowDone = function(d){
     const title = d.title || ''; if(f && title.toLowerCase().indexOf(f) < 0) return '';
@@ -4349,6 +4355,7 @@ function v4RenderDownloads(){
 }
 async function v4PauseDl(id){ await v4Post('/api/cancel-download/' + id, {}); v4LoadDownloads(); }
 async function v4ResumeDl(id){ const r = await v4Post('/api/resume-download/' + id, {}); if(!r.ok) v4Toast((r.data && r.data.error) || 'Resume nahi ho saka'); v4LoadDownloads(); }
+async function v4DeleteActiveDl(id){ if(!confirm('Ye downloading video delete kar dein? Download ruk jayegi aur aadhi file saaf ho jayegi.')) return; await v4Fetch('/api/delete-download/' + id, {method:'DELETE'}); v4Toast('Download delete ho gaya'); v4LoadDownloads(); }
 async function v4DeleteDl(id){ if(!confirm('Ye download delete kar dein?')) return; await v4Fetch('/api/delete-download/' + id, {method:'DELETE'}); v4LoadDownloads(); }
 async function v4DeleteAll(){ if(!confirm('Saare downloads delete kar dein?')) return; await v4Fetch('/api/delete-all-downloads', {method:'DELETE'}); v4LoadDownloads(); v4Toast('Saare downloads delete ho gaye'); }
 function v4Tick(){
@@ -6751,7 +6758,8 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
 
             download_progress[download_id] = {
                 'status': 'downloading', 'percent': percent, 'speed': speed_str,
-                'speed_bytes': speed or 0, 'error': None}
+                'speed_bytes': speed or 0, 'error': None,
+                'filename': d.get('filename')}
         elif d['status'] == 'finished':
             download_progress[download_id] = {
                 'status': 'processing', 'percent': 100, 'speed': '', 'error': None}
@@ -6909,6 +6917,13 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
                     return
                 error_msg = 'Download failed - no file produced'
     except Exception as e:
+        if download_control.get(download_id, {}).get('deleted'):
+            download_progress.pop(download_id, None)
+            download_control.pop(download_id, None)
+            if download_id in download_meta:
+                del download_meta[download_id]
+                _save_download_meta()
+            return
         if download_control.get(download_id, {}).get('cancel'):
             _pp = download_progress.get(download_id, {})
             download_progress[download_id] = {'status': 'paused',
@@ -6924,6 +6939,13 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
                                           _client_idx + 1, title_hint, _retry_pass)
         error_msg = re.sub(r'\x1b\[[0-9;]*m', '', str(e))
 
+    if download_control.get(download_id, {}).get('deleted'):
+        download_progress.pop(download_id, None)
+        download_control.pop(download_id, None)
+        if download_id in download_meta:
+            del download_meta[download_id]
+            _save_download_meta()
+        return
     if download_control.get(download_id, {}).get('cancel'):
         _pp = download_progress.get(download_id, {})
         download_progress[download_id] = {'status': 'paused',
@@ -7720,8 +7742,29 @@ def api_downloads_private():
 
 @app.route('/api/delete-download/<download_id>', methods=['DELETE'])
 def delete_download(download_id):
+    # Update 69: chalti hui (downloading/paused) download bhi delete —
+    # cancel+deleted flag se thread ruk jata hai, progress/meta aur
+    # aadhi (.part) file bhi saaf hoti hai.
+    _prog = download_progress.get(download_id) or {}
+    _partfile = _prog.get('filename')
+    if download_id in download_progress or download_id in download_meta:
+        download_control[download_id] = {'cancel': True, 'deleted': True}
+        download_progress.pop(download_id, None)
+        if download_id in download_meta:
+            del download_meta[download_id]
+            _save_download_meta()
+    if _partfile:
+        import glob as _glob
+        try:
+            for _pf in _glob.glob(_glob.escape(_partfile) + '.part*'):
+                try:
+                    os.remove(_pf)
+                except Exception:
+                    pass
+        except Exception:
+            pass
     file_path = None
-    
+
     if download_id in downloaded_files:
         file_path = downloaded_files[download_id].get('file_path')
         del downloaded_files[download_id]
