@@ -3414,8 +3414,9 @@ Downloads background me one by one chalte rahen ge.</div>
         <button class="v4-chip v4-fchip" data-w="home" data-t="videos" onclick="v4SetFilter(this)">Videos</button>
         <button class="v4-chip v4-fchip" data-w="home" data-t="playlists" onclick="v4SetFilter(this)">Playlists</button>
         <button class="v4-chip v4-fchip" data-w="home" data-t="shorts" onclick="v4SetFilter(this)">Shorts</button>
-        <button class="v4-chip v4-fchip" data-w="home" data-t="live" onclick="v4SetFilter(this)">🔴 Live</button>
+        <button class="v4-chip v4-fchip" data-w="home" data-t="dramas" onclick="v4SetFilter(this)">🎭 Dramas</button>
         <button class="v4-chip v4-fchip" data-w="home" data-t="movies" onclick="v4SetFilter(this)">🎬 Movies</button>
+        <button class="v4-chip v4-fchip" data-w="home" data-t="kids" onclick="v4SetFilter(this)">🧒 Kids</button>
       </div>
       <div class="v4-h" id="v4-home-heading">Trending Videos</div>
       <div id="v4-home-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
@@ -3431,8 +3432,9 @@ Downloads background me one by one chalte rahen ge.</div>
         <button class="v4-chip v4-fchip" data-w="youtube" data-t="videos" onclick="v4SetFilter(this)">Videos</button>
         <button class="v4-chip v4-fchip" data-w="youtube" data-t="playlists" onclick="v4SetFilter(this)">Playlists</button>
         <button class="v4-chip v4-fchip" data-w="youtube" data-t="shorts" onclick="v4SetFilter(this)">Shorts</button>
-        <button class="v4-chip v4-fchip" data-w="youtube" data-t="live" onclick="v4SetFilter(this)">🔴 Live</button>
+        <button class="v4-chip v4-fchip" data-w="youtube" data-t="dramas" onclick="v4SetFilter(this)">🎭 Dramas</button>
         <button class="v4-chip v4-fchip" data-w="youtube" data-t="movies" onclick="v4SetFilter(this)">🎬 Movies</button>
+        <button class="v4-chip v4-fchip" data-w="youtube" data-t="kids" onclick="v4SetFilter(this)">🧒 Kids</button>
       </div>
       <div class="v4-h">YouTube Videos</div>
       <div id="v4-youtube-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
@@ -3446,8 +3448,9 @@ Downloads background me one by one chalte rahen ge.</div>
       <div class="v4-chips">
         <button class="v4-chip v4-fchip on" data-w="music" data-t="all" onclick="v4SetFilter(this)">All</button>
         <button class="v4-chip v4-fchip" data-w="music" data-t="videos" onclick="v4SetFilter(this)">Videos</button>
+        <button class="v4-chip v4-fchip" data-w="music" data-t="mp3" onclick="v4SetFilter(this)">🎵 MP3</button>
         <button class="v4-chip v4-fchip" data-w="music" data-t="playlists" onclick="v4SetFilter(this)">Playlists</button>
-        <button class="v4-chip v4-fchip" data-w="music" data-t="shorts" onclick="v4SetFilter(this)">Shorts</button>
+        <button class="v4-chip v4-fchip" data-w="music" data-t="naat" onclick="v4SetFilter(this)">🌙 Naat</button>
       </div>
       <div class="v4-h">Music</div>
       <div id="v4-music-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
@@ -3494,12 +3497,13 @@ Downloads background me one by one chalte rahen ge.</div>
         <iframe id="v4-player" style="display:none" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" title="Playza player"></iframe>
         <div class="v4-fbadge">▶ Playza</div>
         <div class="v4-fspin" id="v4-fspin"></div>
+        <div id="v4-fqmenu" style="display:none;position:absolute;right:8px;bottom:58px;z-index:6;background:rgba(10,8,24,.97);border:1px solid #2c2852;border-radius:12px;padding:6px;min-width:158px;max-height:240px;overflow:auto"></div>
         <button class="v4-fbig" id="v4-fbig" onclick="v4FrameToggle()">▶</button>
         <div class="v4-fctrls" id="v4-fctrls">
           <button class="v4-fbtn" id="v4-fplay" onclick="v4FrameToggle()">▶</button>
           <input type="range" id="v4-fseek" min="0" max="1000" value="0" oninput="v4FrameSeek(this)">
           <span class="v4-ftime" id="v4-ftime">0:00 / 0:00</span>
-          <button class="v4-fbtn" onclick="v4FrameFull()">⛶</button>
+          <button class="v4-fbtn" id="v4-fgear" title="Quality" onclick="v4FrameQualityMenu(event)">⚙</button><button class="v4-fbtn" onclick="v4FrameFull()">⛶</button>
         </div>
       </div></div>
       <div id="v4-faltrow" style="display:none;margin-top:8px"><button class="v4-iconbtn" style="width:100%" onclick="v4FrameFallback()">▶ Play dair se ho raha hai? YouTube player par dekhein (halki quality)</button></div>
@@ -3823,16 +3827,22 @@ function v4TopTab(t){ v4Show(t === 'search' ? 'home' : t); }
 
 /* ---------- feeds & cards (ONE renderer — Bug #1/#2) ---------- */
 function v4Norm(item){ const id = (item.id && item.id.videoId) || item.id || item.video_id || ''; const sn = item.snippet || {}; return {videoId:id, title:sn.title || item.title || '', channel:sn.channelTitle || item.channel || '', duration:item.duration || '', views:item.view_count || ''}; }
+let v4AudioCards = false;
+function v4Mp3Click(id){ v4DlClick(null, id); }
 function v4CardHTML(v){
   const meta = [v4Esc(v.channel), v4Views(v.views)].filter(Boolean).join(' • ');
-  return '<div class="v4-vcard"><div class="v4-thumb" data-id="' + v.videoId + '" onclick="v4WatchClick(this.dataset.id)">' + v4Img(v.videoId) + (v.duration ? '<span class="v4-dur">' + v4Dur(v.duration) + '</span>' : '') + '</div>' +
-    '<div class="v4-vrow"><div class="v4-vtexts" data-id="' + v.videoId + '" onclick="v4WatchClick(this.dataset.id)"><div class="v4-vtitle">' + v4Esc(v.title) + '</div>' + (meta ? '<div class="v4-vmeta">' + meta + '</div>' : '') + '</div>' +
-    '<button class="v4-dlbtn" title="Download" data-id="' + v.videoId + '" onclick="v4DlClick(event, this.dataset.id)">↓</button></div></div>';
+  const tap = v4AudioCards ? 'v4Mp3Click' : 'v4WatchClick';
+  const badge = v4AudioCards ? '<span class=\"v4-dur\" style=\"left:6px;right:auto\">🎵 MP3</span>' : '';
+  return '<div class=\"v4-vcard\"><div class=\"v4-thumb\" data-id=\"' + v.videoId + '\" onclick=\"' + tap + '(this.dataset.id)\">' + v4Img(v.videoId) + badge + (v.duration ? '<span class=\"v4-dur\">' + v4Dur(v.duration) + '</span>' : '') + '</div>' +
+    '<div class=\"v4-vrow\"><div class=\"v4-vtexts\" data-id=\"' + v.videoId + '\" onclick=\"' + tap + '(this.dataset.id)\"><div class=\"v4-vtitle\">' + v4Esc(v.title) + '</div>' + (meta ? '<div class=\"v4-vmeta\">' + meta + '</div>' : '') + '</div>' +
+    '<button class=\"v4-dlbtn\" title=\"Download\" data-id=\"' + v.videoId + '\" onclick=\"v4DlClick(event, this.dataset.id)\">' + (v4AudioCards ? '🎵' : '↓') + '</button></div></div>';
 }
 function v4RenderCards(elId, items){
   const el = v4$(elId);
   if(!items || !items.length){ el.innerHTML = '<p class="v4-muted">Kuch nahi mila — dobara try karein.</p>'; return; }
+  v4AudioCards = (elId === 'v4-music-feed' && v4FeedState[elId] && v4FeedState[elId].type === 'mp3');
   el.innerHTML = items.map(function(it){ const v = v4Norm(it); if(!v.videoId) return ''; v4Videos[v.videoId] = v; return v4CardHTML(v); }).join('');
+  v4AudioCards = false;
 }
 /* ---------- infinite feed (Update 33): scroll = nayi videos ---------- */
 const v4FeedState = {};
@@ -3875,6 +3885,7 @@ async function v4FeedMore(elId, first){
     if(!(r.ok && r.data && r.data.items)){ failed = true; break; }
     st.page++;
     if(r.data.has_more === false) st.done = true;
+    v4AudioCards = (elId === 'v4-music-feed' && st.type === 'mp3');
     let pageHtml = '', pageCount = 0;
     r.data.items.forEach(function(it){
       if(it.kind === 'playlist'){
@@ -3885,6 +3896,7 @@ async function v4FeedMore(elId, first){
         if(v.videoId && !st.seen[v.videoId]){ st.seen[v.videoId] = 1; v4Videos[v.videoId] = v; pageHtml += v4CardHTML(v); pageCount++; }
       }
     });
+    v4AudioCards = false;
     if(pageCount){
       if(first && added === 0) el.innerHTML = pageHtml;
       else { const old = el.querySelector('.v4-more'); if(old) old.remove(); el.insertAdjacentHTML('beforeend', pageHtml); }
@@ -3934,6 +3946,46 @@ function v4FrameShowCtrls(){
   if(v4FrameTimer) clearTimeout(v4FrameTimer);
   v4FrameTimer = setTimeout(function(){ const vd = v4$('v4-video'); if(vd && !vd.paused && vd.style.display !== 'none') v4$('v4-fctrls').classList.add('hide'); }, 2600);
 }
+let v4FrameQ = 0;
+let v4FrameId = '';
+function v4FrameQualityMenu(ev){
+  if(ev) ev.stopPropagation();
+  const mn = v4$('v4-fqmenu'); if(!mn) return;
+  mn.style.display = (mn.style.display === 'none' || !mn.style.display) ? '' : 'none';
+}
+function v4FrameMarkQ(){
+  const mn = v4$('v4-fqmenu'); if(!mn) return;
+  mn.querySelectorAll('[data-q]').forEach(function(b){
+    const on = Number(b.getAttribute('data-q')) === v4FrameQ;
+    b.style.background = on ? 'linear-gradient(90deg,#7c5cff,#14b8a6)' : 'transparent';
+    b.style.color = on ? '#fff' : '#eceaf6';
+    b.style.fontWeight = on ? '800' : '400';
+  });
+}
+function v4FrameLoadQualities(id){
+  const mn = v4$('v4-fqmenu'); if(!mn) return;
+  mn.innerHTML = '<div style="padding:7px 10px;color:#a49ec4;font-size:12.5px">Quality load ho rahi hai...</div>';
+  v4Fetch('/api/stream-qualities/' + id).then(function(r){
+    let html = '<div style="padding:6px 10px 4px;color:#a49ec4;font-size:11px;font-weight:700;letter-spacing:.5px">QUALITY</div>';
+    html += '<button data-q="0" onclick="v4FrameSetQ(0)" style="display:block;width:100%;text-align:left;background:none;border:0;color:#eceaf6;font-size:13.5px;padding:8px 10px;border-radius:8px;cursor:pointer">Auto (halki, tez)</button>';
+    if(r.ok && r.data && r.data.qualities && r.data.qualities.length){
+      r.data.qualities.forEach(function(q){ html += '<button data-q="' + q.height + '" onclick="v4FrameSetQ(' + q.height + ')" style="display:block;width:100%;text-align:left;background:none;border:0;color:#eceaf6;font-size:13.5px;padding:8px 10px;border-radius:8px;cursor:pointer">' + q.label + '</button>'; });
+    }
+    mn.innerHTML = html; v4FrameMarkQ();
+  });
+}
+function v4FrameSetQ(h){
+  v4FrameQ = h;
+  const mn = v4$('v4-fqmenu'); if(mn) mn.style.display = 'none';
+  const vd = v4$('v4-video'); if(!vd || !v4FrameId) return;
+  const t = vd.currentTime || 0; const wasPaused = vd.paused;
+  v4$('v4-fspin').style.display = 'block';
+  vd.src = '/api/stream/' + v4FrameId + (h ? ('?q=' + h) : '');
+  const onMeta = function(){ try{ vd.currentTime = t; }catch(e){} if(!wasPaused){ const p = vd.play(); if(p && p.catch) p.catch(function(){}); } vd.removeEventListener('loadedmetadata', onMeta); };
+  vd.addEventListener('loadedmetadata', onMeta);
+  if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog);
+  v4FrameWatchdog = setTimeout(function(){ const v2 = v4$('v4-video'); if(v2 && v2.style.display !== 'none' && v2.readyState < 3) v4FrameFallback(); }, 9000);
+}
 function v4FrameSetup(id){
   const fr = v4$('v4-player'); fr.style.display = 'none'; fr.src = '';
   v4$('v4-fbadge').style.display = '';
@@ -3949,6 +4001,10 @@ function v4FrameSetup(id){
     vd.addEventListener('click', v4FrameToggle);
   }
   vd.poster = 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg';
+  v4FrameId = id; v4FrameQ = 0;
+  const qm0 = v4$('v4-fqmenu'); if(qm0) qm0.style.display = 'none';
+  const gr0 = v4$('v4-fgear'); if(gr0) gr0.style.display = '';
+  v4FrameLoadQualities(id);
   const ar0 = v4$('v4-faltrow'); if(ar0) ar0.style.display = '';
   vd.src = '/api/stream/' + id;
   if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog);
@@ -3961,6 +4017,8 @@ function v4FrameSetup(id){
 }
 function v4FrameFallback(){
   const ar1 = v4$('v4-faltrow'); if(ar1) ar1.style.display = 'none';
+  const gr1 = v4$('v4-fgear'); if(gr1) gr1.style.display = 'none';
+  const qm1 = v4$('v4-fqmenu'); if(qm1) qm1.style.display = 'none';
   const vd = v4$('v4-video');
   try{ vd.pause(); vd.removeAttribute('src'); vd.load(); }catch(e){}
   vd.style.display = 'none';
@@ -5158,6 +5216,9 @@ FEED_MUSIC_POOL = [
     'bollywood songs new', 'naat sharif new', 'qawwali best',
     'hindi songs new', 'urdu songs new',
 ]
+FEED_NAAT_POOL = ['naat sharif', 'new naat 2026', 'beautiful urdu naat', 'madina naat', 'punjabi naat', 'owais raza qadri naat', 'ramadan naat']
+FEED_DRAMA_POOL = ['pakistani drama episode', 'hum tv drama', 'ary digital drama', 'geo tv drama', 'turkish drama in urdu', 'indian drama serial', 'new pakistani drama 2026']
+FEED_KIDS_POOL = ['kids cartoon', 'motu patlu cartoon', 'kids rhymes', 'cocomelon', 'baby shark', 'kids learning videos', 'peppa pig', 'cartoon for kids']
 FEED_SHORTS_POOL = [
     'naat shorts #shorts', 'islamic shorts #shorts',
     'poetry shorts #shorts', 'dance shorts #shorts',
@@ -5507,12 +5568,14 @@ def api_feed():
     else:
         pool = [q]
     ftype = (request.args.get('type', 'all') or 'all').strip().lower()
-    if ftype not in ('all', 'videos', 'playlists', 'shorts', 'live', 'movies'):
+    if ftype not in ('all', 'videos', 'playlists', 'shorts', 'live', 'movies', 'mp3', 'naat', 'dramas', 'kids'):
         ftype = 'all'
     shorts_pool_mode = False
     if ftype == 'shorts' and ('trend' in ql or ql == 'shorts'):
         pool = list(FEED_SHORTS_POOL)
         shorts_pool_mode = True
+    if ftype == 'naat':
+        pool = list(FEED_NAAT_POOL)
     eff = page + offset
     seed = pool[eff % len(pool)]
     variant = FEED_VARIANTS[(eff // len(pool)) % len(FEED_VARIANTS)]
@@ -5597,6 +5660,47 @@ def api_feed():
         items = longs if len(longs) >= 6 else sorted(
             merged, key=lambda x: -(x.get('duration') or 0))
         return jsonify({'items': items[:30], 'page': page,
+                        'has_more': page < total_pages - 1})
+    if ftype == 'mp3':
+        # Update 72: Music > MP3 — sirf audio songs ('official audio'
+        # talash, kai seeds mila kar)
+        merged = []
+        seen_ids = set()
+        for k in range(3):
+            s_k = pool[(eff + k) % len(pool)]
+            q_k = s_k if 'audio' in s_k.lower() else (s_k + ' official audio').strip()
+            for it in _feed_search_items(q_k, 20):
+                vid = (it.get('id') or {}).get('videoId')
+                if vid and vid not in seen_ids:
+                    seen_ids.add(vid)
+                    merged.append(it)
+            if len(merged) >= 24:
+                break
+        return jsonify({'items': merged[:30], 'page': page,
+                        'has_more': page < total_pages - 1})
+    if ftype in ('dramas', 'kids'):
+        # Update 74: Dramas / Kids chips — generic feed par apna pool,
+        # search par wohi lafz + category
+        if ftype == 'dramas':
+            base_pool = list(FEED_DRAMA_POOL) if ('trend' in ql or not ql) else [q + ' drama episode']
+        else:
+            base_pool = list(FEED_KIDS_POOL) if ('trend' in ql or not ql) else [q + ' for kids']
+        merged = []
+        seen_ids = set()
+        for k in range(3):
+            s_k = base_pool[(eff + k) % len(base_pool)]
+            if len(base_pool) <= 1:
+                q_k = (s_k + FEED_VARIANTS[(eff + k) % len(FEED_VARIANTS)]).strip()
+            else:
+                q_k = s_k
+            for it in _feed_search_items(q_k, 20):
+                vid = (it.get('id') or {}).get('videoId')
+                if vid and vid not in seen_ids:
+                    seen_ids.add(vid)
+                    merged.append(it)
+            if len(merged) >= 24:
+                break
+        return jsonify({'items': merged[:30], 'page': page,
                         'has_more': page < total_pages - 1})
     has_more = page < (total_pages - 1)
     if len(pool) <= 1:
@@ -7515,7 +7619,26 @@ def download_file(download_id):
 
 # ============ APNA PLAYER STREAM (Update 59) ============
 _stream_cache = {}
+_stream_qcache = {}
 _stream_fail_until = 0.0
+
+
+def _combined_formats(info):
+    """{height: url} — sirf combined (awaz+video ek sath) formats,
+    har height par mp4 ko tarjeeh. Player ki quality settings ke liye."""
+    best = {}
+    for f in (info.get('formats') or []):
+        if not f.get('url'):
+            continue
+        if f.get('vcodec') in (None, 'none') or f.get('acodec') in (None, 'none'):
+            continue
+        h = f.get('height') or 0
+        if not h:
+            continue
+        mp = 1 if f.get('ext') == 'mp4' else 0
+        if h not in best or mp > best[h][0]:
+            best[h] = (mp, f['url'])
+    return {h: u for h, (mp, u) in best.items()}
 
 
 def _pick_combined_url(info):
@@ -7540,19 +7663,21 @@ def _pick_combined_url(info):
     return pick[1] if pick else None
 
 
-def _resolve_stream_url(video_id):
+def _resolve_stream_url(video_id, height=None):
     """Watch ke liye seedha play URL. Har player client ko bari bari
     azmata hai aur usi ka result leta hai jis mein audio+video wala
     (combined) format mile — taake video awaz ke sath chale.
     Result 30 min cache — googlevideo links expire hote hain."""
     global _stream_fail_until
-    _c = _stream_cache.get(video_id)
+    _key = video_id if not height else f'{video_id}@{height}'
+    _c = _stream_cache.get(_key)
     if _c and time.time() - _c[1] < 1800:
         return _c[0]
     if time.time() < _stream_fail_until:
         return None
     watch_url = 'https://www.youtube.com/watch?v=' + video_id
     fallback = None
+    closest = None
     for _client in _YT_CLIENTS:
         try:
             _opts = _ydl_opts_with_client(
@@ -7564,14 +7689,29 @@ def _resolve_stream_url(video_id):
             continue
         if not _info:
             continue
-        _u = _pick_combined_url(_info)
-        if _u:
-            _stream_cache[video_id] = (_u, time.time())
-            return _u
+        if height:
+            _fmts = _combined_formats(_info)
+            if height in _fmts:
+                _stream_cache[_key] = (_fmts[height], time.time())
+                _stream_fail_until = 0.0
+                return _fmts[height]
+            if _fmts and closest is None:
+                _hs = sorted(_fmts)
+                _lower = [h for h in _hs if h < height]
+                closest = _fmts[_lower[-1] if _lower else _hs[0]]
+        else:
+            _u = _pick_combined_url(_info)
+            if _u:
+                _stream_cache[_key] = (_u, time.time())
+                return _u
         if fallback is None and _info.get('url'):
             fallback = _info['url']
+    if height and closest:
+        _stream_cache[_key] = (closest, time.time())
+        _stream_fail_until = 0.0
+        return closest
     if fallback:
-        _stream_cache[video_id] = (fallback, time.time())
+        _stream_cache[_key] = (fallback, time.time())
         _stream_fail_until = 0.0
     else:
         # Saare clients fail — 2 min ke liye foran fail, taake player
@@ -7587,7 +7727,7 @@ def api_stream(video_id):
     if not re.fullmatch(r'[A-Za-z0-9_-]{6,20}', video_id or ''):
         return jsonify({'error': 'bad id'}), 400
     try:
-        url = _resolve_stream_url(video_id)
+        url = _resolve_stream_url(video_id, request.args.get('q', type=int))
     except Exception:
         url = None
     if not url:
@@ -7627,6 +7767,40 @@ def api_stream(video_id):
 
     return Response(stream_with_context(_gen()), status=up.status_code,
                     headers=resp_headers)
+
+@app.route('/api/stream-qualities/<video_id>')
+def api_stream_qualities(video_id):
+    """Update 73: player ki settings ke liye is video ki asal combined
+    qualities (jo seedha awaz ke sath play ho sakti hain)."""
+    if not re.fullmatch(r'[A-Za-z0-9_-]{6,20}', video_id or ''):
+        return jsonify({'error': 'bad id'}), 400
+    _qc = _stream_qcache.get(video_id)
+    if _qc and time.time() - _qc[1] < 1800:
+        return jsonify({'qualities': _qc[0]})
+    watch_url = 'https://www.youtube.com/watch?v=' + video_id
+    _hset = set()
+    for _client in _YT_CLIENTS:
+        try:
+            _opts = _ydl_opts_with_client(
+                {'quiet': True, 'no_warnings': True, 'skip_download': True},
+                _client)
+            with yt_dlp.YoutubeDL(_opts) as _ydl:
+                _info = _ydl.extract_info(watch_url, download=False)
+        except Exception:
+            continue
+        if not _info:
+            continue
+        _hset.update(_combined_formats(_info).keys())
+        if len(_hset) >= 6:
+            break
+    heights = sorted(_hset)
+    out = [{'height': h,
+            'label': (str(h) + 'p' + (' HD' if h >= 720 else ''))}
+           for h in heights]
+    if out:
+        _stream_qcache[video_id] = (out, time.time())
+    return jsonify({'qualities': out})
+
 
 @app.route('/api/downloads-list')
 def get_downloads_list():
