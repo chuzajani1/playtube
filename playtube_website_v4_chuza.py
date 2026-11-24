@@ -1,11 +1,11 @@
 # ============================================
-# PlayTube v4 (Chuza Edition) - Video Downloader with AI Assistant
+# Playza v4 (Chuza Edition) - Video Downloader with AI Assistant
 # Created by: Chuza
 # Copyright © 2026. All Rights Reserved.
 # Unauthorized copying or distribution prohibited.
 # ============================================
 """
-PlayTube - All in One Video Downloader
+Playza - All in One Video Downloader
 Copyright (c) 2026 Chuza
 
 This software is protected. Unauthorized reproduction or
@@ -206,7 +206,7 @@ verification_codes = {}
 # v4: pending codes (signup + password reset) disk par bhi save hote hain,
 # taake server restart par bhi code valid rahe.
 PENDING_CODES_FILE = os.path.join(os.path.expanduser("~"), "Downloads",
-                                  "PlayTube", "pending_codes.json")
+                                  "Playza", "pending_codes.json")
 reset_codes = {}
 
 
@@ -238,7 +238,7 @@ def _send_via_brevo(email, subject, body):
     is liye ye pehla rasta hai). Sirf BREVO_API_KEY env se key ati hai."""
     import urllib.request
     payload = json.dumps({
-        'sender': {'name': 'PlayTube', 'email': GMAIL_EMAIL},
+        'sender': {'name': 'Playza', 'email': GMAIL_EMAIL},
         'to': [{'email': email}],
         'subject': subject,
         'textContent': body,
@@ -259,9 +259,9 @@ def send_verification_email(email, code, purpose='Verification'):
     block karta hai. Dusra rasta Gmail SMTP (GMAIL_APP_PASSWORD).
     Koi password/key code me nahi hai — sab env se ate hain.
     """
-    subject = f"PlayTube - {purpose} Code"
-    body = (f"Hello!\n\nYour PlayTube {purpose.lower()} code is: {code}\n\n"
-            f"This code will expire in 10 minutes.\n\n- PlayTube Team\n")
+    subject = f"Playza - {purpose} Code"
+    body = (f"Hello!\n\nYour Playza {purpose.lower()} code is: {code}\n\n"
+            f"This code will expire in 10 minutes.\n\n- Playza Team\n")
     if os.environ.get('BREVO_API_KEY'):
         try:
             return _send_via_brevo(email, subject, body)
@@ -269,7 +269,7 @@ def send_verification_email(email, code, purpose='Verification'):
             print(f"Brevo email error: {e}")
             return False
     if not os.environ.get('GMAIL_APP_PASSWORD'):
-        print('[PlayTube] Email not configured (BREVO_API_KEY / GMAIL_APP_PASSWORD missing) - code stored, email not sent.')
+        print('[Playza] Email not configured (BREVO_API_KEY / GMAIL_APP_PASSWORD missing) - code stored, email not sent.')
         return False
     try:
         msg = MIMEMultipart()
@@ -604,7 +604,7 @@ def _rebuild_payment_accounts():
             rebuilt[method] = {
                 'name': meta['name'],
                 'account_number': number,
-                'account_title': acc.get('account_title', 'PlayTube Premium'),
+                'account_title': acc.get('account_title', 'Playza Premium'),
                 'icon': meta['icon'],
                 'color': meta['color']
             }
@@ -737,11 +737,11 @@ def _v4_maintenance_gate():
                             'maintenance': True}), 503
         return ('<!DOCTYPE html><html><head><meta charset="utf-8">'
                 '<meta name="viewport" content="width=device-width, initial-scale=1">'
-                '<title>PlayTube - Maintenance</title></head>'
+                '<title>Playza - Maintenance</title></head>'
                 '<body style="background:#12101f;color:#eceaf6;font-family:sans-serif;'
                 'display:flex;align-items:center;justify-content:center;min-height:100vh;'
                 'margin:0;text-align:center;padding:20px"><div>'
-                '<h1 style="color:#8b6dff">PlayTube</h1>'
+                '<h1 style="color:#8b6dff">Playza</h1>'
                 '<p>' + (html.escape(load_site_settings().get(
                     'maintenance_message') or '')
                     or 'Site abhi maintenance me hai. Thodi der baad dobara try karein.') + '</p>'
@@ -799,7 +799,7 @@ def is_premium_user(user_id):
 
 
 # Download directories
-DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), "Downloads", "PlayTube")
+DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), "Downloads", "Playza")
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
@@ -906,7 +906,7 @@ HTML = '''
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PlayTube - All in One Downloader</title>
+    <title>Playza - All in One Downloader</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#4f46e5">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
@@ -1551,7 +1551,7 @@ HTML = '''
 
     <!-- Premium Banner -->
     <div onclick="openPremiumModal()" style="background:linear-gradient(135deg, #ff0000, #990000); padding:20px; border-radius:15px; margin-bottom:20px; cursor:pointer; text-align:center;">
-        <h3 style="color:#fff; font-size:1.3rem;">⚡ PlayTube Premium</h3>
+        <h3 style="color:#fff; font-size:1.3rem;">⚡ Playza Premium</h3>
         <p style="color:#fff; margin-top:5px;" data-i18n="premium_banner_sub">Unlimited Downloads | HD Quality | No Ads</p>
         <p style="color:#ffcc00; font-size:1.5rem; font-weight:bold; margin-top:10px;">Rs. 500/month</p>
         <button style="background:#fff; color:#ff0000; border:none; padding:10px 30px; border-radius:25px; font-weight:bold; margin-top:10px; cursor:pointer;" data-i18n="upgrade_now">Upgrade Now</button>
@@ -1729,12 +1729,12 @@ HTML = '''
             </section>
 
             <section id="page-app" class="page-view">
-                <h2 class="page-title"><i class="fa-solid fa-mobile-screen"></i> <span data-i18n="app_page_title">Download PlayTube App</span></h2>
+                <h2 class="page-title"><i class="fa-solid fa-mobile-screen"></i> <span data-i18n="app_page_title">Download Playza App</span></h2>
                 <div class="app-cards">
                     <div class="app-card">
                         <div class="app-card-icon">📱</div>
                         <h3 data-i18n="android_title">Android App</h3>
-                        <p data-i18n="android_desc">Install PlayTube on your Android phone: home-screen icon, full-screen app, all downloads + AI features.</p>
+                        <p data-i18n="android_desc">Install Playza on your Android phone: home-screen icon, full-screen app, all downloads + AI features.</p>
                         <button class="fmt-dl-btn" onclick="installPlayTubeApp()">📲 <span data-i18n="android_install">Install App (PWA)</span></button>
                         <a id="apkDownloadBtn" class="app-apk-btn" href="/playtube.apk" download style="display:none;">⬇️ <span data-i18n="android_apk">Download APK</span></a>
                         <div id="apkSoonNote" class="app-soon">🚧 <span data-i18n="apk_soon">APK coming soon after launch</span></div>
@@ -1742,7 +1742,7 @@ HTML = '''
                     <div class="app-card">
                         <div class="app-card-icon">💻</div>
                         <h3 data-i18n="pc_title">PC (Windows) App</h3>
-                        <p data-i18n="pc_desc">Install PlayTube on your PC: it adds a desktop icon and opens in its own window, just like a real Windows app (Chrome / Edge).</p>
+                        <p data-i18n="pc_desc">Install Playza on your PC: it adds a desktop icon and opens in its own window, just like a real Windows app (Chrome / Edge).</p>
                         <button class="fmt-dl-btn" onclick="installPlayTubeAppPC()">💻 <span data-i18n="pc_install">Install for PC</span></button>
                     </div>
                 </div>
@@ -1754,7 +1754,7 @@ HTML = '''
     <!-- Premium Modal -->
     <div id="premiumModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:99999; overflow-y:auto; padding:20px;">
         <div style="background:#1a1a1a; padding:30px; border-radius:20px; max-width:500px; margin:20px auto;">
-            <h2 style="color:#fff; text-align:center;">⚡ PlayTube Premium</h2>
+            <h2 style="color:#fff; text-align:center;">⚡ Playza Premium</h2>
             <p style="color:#aaa; text-align:center;">Unlock unlimited downloads</p>
 
             <div style="display:flex; gap:15px; margin:20px 0; flex-wrap:wrap;">
@@ -1793,7 +1793,7 @@ HTML = '''
                     <div style="background:#000; padding:15px; border-radius:10px; text-align:center; margin-bottom:15px;">
                         <p style="color:#fff;">Send <strong id="paymentAmount" style="color:#4CAF50;">Rs. 0</strong> to:</p>
                         <p style="color:#4CAF50; font-size:1.3rem; font-weight:bold;" id="paymentAccount">Account Number</p>
-                        <p style="color:#aaa; font-size:0.9rem;" id="paymentTitle">PlayTube Premium</p>
+                        <p style="color:#aaa; font-size:0.9rem;" id="paymentTitle">Playza Premium</p>
                     </div>
                     <input type="text" id="senderAccount" placeholder="Your account number (e.g., 0300-1234567)" style="width:100%; padding:12px; background:#272727; border:1px solid #444; border-radius:8px; color:#fff; margin-bottom:10px;">
                     <input type="text" id="transactionId" placeholder="Transaction ID (Reference Number)" style="width:100%; padding:12px; background:#272727; border:1px solid #444; border-radius:8px; color:#fff; margin-bottom:10px;">
@@ -2542,7 +2542,7 @@ if (videoParam) {
 
         // Share App
 function shareApp() {
-    const text = "🎬 PlayTube - Free Video Downloader!%0A%0A✅ YouTube se MP3/MP4 download karo%0A✅ Facebook, Instagram, TikTok se bhi%0A✅ 100% FREE%0A%0A👉 Try now: " + window.location.href;
+    const text = "🎬 Playza - Free Video Downloader!%0A%0A✅ YouTube se MP3/MP4 download karo%0A✅ Facebook, Instagram, TikTok se bhi%0A✅ 100% FREE%0A%0A👉 Try now: " + window.location.href;
     window.open('https://wa.me/?text=' + text, '_blank');
 }
 
@@ -2610,7 +2610,7 @@ async function showUsageStats() {
             const btn2 = document.querySelector('#paymentForm button');
             if (btn2) btn2.style.display = 'block';
             document.getElementById('paymentAccount').textContent = acc.account_number;
-            document.getElementById('paymentTitle').textContent = acc.account_title || 'PlayTube Premium';
+            document.getElementById('paymentTitle').textContent = acc.account_title || 'Playza Premium';
             document.getElementById('paymentAmount').textContent = 'Rs. ' + prices[selectedPremiumPlan];
             document.getElementById('paymentForm').style.display = 'block';
         }
@@ -2656,7 +2656,7 @@ async function showUsageStats() {
             👥 Total Visits: <span id="visitorCount" style="color:#4CAF50; font-weight:bold;">0</span>
         </p>
         <p style="color:#666; margin:5px 0 0; font-size:0.8rem;">
-            © 2026 PlayTube - Coded by Chuza
+            © 2026 Playza - Coded by Chuza
         </p>
     </div>
 
@@ -2751,12 +2751,12 @@ async function showUsageStats() {
 
 <div id="aiDrawer">
     <header>
-        <div><strong style="font-size:1.05rem;">🤖 <span data-i18n="ai_title">PlayTube AI Assistant</span></strong><br>
+        <div><strong style="font-size:1.05rem;">🤖 <span data-i18n="ai_title">Playza AI Assistant</span></strong><br>
         <small style="color:var(--text-sub);">Bol dein, AI khud download kar de ga — Roman Urdu / English</small></div>
         <button onclick="toggleAiDrawer()" style="background:none;border:none;color:var(--text-main);font-size:1.3rem;cursor:pointer;">✕</button>
     </header>
     <div id="aiLog">
-        <div class="ai-msg bot">Assalam-o-Alaikum! 👋 Main PlayTube AI hoon. Misal likhein:
+        <div class="ai-msg bot">Assalam-o-Alaikum! 👋 Main Playza AI hoon. Misal likhein:
 • "Pati Brahmachari episode 1 to 5, 360p me download kar do"
 • "ye song mp3 320k me download karo"
 • "drama download kar do, sab se chhoti quality me, 10 minute baad"
@@ -3111,7 +3111,7 @@ Downloads background me one by one chalte rahen ge.</div>
         if (deferredInstallPrompt) {
             deferredInstallPrompt.prompt();
             const choice = await deferredInstallPrompt.userChoice;
-            showNotification(choice.outcome === 'accepted' ? '💻 PlayTube PC par install ho raha hai!' : 'Install cancel ho gaya', 'success');
+            showNotification(choice.outcome === 'accepted' ? '💻 Playza PC par install ho raha hai!' : 'Install cancel ho gaya', 'success');
             deferredInstallPrompt = null;
         } else {
             showNotification(t('pc_manual'), 'warning');
@@ -3132,7 +3132,7 @@ Downloads background me one by one chalte rahen ge.</div>
     window.addEventListener('DOMContentLoaded', checkApkStatus);
 
     // ---------- Language switch EN / اردو (v3) ----------
-    const I18N = {"en": {"main_section": "Main", "library": "Library", "home": " Home", "social_download": " Social Download", "trending": " Trending", "music": " Music", "gaming": " Gaming", "news": " News", "playlist_download": " Playlist Download", "history": " History", "downloads": " Downloads", "open_folder": " Open Folder", "stats": " Stats", "go_premium": " Go Premium", "share_app": " Share App", "download_app": " Download App", "ai_assistant": " AI Assistant", "favorites": " Favorites", "search_ph": "Search YouTube...", "batch_download": "Batch Download", "login": "Login", "signup": "Sign Up", "logout": "Logout", "recommended": "Recommended", "premium_banner_sub": "Unlimited Downloads | HD Quality | No Ads", "upgrade_now": "Upgrade Now", "social_title": "All Social Media Downloader", "social_ph": "Paste any video URL (YouTube, Facebook, Instagram, TikTok, Twitter, etc.)", "fetch_info": "Fetch Info", "select_platform": "Select Platform", "dl_video_mp4": "Download Video (MP4)", "dl_audio_mp3": "Download Audio (MP3)", "watch_history": "Watch History", "back": "Back", "quality": "Quality", "thumbnail": "Thumbnail", "subtitles": "Subtitles", "info": "Info", "clip": "Clip", "select_quality": "Select Quality", "cancel": "Cancel", "email_or_username": "Email or Username", "password": "Password", "enter_email_ph": "Enter email or username", "enter_password_ph": "Enter password", "create_password_ph": "Create password", "no_account": "Don't have an account?", "have_account": "Already have an account?", "username": "Username", "choose_username_ph": "Choose username", "email": "Email", "enter_email2_ph": "Enter email", "privacy": "Privacy Policy", "terms": "Terms of Service", "about": "About", "contact": "Contact", "more_formats": "More Formats", "download": "Download", "formats": "Formats", "video": "Video", "clip_title": "Clip Download", "clip_hint": "Download only part of the video — enter start & end time (mm:ss or seconds). The format selected above will be used.", "clip_start": "Start", "clip_end": "End", "clip_download": "Download Clip", "clip_invalid": "Please enter a valid start and end time (end must be after start).", "clip_started": "✂️ Clip download started!", "app_page_title": "Download PlayTube App", "android_title": "Android App", "android_desc": "Install PlayTube on your Android phone: home-screen icon, full-screen app, all downloads + AI features.", "android_install": "Install App (PWA)", "android_apk": "Download APK", "apk_soon": "APK coming soon after launch", "pc_title": "PC (Windows) App", "pc_desc": "Install PlayTube on your PC: it adds a desktop icon and opens in its own window, just like a real Windows app (Chrome / Edge).", "pc_install": "Install for PC", "pc_manual": "💻 To install on PC: open the Chrome/Edge menu (⋮) and choose \\"Install PlayTube\\" — a desktop icon will be created and the app opens in its own window.", "install_manual": "📲 To install: open the browser menu (⋮) and tap \\"Install app / Add to Home screen\\".", "smart_ph": "🔗 Smart Link Paste — paste a YouTube / Facebook / TikTok / Instagram link here...", "get_video": "Get Video", "ai_title": "PlayTube AI Assistant", "ai_ph": "Type your command...", "send": "Send"}, "ur": {"main_section": "مین", "library": "لائبریری", "home": " ہوم", "social_download": " سوشل ڈاؤن لوڈ", "trending": " ٹرینڈنگ", "music": " موسیقی", "gaming": " گیمنگ", "news": " خبریں", "playlist_download": " پلے لسٹ ڈاؤن لوڈ", "history": " ہسٹری", "downloads": " ڈاؤن لوڈز", "open_folder": " فولڈر کھولیں", "stats": " اعداد و شمار", "go_premium": " پریمیم لیں", "share_app": " ایپ شیئر کریں", "download_app": " ایپ ڈاؤن لوڈ کریں", "ai_assistant": " AI اسسٹنٹ", "favorites": " پسندیدہ", "search_ph": "یوٹیوب تلاش کریں...", "batch_download": "بیچ ڈاؤن لوڈ", "login": "لاگ ان", "signup": "سائن اپ", "logout": "لاگ آؤٹ", "recommended": "تجویز کردہ", "premium_banner_sub": "لامحدود ڈاؤن لوڈز | HD کوالٹی | کوئی اشتہار نہیں", "upgrade_now": "ابھی اپ گریڈ کریں", "social_title": "آل سوشل میڈیا ڈاؤن لوڈر", "social_ph": "کوئی بھی ویڈیو لنک یہاں لگائیں (یوٹیوب، فیس بک، انسٹاگرام، ٹک ٹاک، ٹوئٹر وغیرہ)", "fetch_info": "معلومات لائیں", "select_platform": "پلیٹ فارم منتخب کریں", "dl_video_mp4": "ویڈیو ڈاؤن لوڈ کریں (MP4)", "dl_audio_mp3": "آڈیو ڈاؤن لوڈ کریں (MP3)", "watch_history": "دیکھی گئی ہسٹری", "back": "واپس", "quality": "کوالٹی", "thumbnail": "تھمب نیل", "subtitles": "سب ٹائٹلز", "info": "معلومات", "clip": "کلپ", "select_quality": "کوالٹی منتخب کریں", "cancel": "منسوخ", "email_or_username": "ای میل یا یوزر نیم", "password": "پاس ورڈ", "enter_email_ph": "ای میل یا یوزر نیم لکھیں", "enter_password_ph": "پاس ورڈ لکھیں", "create_password_ph": "پاس ورڈ بنائیں", "no_account": "اکاؤنٹ نہیں ہے؟", "have_account": "پہلے سے اکاؤنٹ ہے؟", "username": "یوزر نیم", "choose_username_ph": "یوزر نیم منتخب کریں", "email": "ای میل", "enter_email2_ph": "ای میل لکھیں", "privacy": "پرائیویسی پالیسی", "terms": "شرائط و ضوابط", "about": "ہمارے بارے میں", "contact": "رابطہ", "more_formats": "مزید فارمیٹس", "download": "ڈاؤن لوڈ", "formats": "فارمیٹس", "video": "ویڈیو", "clip_title": "کلپ ڈاؤن لوڈ", "clip_hint": "ویڈیو کا صرف ایک حصہ ڈاؤن لوڈ کریں — شروع اور آخر کا وقت لکھیں (mm:ss یا سیکنڈز)۔ اوپر منتخب فارمیٹ استعمال ہوگا۔", "clip_start": "شروع", "clip_end": "آخر", "clip_download": "کلپ ڈاؤن لوڈ کریں", "clip_invalid": "درست شروع اور آخر کا وقت لکھیں (آخر، شروع کے بعد ہونا چاہیے)۔", "clip_started": "✂️ کلپ ڈاؤن لوڈ شروع ہو گیا!", "app_page_title": "PlayTube ایپ ڈاؤن لوڈ کریں", "android_title": "اینڈرائیڈ ایپ", "android_desc": "اپنے اینڈرائیڈ فون پر PlayTube انسٹال کریں: ہوم اسکرین آئیکن، فل اسکرین ایپ، تمام ڈاؤن لوڈز + AI فیچرز۔", "android_install": "ایپ انسٹال کریں (PWA)", "android_apk": "APK ڈاؤن لوڈ کریں", "apk_soon": "APK لانچ کے بعد جلد آ رہا ہے", "pc_title": "پی سی (ونڈوز) ایپ", "pc_desc": "اپنے پی سی پر PlayTube انسٹال کریں: ڈیسک ٹاپ پر آئیکن بن جائے گا اور ایپ اپنی الگ ونڈو میں کھلے گی — بالکل اصلی ونڈوز ایپ کی طرح (Chrome / Edge)۔", "pc_install": "پی سی کے لیے انسٹال کریں", "pc_manual": "💻 پی سی پر انسٹال: Chrome/Edge مینو (⋮) سے \\"Install PlayTube\\" دبائیں — ڈیسک ٹاپ پر آئیکن بن جائے گا اور ایپ اپنی ونڈو میں کھلے گی۔", "install_manual": "📲 انسٹال کرنے کے لیے: براؤزر مینو (⋮) کھول کر \\"Install app / Add to Home screen\\" دبائیں۔", "smart_ph": "🔗 سمارٹ لنک — یوٹیوب / فیس بک / ٹک ٹاک / انسٹاگرام کا لنک یہاں لگائیں...", "get_video": "ویڈیو لائیں", "ai_title": "PlayTube AI اسسٹنٹ", "ai_ph": "اپنا کمانڈ لکھیں...", "send": "بھیجیں"}};
+    const I18N = {"en": {"main_section": "Main", "library": "Library", "home": " Home", "social_download": " Social Download", "trending": " Trending", "music": " Music", "gaming": " Gaming", "news": " News", "playlist_download": " Playlist Download", "history": " History", "downloads": " Downloads", "open_folder": " Open Folder", "stats": " Stats", "go_premium": " Go Premium", "share_app": " Share App", "download_app": " Download App", "ai_assistant": " AI Assistant", "favorites": " Favorites", "search_ph": "Search YouTube...", "batch_download": "Batch Download", "login": "Login", "signup": "Sign Up", "logout": "Logout", "recommended": "Recommended", "premium_banner_sub": "Unlimited Downloads | HD Quality | No Ads", "upgrade_now": "Upgrade Now", "social_title": "All Social Media Downloader", "social_ph": "Paste any video URL (YouTube, Facebook, Instagram, TikTok, Twitter, etc.)", "fetch_info": "Fetch Info", "select_platform": "Select Platform", "dl_video_mp4": "Download Video (MP4)", "dl_audio_mp3": "Download Audio (MP3)", "watch_history": "Watch History", "back": "Back", "quality": "Quality", "thumbnail": "Thumbnail", "subtitles": "Subtitles", "info": "Info", "clip": "Clip", "select_quality": "Select Quality", "cancel": "Cancel", "email_or_username": "Email or Username", "password": "Password", "enter_email_ph": "Enter email or username", "enter_password_ph": "Enter password", "create_password_ph": "Create password", "no_account": "Don't have an account?", "have_account": "Already have an account?", "username": "Username", "choose_username_ph": "Choose username", "email": "Email", "enter_email2_ph": "Enter email", "privacy": "Privacy Policy", "terms": "Terms of Service", "about": "About", "contact": "Contact", "more_formats": "More Formats", "download": "Download", "formats": "Formats", "video": "Video", "clip_title": "Clip Download", "clip_hint": "Download only part of the video — enter start & end time (mm:ss or seconds). The format selected above will be used.", "clip_start": "Start", "clip_end": "End", "clip_download": "Download Clip", "clip_invalid": "Please enter a valid start and end time (end must be after start).", "clip_started": "✂️ Clip download started!", "app_page_title": "Download Playza App", "android_title": "Android App", "android_desc": "Install Playza on your Android phone: home-screen icon, full-screen app, all downloads + AI features.", "android_install": "Install App (PWA)", "android_apk": "Download APK", "apk_soon": "APK coming soon after launch", "pc_title": "PC (Windows) App", "pc_desc": "Install Playza on your PC: it adds a desktop icon and opens in its own window, just like a real Windows app (Chrome / Edge).", "pc_install": "Install for PC", "pc_manual": "💻 To install on PC: open the Chrome/Edge menu (⋮) and choose \\"Install Playza\\" — a desktop icon will be created and the app opens in its own window.", "install_manual": "📲 To install: open the browser menu (⋮) and tap \\"Install app / Add to Home screen\\".", "smart_ph": "🔗 Smart Link Paste — paste a YouTube / Facebook / TikTok / Instagram link here...", "get_video": "Get Video", "ai_title": "Playza AI Assistant", "ai_ph": "Type your command...", "send": "Send"}, "ur": {"main_section": "مین", "library": "لائبریری", "home": " ہوم", "social_download": " سوشل ڈاؤن لوڈ", "trending": " ٹرینڈنگ", "music": " موسیقی", "gaming": " گیمنگ", "news": " خبریں", "playlist_download": " پلے لسٹ ڈاؤن لوڈ", "history": " ہسٹری", "downloads": " ڈاؤن لوڈز", "open_folder": " فولڈر کھولیں", "stats": " اعداد و شمار", "go_premium": " پریمیم لیں", "share_app": " ایپ شیئر کریں", "download_app": " ایپ ڈاؤن لوڈ کریں", "ai_assistant": " AI اسسٹنٹ", "favorites": " پسندیدہ", "search_ph": "یوٹیوب تلاش کریں...", "batch_download": "بیچ ڈاؤن لوڈ", "login": "لاگ ان", "signup": "سائن اپ", "logout": "لاگ آؤٹ", "recommended": "تجویز کردہ", "premium_banner_sub": "لامحدود ڈاؤن لوڈز | HD کوالٹی | کوئی اشتہار نہیں", "upgrade_now": "ابھی اپ گریڈ کریں", "social_title": "آل سوشل میڈیا ڈاؤن لوڈر", "social_ph": "کوئی بھی ویڈیو لنک یہاں لگائیں (یوٹیوب، فیس بک، انسٹاگرام، ٹک ٹاک، ٹوئٹر وغیرہ)", "fetch_info": "معلومات لائیں", "select_platform": "پلیٹ فارم منتخب کریں", "dl_video_mp4": "ویڈیو ڈاؤن لوڈ کریں (MP4)", "dl_audio_mp3": "آڈیو ڈاؤن لوڈ کریں (MP3)", "watch_history": "دیکھی گئی ہسٹری", "back": "واپس", "quality": "کوالٹی", "thumbnail": "تھمب نیل", "subtitles": "سب ٹائٹلز", "info": "معلومات", "clip": "کلپ", "select_quality": "کوالٹی منتخب کریں", "cancel": "منسوخ", "email_or_username": "ای میل یا یوزر نیم", "password": "پاس ورڈ", "enter_email_ph": "ای میل یا یوزر نیم لکھیں", "enter_password_ph": "پاس ورڈ لکھیں", "create_password_ph": "پاس ورڈ بنائیں", "no_account": "اکاؤنٹ نہیں ہے؟", "have_account": "پہلے سے اکاؤنٹ ہے؟", "username": "یوزر نیم", "choose_username_ph": "یوزر نیم منتخب کریں", "email": "ای میل", "enter_email2_ph": "ای میل لکھیں", "privacy": "پرائیویسی پالیسی", "terms": "شرائط و ضوابط", "about": "ہمارے بارے میں", "contact": "رابطہ", "more_formats": "مزید فارمیٹس", "download": "ڈاؤن لوڈ", "formats": "فارمیٹس", "video": "ویڈیو", "clip_title": "کلپ ڈاؤن لوڈ", "clip_hint": "ویڈیو کا صرف ایک حصہ ڈاؤن لوڈ کریں — شروع اور آخر کا وقت لکھیں (mm:ss یا سیکنڈز)۔ اوپر منتخب فارمیٹ استعمال ہوگا۔", "clip_start": "شروع", "clip_end": "آخر", "clip_download": "کلپ ڈاؤن لوڈ کریں", "clip_invalid": "درست شروع اور آخر کا وقت لکھیں (آخر، شروع کے بعد ہونا چاہیے)۔", "clip_started": "✂️ کلپ ڈاؤن لوڈ شروع ہو گیا!", "app_page_title": "Playza ایپ ڈاؤن لوڈ کریں", "android_title": "اینڈرائیڈ ایپ", "android_desc": "اپنے اینڈرائیڈ فون پر Playza انسٹال کریں: ہوم اسکرین آئیکن، فل اسکرین ایپ، تمام ڈاؤن لوڈز + AI فیچرز۔", "android_install": "ایپ انسٹال کریں (PWA)", "android_apk": "APK ڈاؤن لوڈ کریں", "apk_soon": "APK لانچ کے بعد جلد آ رہا ہے", "pc_title": "پی سی (ونڈوز) ایپ", "pc_desc": "اپنے پی سی پر Playza انسٹال کریں: ڈیسک ٹاپ پر آئیکن بن جائے گا اور ایپ اپنی الگ ونڈو میں کھلے گی — بالکل اصلی ونڈوز ایپ کی طرح (Chrome / Edge)۔", "pc_install": "پی سی کے لیے انسٹال کریں", "pc_manual": "💻 پی سی پر انسٹال: Chrome/Edge مینو (⋮) سے \\"Install Playza\\" دبائیں — ڈیسک ٹاپ پر آئیکن بن جائے گا اور ایپ اپنی ونڈو میں کھلے گی۔", "install_manual": "📲 انسٹال کرنے کے لیے: براؤزر مینو (⋮) کھول کر \\"Install app / Add to Home screen\\" دبائیں۔", "smart_ph": "🔗 سمارٹ لنک — یوٹیوب / فیس بک / ٹک ٹاک / انسٹاگرام کا لنک یہاں لگائیں...", "get_video": "ویڈیو لائیں", "ai_title": "Playza AI اسسٹنٹ", "ai_ph": "اپنا کمانڈ لکھیں...", "send": "بھیجیں"}};
     let ptLang = 'en';
     try { ptLang = localStorage.getItem('pt_lang') || 'en'; } catch(e) {}
     if (ptLang !== 'ur') ptLang = 'en';
@@ -3269,7 +3269,7 @@ Downloads background me one by one chalte rahen ge.</div>
   .v4-dlmeta{font-size:11.5px;color:var(--v4muted);margin-top:3px}
   .v4-dotbtn{background:none;border:none;color:var(--v4text);font-size:22px;line-height:1;padding:10px 7px;cursor:pointer;flex:none}
   .v4-menurow{display:flex;align-items:center;gap:12px;width:100%;padding:13px 4px;background:none;border:none;border-bottom:1px solid var(--v4border);color:var(--v4text);font-size:14px;cursor:pointer;text-align:left;text-decoration:none;box-sizing:border-box}
-  /* PlayTube ka apna player frame (Update 59) */
+  /* Playza ka apna player frame (Update 59) */
   .v4-frame{margin-top:10px;border-radius:16px;padding:2px;background:linear-gradient(135deg,var(--v4violet),var(--v4teal));box-shadow:0 12px 34px rgba(0,0,0,.45)}
   .v4-framein{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:#000}
   .v4-frame video{position:absolute;inset:0;width:100%;height:100%;background:#000}
@@ -3351,7 +3351,7 @@ Downloads background me one by one chalte rahen ge.</div>
 
 <div id="v4app">
   <div class="v4-head">
-    <div class="v4-logo">PlayTube</div>
+    <div class="v4-logo">Playza</div>
     <button class="v4-iconbtn" onclick="v4ToggleLang()" id="v4-langbtn">اردو</button>
     <button class="v4-iconbtn" onclick="v4ToggleTheme()" id="v4-themebtn">☀️ Light</button>
   </div>
@@ -3429,19 +3429,19 @@ Downloads background me one by one chalte rahen ge.</div>
       <div class="v4-row" onclick="v4Show('premium')"><span>👑</span><div class="grow">Premium</div><span>›</span></div>
       <div class="v4-row" onclick="v4Show('favorites')"><span>⭐</span><div class="grow">Favorites</div><span>›</span></div>
       <div class="v4-row" onclick="v4Show('history')"><span>🕘</span><div class="grow">Watch History</div><span>›</span></div>
-      <div class="v4-row" onclick="window.location.href='/about'"><span>ℹ️</span><div class="grow">About PlayTube</div><span>›</span></div>
+      <div class="v4-row" onclick="window.location.href='/about'"><span>ℹ️</span><div class="grow">About Playza</div><span>›</span></div>
       <div class="v4-row" onclick="window.location.href='/contact'"><span>✉️</span><div class="grow">Contact</div><span>›</span></div>
       <div class="v4-h" style="margin-top:20px">🛒 Hot Deals</div>
       <div class="v4-deals" id="v4-deals"><p class="v4-muted">Load ho raha hai...</p></div>
       <div class="v4-ratecard">
-        <div class="v4-rate-t">⭐ PlayTube ko Rate karein</div>
-        <p class="v4-muted v4-rate-sub">Agar PlayTube aap ko pasand aya hai to stars de kar hamari hosla-afzai karein — aap ki rating se hi PlayTube aur behtar banta hai. Shukriya!</p>
+        <div class="v4-rate-t">⭐ Playza ko Rate karein</div>
+        <p class="v4-muted v4-rate-sub">Agar Playza aap ko pasand aya hai to stars de kar hamari hosla-afzai karein — aap ki rating se hi Playza aur behtar banta hai. Shukriya!</p>
         <div class="v4-stars" id="v4-stars"><span onclick="v4Rate(1)">★</span><span onclick="v4Rate(2)">★</span><span onclick="v4Rate(3)">★</span><span onclick="v4Rate(4)">★</span><span onclick="v4Rate(5)">★</span></div>
         <p class="v4-rate-msg" id="v4-rate-msg"></p>
       </div>
       <div class="v4-footlinks">
         <a href="/privacy-policy">Privacy Policy</a><span>|</span><a href="/terms-of-service">Terms of Service</a><span>|</span><a href="/about">About</a><span>|</span><a href="/contact">Contact</a>
-        <p>© 2026 PlayTube - All Rights Reserved</p>
+        <p>© 2026 Playza - All Rights Reserved</p>
       </div>
     </section>
 
@@ -3449,8 +3449,8 @@ Downloads background me one by one chalte rahen ge.</div>
       <button class="v4-btn2" onclick="v4Back()">← Back</button>
       <div class="v4-frame" id="v4-frame"><div class="v4-framein">
         <video id="v4-video" playsinline preload="metadata"></video>
-        <iframe id="v4-player" style="display:none" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" title="PlayTube player"></iframe>
-        <div class="v4-fbadge">▶ PlayTube</div>
+        <iframe id="v4-player" style="display:none" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" title="Playza player"></iframe>
+        <div class="v4-fbadge">▶ Playza</div>
         <div class="v4-fspin" id="v4-fspin"></div>
         <button class="v4-fbig" id="v4-fbig" onclick="v4FrameToggle()">▶</button>
         <div class="v4-fctrls" id="v4-fctrls">
@@ -3496,7 +3496,7 @@ Downloads background me one by one chalte rahen ge.</div>
       </div>
       <p class="v4-muted" id="v4-ai-tip" style="margin:2px 0 8px"></p>
       <div id="v4-ai-msgs">
-        <div class="v4-bubble ai">Assalam-o-Alaikum! Main PlayTube AI hoon. Bas command likhein — masalan kisi drama ke episodes, gana, ya quality bata kar download karwayein. Downloads background me one by one chalte rahen ge, aur tayyar videos Downloads me milen ge.</div>
+        <div class="v4-bubble ai">Assalam-o-Alaikum! Main Playza AI hoon. Bas command likhein — masalan kisi drama ke episodes, gana, ya quality bata kar download karwayein. Downloads background me one by one chalte rahen ge, aur tayyar videos Downloads me milen ge.</div>
       </div>
       <form class="v4-airow" onsubmit="v4AiSend(event)">
         <button class="v4-searchbtn" type="button" title="Pic bhejein — AI parh kar download kare ga" onclick="v4$('v4-ai-file').click()">📎</button>
@@ -3554,7 +3554,7 @@ Downloads background me one by one chalte rahen ge.</div>
       <div class="v4-row"><div class="grow">Language</div><span class="val" id="v4-set-lang">English</span><button class="v4-btn2" onclick="v4ToggleLang()">Badlein</button></div>
       <div class="v4-row"><div class="grow">Theme</div><span class="val" id="v4-set-theme">Dark</span><button class="v4-btn2" onclick="v4ToggleTheme()">Badlein</button></div>
       <div class="v4-row"><div class="grow">Download mukammal ho to batao<div class="v4-muted">Notification ke liye</div></div><button class="v4-switch" id="v4-set-notify" onclick="v4ToggleSetting('notify',this)"><i></i></button></div>
-      <div class="v4-row" id="v4-set-floating-row" style="display:none"><div class="grow">Floating Button (sirf APK app me)<div class="v4-muted" id="v4-set-floating-note">Dusri apps ke upar PlayTube bubble - tap karne par clipboard link ka download page khulta hai</div></div><button class="v4-switch" id="v4-set-floating" onclick="v4ToggleFloating(this)"><i></i></button></div>
+      <div class="v4-row" id="v4-set-floating-row" style="display:none"><div class="grow">Floating Button (sirf APK app me)<div class="v4-muted" id="v4-set-floating-note">Dusri apps ke upar Playza bubble - tap karne par clipboard link ka download page khulta hai</div></div><button class="v4-switch" id="v4-set-floating" onclick="v4ToggleFloating(this)"><i></i></button></div>
     </section>
 
     <section id="v4-view-profile" class="v4-view">
@@ -3582,23 +3582,23 @@ Downloads background me one by one chalte rahen ge.</div>
     </section>
 
     <section id="v4-view-premium" class="v4-view">
-      <div class="v4-h">👑 PlayTube Premium</div>
+      <div class="v4-h">👑 Playza Premium</div>
       <div id="v4-premium-body"><p class="v4-muted">Load ho raha hai...</p></div>
     </section>
 
     <section id="v4-view-app" class="v4-view">
-      <div class="v4-h">Download PlayTube App</div>
+      <div class="v4-h">Download Playza App</div>
       <div class="v4-vcard" style="padding:16px">
         <div style="font-size:28px">📱</div>
         <div class="v4-h" style="margin:8px 0 4px">Android App</div>
-        <p class="v4-muted">PlayTube ko phone ki home screen par app ki tarah lagayein — full-screen, saare features ke sath.</p>
+        <p class="v4-muted">Playza ko phone ki home screen par app ki tarah lagayein — full-screen, saare features ke sath.</p>
         <button class="v4-bigbtn" onclick="v4InstallPWA()">Install App (PWA)</button>
         <div id="v4-apk-area" style="margin-top:10px"><p class="v4-muted">APK check ho raha hai...</p></div>
       </div>
       <div class="v4-vcard" style="padding:16px">
         <div style="font-size:28px">💻</div>
         <div class="v4-h" style="margin:8px 0 4px">PC (Windows) App</div>
-        <p class="v4-muted">PC par PlayTube install karein — desktop icon banega aur apni window me khule ga (Chrome / Edge).</p>
+        <p class="v4-muted">PC par Playza install karein — desktop icon banega aur apni window me khule ga (Chrome / Edge).</p>
         <button class="v4-bigbtn" onclick="v4InstallPC()">Install for PC</button>
       </div>
     </section>
@@ -3665,7 +3665,7 @@ Downloads background me one by one chalte rahen ge.</div>
   <div class="v4-overlay" onclick="v4CloseAuth()"></div>
   <div class="v4-modalpanel">
     <div style="display:flex;align-items:center">
-      <div class="v4-h" style="flex:1;margin:0" id="v4-auth-heading">Welcome to PlayTube</div>
+      <div class="v4-h" style="flex:1;margin:0" id="v4-auth-heading">Welcome to Playza</div>
       <button class="v4-iconbtn" onclick="v4CloseAuth()">✕</button>
     </div>
     <p class="v4-muted" style="margin:6px 0 12px">Video dekhne aur download karne ke liye pehle account banayein ya sign in karein.</p>
@@ -3710,9 +3710,9 @@ Downloads background me one by one chalte rahen ge.</div>
 <div id="v4-toast"></div>
 
 <script id="v4-js">
-/* ================= PlayTube v4 UI logic ================= */
+/* ================= Playza v4 UI logic ================= */
 const v4State = {user:null, config:null, view:'home',
-  settings:{folder:'PlayTube', defQuality:'360p', maxConc:3, speed:'Unlimited', wifiOnly:false, notify:true},
+  settings:{folder:'Playza', defQuality:'360p', maxConc:3, speed:'Unlimited', wifiOnly:false, notify:true},
   loadedYt:0, loadedMu:0, platsDone:0};
 try{ const _s = JSON.parse(localStorage.getItem('pt_v4_settings') || 'null'); if(_s) v4State.settings = Object.assign(v4State.settings, _s); }catch(e){}
 const v4Videos = {};
@@ -3878,7 +3878,7 @@ function v4WatchClick(id){
   const v = v4Videos[id] || {videoId:id, title:'', channel:''};
   v4OpenWatch(v);
 }
-/* ---------- PlayTube ka apna player (Update 59) ---------- */
+/* ---------- Playza ka apna player (Update 59) ---------- */
 let v4FrameTimer = null, v4FrameWired = false;
 function v4FmtTime(s){ s = Math.max(0, Math.floor(s || 0)); const m = Math.floor(s / 60), r = s % 60; return m + ':' + (r < 10 ? '0' : '') + r; }
 function v4FrameShowCtrls(){
@@ -4323,7 +4323,7 @@ async function v4PrivToggle(id, make){ const r = await v4Post('/api/downloads/pr
 /* Update 49: Share — video file + message ke sath website link */
 async function v4ShareDl(id, title, fmt){
   const url = window.location.origin + '/';
-  const msg = '🎬 ' + (title || 'Video') + '\\n\\nYe video PlayTube se download ki hai — aap bhi free mein download karein:\\n' + url;
+  const msg = '🎬 ' + (title || 'Video') + '\\n\\nYe video Playza se download ki hai — aap bhi free mein download karein:\\n' + url;
   v4Toast('Share tayyar ho raha hai...');
   try{
     const resp = await fetch('/api/download-file/' + id);
@@ -4340,9 +4340,9 @@ async function v4ShareDl(id, title, fmt){
     }
   }catch(e){ /* file share nahi ho saka — neeche link wala tareeqa */ }
   if(navigator.share){
-    try{ await navigator.share({title: title || 'PlayTube Video', text: msg, url: url}); return; }catch(e){}
+    try{ await navigator.share({title: title || 'Playza Video', text: msg, url: url}); return; }catch(e){}
   }
-  try{ await navigator.clipboard.writeText(msg); v4Toast('Message + website link copy ho gaya — WhatsApp par paste kar dein. Video gallery ke PlayTube folder se bhej dein.'); }
+  try{ await navigator.clipboard.writeText(msg); v4Toast('Message + website link copy ho gaya — WhatsApp par paste kar dein. Video gallery ke Playza folder se bhej dein.'); }
   catch(e){ v4Toast('Share is device par support nahi'); }
 }
 /* Update 45: Video Compressor — quality wohi, size kam */
@@ -4476,7 +4476,7 @@ async function v4SocialDownload(fmt){
 /* ---------- tools / settings ---------- */
 function v4ShareApp(){
   const url = window.location.origin + '/';
-  if(navigator.share){ navigator.share({title:'PlayTube', text:'PlayTube — All in One Downloader', url:url}).catch(function(){}); }
+  if(navigator.share){ navigator.share({title:'Playza', text:'Playza — All in One Downloader', url:url}).catch(function(){}); }
   else if(navigator.clipboard){ navigator.clipboard.writeText(url); v4Toast('App ka link copy ho gaya'); }
   else v4Toast(url);
 }
@@ -4509,7 +4509,7 @@ function v4FillSettings(){
 function v4ToggleSetting(key, el){ v4State.settings[key] = !v4State.settings[key]; el.classList.toggle('on', v4State.settings[key]); v4SaveSettings(true); }
 function v4SaveSettings(silent){
   const s = v4State.settings;
-  const f = v4$('v4-set-folder'); if(f) s.folder = f.value || 'PlayTube';
+  const f = v4$('v4-set-folder'); if(f) s.folder = f.value || 'Playza';
   const q = v4$('v4-set-quality'); if(q) s.defQuality = q.value;
   const c = v4$('v4-set-conc'); if(c) s.maxConc = parseInt(c.value);
   const sp = v4$('v4-set-speed'); if(sp) s.speed = sp.value;
@@ -4721,7 +4721,7 @@ async function v4CheckApk(){
   else area.innerHTML = '<p class="v4-muted">🚧 APK tayyar ho raha hai — filhal PWA install karein.</p>';
 }
 function v4InstallPWA(){ if(typeof installPlayTubeApp === 'function') installPlayTubeApp(); else v4Toast('Browser menu se "Install app" / "Add to Home screen" chunein'); }
-function v4InstallPC(){ if(typeof installPlayTubeAppPC === 'function') installPlayTubeAppPC(); else if(typeof installPlayTubeApp === 'function') installPlayTubeApp(); else v4Toast('Chrome/Edge menu se "Install PlayTube" chunein'); }
+function v4InstallPC(){ if(typeof installPlayTubeAppPC === 'function') installPlayTubeAppPC(); else if(typeof installPlayTubeApp === 'function') installPlayTubeApp(); else v4Toast('Chrome/Edge menu se "Install Playza" chunein'); }
 
 /* ---------- auth modal (Update 21/22) ---------- */
 function v4OpenAuth(tab, forgot){
@@ -4741,7 +4741,7 @@ function v4AuthTab(t){
   v4AuthForms(t === 'signup' ? 'v4-form-signup' : 'v4-form-signin');
   v4$('v4-tab-signin').classList.toggle('active', t !== 'signup');
   v4$('v4-tab-signup').classList.toggle('active', t === 'signup');
-  v4$('v4-auth-heading').textContent = (t === 'signup') ? 'Create Account' : 'Welcome to PlayTube';
+  v4$('v4-auth-heading').textContent = (t === 'signup') ? 'Create Account' : 'Welcome to Playza';
 }
 function v4ShowForgot(e){
   if(e) e.preventDefault();
@@ -5567,7 +5567,7 @@ def privacy_policy():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Privacy Policy - PlayTube</title>
+        <title>Privacy Policy - Playza</title>
         <style>
             body { background: #0f0f0f; color: #fff; padding: 50px; font-family: Arial; line-height: 1.8; }
             h1 { color: #ff0000; }
@@ -5583,7 +5583,7 @@ def privacy_policy():
             <p>Last updated: 2024</p>
 
             <h2>1. Information We Collect</h2>
-            <p>When you register on PlayTube, we collect your username and email address. We do not collect any payment information directly.</p>
+            <p>When you register on Playza, we collect your username and email address. We do not collect any payment information directly.</p>
 
             <h2>2. How We Use Your Information</h2>
             <p>Your information is used to manage your account, provide download services, and process premium subscriptions.</p>
@@ -5600,7 +5600,7 @@ def privacy_policy():
             <h2>6. Contact Us</h2>
             <p>Email: chuzajani1@gmail.com</p>
 
-            <p><a href="/">← Back to PlayTube</a></p>
+            <p><a href="/">← Back to Playza</a></p>
         </div>
     </body>
     </html>
@@ -5613,7 +5613,7 @@ def terms_of_service():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Terms of Service - PlayTube</title>
+        <title>Terms of Service - Playza</title>
         <style>
             body { background: #0f0f0f; color: #fff; padding: 50px; font-family: Arial; line-height: 1.8; }
             h1 { color: #ff0000; }
@@ -5629,10 +5629,10 @@ def terms_of_service():
             <p>Last updated: 2026</p>
 
             <h2>1. Acceptance of Terms</h2>
-            <p>By accessing and using PlayTube, you agree to be bound by these Terms of Service.</p>
+            <p>By accessing and using Playza, you agree to be bound by these Terms of Service.</p>
 
             <h2>2. Description of Service</h2>
-            <p>PlayTube is a video downloading tool that allows users to download videos from various platforms for personal use only.</p>
+            <p>Playza is a video downloading tool that allows users to download videos from various platforms for personal use only.</p>
 
             <h2>3. User Accounts</h2>
             <p>You are responsible for maintaining the confidentiality of your account credentials.</p>
@@ -5641,10 +5641,10 @@ def terms_of_service():
             <p>Premium plans provide additional features. Payments are processed via JazzCash and EasyPaisa. All sales are final.</p>
 
             <h2>5. Acceptable Use</h2>
-            <p>You agree not to use PlayTube for any illegal or unauthorized purpose.</p>
+            <p>You agree not to use Playza for any illegal or unauthorized purpose.</p>
 
             <h2>6. Intellectual Property</h2>
-            <p>All downloaded content belongs to their respective owners. PlayTube does not claim ownership.</p>
+            <p>All downloaded content belongs to their respective owners. Playza does not claim ownership.</p>
 
             <h2>7. Refund Policy</h2>
             <p>Due to the digital nature of our service, we do not offer refunds for premium subscriptions.</p>
@@ -5652,7 +5652,7 @@ def terms_of_service():
             <h2>8. Contact</h2>
             <p>Email: chuzajani1@gmail.com</p>
 
-            <p><a href="/">← Back to PlayTube</a></p>
+            <p><a href="/">← Back to Playza</a></p>
         </div>
     </body>
     </html>
@@ -5665,7 +5665,7 @@ def about():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>About - PlayTube</title>
+        <title>About - Playza</title>
         <style>
             body { background: #0f0f0f; color: #fff; padding: 50px; font-family: Arial; line-height: 1.8; }
             h1 { color: #ff0000; }
@@ -5676,11 +5676,11 @@ def about():
         </style>
     </head>
     <body>
-        <h1>About PlayTube</h1>
+        <h1>About Playza</h1>
 
         <div class="box">
-            <h2>🎬 What is PlayTube?</h2>
-            <p>PlayTube is a free video downloader that allows users to download videos from YouTube and other social media platforms. We provide high-quality MP3 and MP4 downloads for personal use.</p>
+            <h2>🎬 What is Playza?</h2>
+            <p>Playza is a free video downloader that allows users to download videos from YouTube and other social media platforms. We provide high-quality MP3 and MP4 downloads for personal use.</p>
         </div>
 
         <div class="box">
@@ -5708,7 +5708,7 @@ def about():
             <p>EasyPaisa: No account added yet</p>
         </div>
 
-        <p><a href="/">← Back to PlayTube</a></p>
+        <p><a href="/">← Back to Playza</a></p>
     </body>
     </html>
     '''
@@ -5720,7 +5720,7 @@ def developer():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Developer - PlayTube</title>
+        <title>Developer - Playza</title>
         <style>
             body { background: #0f0f0f; color: #fff; padding: 50px; font-family: Arial; line-height: 1.8; text-align: center; }
             h1 { color: #ff0000; }
@@ -5739,7 +5739,7 @@ def developer():
         <div class="box">
             <div class="avatar">👨‍💻</div>
             <h2 style="margin-top:20px;">Chuza</h2>
-            <p>Full Stack Developer & Creator of PlayTube</p>
+            <p>Full Stack Developer & Creator of Playza</p>
             <p>📍 Pakistan</p>
             <p>📧 chuzajani1@gmail.com</p>
         </div>
@@ -5765,7 +5765,7 @@ def developer():
         </div>
 
         <p style="margin-top:30px; color:#666;">Coded by Chuza © 2026</p>
-        <p><a href="/">← Back to PlayTube</a></p>
+        <p><a href="/">← Back to Playza</a></p>
             <!-- Quick Links -->
     <div style="text-align:center; padding:20px;">
         <a href="/about" style="color:#aaa; margin:0 10px; text-decoration:none;" data-i18n="about">About</a>
@@ -5790,7 +5790,7 @@ def contact():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Contact - PlayTube</title>
+        <title>Contact - Playza</title>
         <style>
             body { background: #0f0f0f; color: #fff; padding: 50px; font-family: Arial; }
             h1 { color: #ff0000; }
@@ -5805,7 +5805,7 @@ def contact():
             <p>📱 JazzCash: No account added yet</p>
             <p>📱 EasyPaisa: No account added yet</p>
         </div>
-        <p><a href="/">← Back to PlayTube</a></p>
+        <p><a href="/">← Back to Playza</a></p>
     </body>
     </html>
     '''
@@ -5833,7 +5833,7 @@ def channel_page(channel_id):
             <!DOCTYPE html>
             <html>
             <head>
-                <title>{channel_name} - PlayTube</title>
+                <title>{channel_name} - Playza</title>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <style>
                     body {{ background: #0f0f0f; color: #fff; font-family: Arial; padding: 20px; margin: 0; }}
@@ -5848,7 +5848,7 @@ def channel_page(channel_id):
                 </style>
             </head>
             <body>
-                <a href="/" class="back-btn">← Back to PlayTube</a>
+                <a href="/" class="back-btn">← Back to Playza</a>
                 <div class="channel-info">
                     <h1>{channel_name}</h1>
                     <p>{len(videos)} videos available</p>
@@ -5878,7 +5878,7 @@ def user_info():
 
 
     # ============ SECRET ADMIN PANEL ============
-ADMIN_SECRET_KEY = "Chuza-PlayTube-_nyDbqU9aci8uRBCIzhbFiAK"  # Apna secret key yahan daalo
+ADMIN_SECRET_KEY = "Chuza-Playza-_nyDbqU9aci8uRBCIzhbFiAK"  # Apna secret key yahan daalo
 
 
 @app.route('/admin/<secret_key>')
@@ -5892,7 +5892,7 @@ def admin_panel(secret_key):
     <!DOCTYPE html>
     <html>
     <head>
-        <title>PlayTube Admin</title>
+        <title>Playza Admin</title>
         <style>
             body { background: #0f0f0f; color: #fff; font-family: Arial; padding: 20px; }
             .payment-card { background: #1a1a1a; padding: 20px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #333; }
@@ -5904,7 +5904,7 @@ def admin_panel(secret_key):
         </style>
     </head>
     <body>
-        <h1>🔐 PlayTube Admin Panel</h1>
+        <h1>🔐 Playza Admin Panel</h1>
         <div style="background:#1a1a1a; padding:20px; border-radius:10px; margin-bottom:20px;">
     <h3 style="color:#4CAF50;">📊 Visitor Stats</h3>
     <p>Total Visitors: <span id="totalVisitors" style="color:#fff;">Loading...</span></p>
@@ -6349,7 +6349,7 @@ def _extract_with_clients(url, base_opts, download=False):
                 _info = _ydl.extract_info(url, download=download)
             if _info:
                 if _client:
-                    print(f"[PlayTube] yt-dlp player_client '{_client}' worked for {str(url)[:70]}")
+                    print(f"[Playza] yt-dlp player_client '{_client}' worked for {str(url)[:70]}")
                 return _info
             last_err = Exception('No info returned')
         except Exception as e:
@@ -6493,7 +6493,7 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
                 # banta, info None reh jata hai — agle client se retry
                 # karo, warna asal wajah batao (Update 40)
                 if _client_idx < len(_YT_CLIENTS) - 1:
-                    print(f"[PlayTube] Empty extraction on download {download_id} - retry with client #{_client_idx + 1}")
+                    print(f"[Playza] Empty extraction on download {download_id} - retry with client #{_client_idx + 1}")
                     download_progress[download_id] = {'status': 'starting', 'percent': 0,
                                                       'speed': '', 'error': None}
                     return download_in_background(video_id, format_type, quality, download_id,
@@ -6581,7 +6581,7 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
                                               'speed': '', 'error': None}
             return
         if _is_bot_block(e) and _client_idx < len(_YT_CLIENTS) - 1:
-            print(f"[PlayTube] Bot-block on download {download_id} - retry with client #{_client_idx + 1}")
+            print(f"[Playza] Bot-block on download {download_id} - retry with client #{_client_idx + 1}")
             download_progress[download_id] = {'status': 'starting', 'percent': 0,
                                               'speed': '', 'error': None}
             return download_in_background(video_id, format_type, quality, download_id,
@@ -7158,7 +7158,7 @@ def _resolve_stream_url(video_id):
 
 @app.route('/api/stream/<video_id>')
 def api_stream(video_id):
-    """PlayTube ke apne player ke liye video stream — server se hokar
+    """Playza ke apne player ke liye video stream — server se hokar
     jati hai, Range support ke sath taake seek chal sake."""
     if not re.fullmatch(r'[A-Za-z0-9_-]{6,20}', video_id or ''):
         return jsonify({'error': 'bad id'}), 400
@@ -7555,7 +7555,7 @@ def delete_all_downloads():
 def system_info():
     return jsonify({
         'version': '1.0.0',
-        'app_name': 'PlayTube',
+        'app_name': 'Playza',
         'developer': 'Chuza',
         'total_users': 0,  # Update from DB
         'total_downloads': len(downloaded_files),
@@ -7670,8 +7670,8 @@ def admin_payment_accounts(secret_key):
         if number:
             accounts[method] = {
                 'account_number': number,
-                'account_title': str(data.get('account_title', 'PlayTube Premium')).strip()
-                or 'PlayTube Premium'
+                'account_title': str(data.get('account_title', 'Playza Premium')).strip()
+                or 'Playza Premium'
             }
         else:
             accounts.pop(method, None)  # empty number = remove account
@@ -8649,8 +8649,8 @@ def api_admin_v4_settings():
                 if acc and str(acc.get('account_number', '')).strip():
                     accounts[method] = {
                         'account_number': str(acc['account_number']).strip(),
-                        'account_title': str(acc.get('account_title', 'PlayTube Premium')).strip()
-                        or 'PlayTube Premium'}
+                        'account_title': str(acc.get('account_title', 'Playza Premium')).strip()
+                        or 'Playza Premium'}
                 else:
                     accounts.pop(method, None)
             settings['payment_accounts'] = accounts
@@ -8777,9 +8777,9 @@ def app_icon_svg():
 @app.route('/manifest.json')
 def pwa_manifest():
     return jsonify({
-        'name': 'PlayTube - All in One Downloader',
-        'short_name': 'PlayTube',
-        'description': 'PlayTube by Chuza - videos, dramas and music downloads with AI assistant',
+        'name': 'Playza - All in One Downloader',
+        'short_name': 'Playza',
+        'description': 'Playza by Chuza - videos, dramas and music downloads with AI assistant',
         'start_url': '/',
         'display': 'standalone',
         'background_color': '#12102e',
@@ -8825,7 +8825,7 @@ def playtube_apk_file():
     apk_path = _apk_file_path()
     if os.path.exists(apk_path):
         return send_file(apk_path, as_attachment=True,
-                         download_name='PlayTube.apk',
+                         download_name='Playza.apk',
                          mimetype='application/vnd.android.package-archive')
     return jsonify({'error': 'APK coming soon after launch'}), 404
 
