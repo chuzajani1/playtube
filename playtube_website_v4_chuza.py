@@ -3424,7 +3424,6 @@ Downloads background me one by one chalte rahen ge.</div>
         <button class="v4-chip v4-dchip" data-w="home" data-s="indian" onclick="v4SetDramaSub(this)">🇮🇳 Indian</button>
         <button class="v4-chip v4-dchip" data-w="home" data-s="turkish" onclick="v4SetDramaSub(this)">🇹🇷 Turkish</button>
         <button class="v4-chip v4-dchip" data-w="home" data-s="dubbed" onclick="v4SetDramaSub(this)">🌐 Dubbed</button>
-        <button class="v4-chip v4-dchip" data-w="home" data-s="webseries" onclick="v4SetDramaSub(this)">🍿 Web Series</button>
       </div>
       <div class="v4-h" id="v4-home-heading">Trending Videos</div>
       <div id="v4-home-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
@@ -3450,7 +3449,6 @@ Downloads background me one by one chalte rahen ge.</div>
         <button class="v4-chip v4-dchip" data-w="youtube" data-s="indian" onclick="v4SetDramaSub(this)">🇮🇳 Indian</button>
         <button class="v4-chip v4-dchip" data-w="youtube" data-s="turkish" onclick="v4SetDramaSub(this)">🇹🇷 Turkish</button>
         <button class="v4-chip v4-dchip" data-w="youtube" data-s="dubbed" onclick="v4SetDramaSub(this)">🌐 Dubbed</button>
-        <button class="v4-chip v4-dchip" data-w="youtube" data-s="webseries" onclick="v4SetDramaSub(this)">🍿 Web Series</button>
       </div>
       <div class="v4-h">YouTube Videos</div>
       <div id="v4-youtube-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
@@ -5250,7 +5248,7 @@ FEED_MUSIC_POOL = [
     'hindi songs new', 'urdu songs new',
 ]
 FEED_NAAT_POOL = ['naat sharif', 'new naat 2026', 'beautiful urdu naat', 'madina naat', 'punjabi naat', 'owais raza qadri naat', 'ramadan naat']
-FEED_DRAMA_POOL = ['pakistani drama episode', 'hum tv drama', 'ary digital drama', 'geo tv drama', 'turkish drama in urdu', 'indian drama serial', 'new pakistani drama 2026']
+FEED_DRAMA_POOL = ['pakistani drama episode', 'hindi drama serial new episode', 'turkish drama urdu dubbed', 'korean drama hindi dubbed', 'english web series hindi dubbed', 'new drama 2026 episode', 'hum tv drama', 'indian tv serial']
 FEED_KIDS_POOL = ['kids cartoon', 'motu patlu cartoon', 'kids rhymes', 'cocomelon', 'baby shark', 'kids learning videos', 'peppa pig', 'cartoon for kids']
 FEED_SHORTS_POOL = [
     'naat shorts #shorts', 'islamic shorts #shorts',
