@@ -3279,6 +3279,20 @@ Downloads background me one by one chalte rahen ge.</div>
   .v4-dlmeta{font-size:11.5px;color:var(--v4muted);margin-top:3px}
   .v4-dotbtn{background:none;border:none;color:var(--v4text);font-size:22px;line-height:1;padding:10px 7px;cursor:pointer;flex:none}
   .v4-menurow{display:flex;align-items:center;gap:12px;width:100%;padding:13px 4px;background:none;border:none;border-bottom:1px solid var(--v4border);color:var(--v4text);font-size:14px;cursor:pointer;text-align:left;text-decoration:none;box-sizing:border-box}
+  /* PlayTube ka apna player frame (Update 59) */
+  .v4-frame{margin-top:10px;border-radius:16px;padding:2px;background:linear-gradient(135deg,var(--v4violet),var(--v4teal));box-shadow:0 12px 34px rgba(0,0,0,.45)}
+  .v4-framein{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:#000}
+  .v4-frame video{position:absolute;inset:0;width:100%;height:100%;background:#000}
+  .v4-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .v4-fbadge{position:absolute;top:10px;left:10px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:800;padding:5px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.35);pointer-events:none;z-index:3}
+  .v4-fbig{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--v4violet),var(--v4teal));color:#fff;font-size:24px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;transition:opacity .25s;z-index:3}
+  .v4-fctrls{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:9px;padding:8px 10px;background:linear-gradient(transparent,rgba(0,0,0,.78));transition:opacity .25s;z-index:3}
+  .v4-fctrls.hide,.v4-fbig.hide{opacity:0;pointer-events:none}
+  .v4-fbtn{background:none;border:none;color:#fff;font-size:16px;cursor:pointer;padding:4px 6px;flex:none}
+  .v4-ftime{color:#fff;font-size:11px;flex:none;min-width:78px;text-align:center}
+  #v4-fseek{flex:1;accent-color:var(--v4teal);height:4px;cursor:pointer}
+  .v4-fspin{position:absolute;left:50%;top:50%;width:42px;height:42px;margin:-21px 0 0 -21px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:var(--v4teal);animation:v4spin .8s linear infinite;display:none;z-index:3}
+  @keyframes v4spin{to{transform:rotate(360deg)}}
   .v4-dlrow img{width:64px;height:40px;object-fit:cover;border-radius:8px;flex:none;background:#26224a}
   .v4-dlrow .tt{flex:1;min-width:0}
   .v4-dlrow .t1{font-size:12.5px;font-weight:600}
@@ -3435,9 +3449,19 @@ Downloads background me one by one chalte rahen ge.</div>
 
     <section id="v4-view-watch" class="v4-view">
       <button class="v4-btn2" onclick="v4Back()">← Back</button>
-      <div style="margin-top:10px;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:#000">
-        <iframe id="v4-player" width="100%" height="100%" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" title="PlayTube player"></iframe>
-      </div>
+      <div class="v4-frame" id="v4-frame"><div class="v4-framein">
+        <video id="v4-video" playsinline preload="metadata"></video>
+        <iframe id="v4-player" style="display:none" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" title="PlayTube player"></iframe>
+        <div class="v4-fbadge">▶ PlayTube</div>
+        <div class="v4-fspin" id="v4-fspin"></div>
+        <button class="v4-fbig" id="v4-fbig" onclick="v4FrameToggle()">▶</button>
+        <div class="v4-fctrls" id="v4-fctrls">
+          <button class="v4-fbtn" id="v4-fplay" onclick="v4FrameToggle()">▶</button>
+          <input type="range" id="v4-fseek" min="0" max="1000" value="0" oninput="v4FrameSeek(this)">
+          <span class="v4-ftime" id="v4-ftime">0:00 / 0:00</span>
+          <button class="v4-fbtn" onclick="v4FrameFull()">⛶</button>
+        </div>
+      </div></div>
       <div class="v4-h" id="v4-watch-title" style="margin-top:12px"></div>
       <p class="v4-muted" id="v4-watch-channel"></p>
       <button class="v4-bigbtn" style="background:var(--v4teal);color:#06231f" onclick="v4WatchDownload()">⬇ Download</button>
@@ -3856,12 +3880,68 @@ function v4WatchClick(id){
   const v = v4Videos[id] || {videoId:id, title:'', channel:''};
   v4OpenWatch(v);
 }
+/* ---------- PlayTube ka apna player (Update 59) ---------- */
+let v4FrameTimer = null, v4FrameWired = false;
+function v4FmtTime(s){ s = Math.max(0, Math.floor(s || 0)); const m = Math.floor(s / 60), r = s % 60; return m + ':' + (r < 10 ? '0' : '') + r; }
+function v4FrameShowCtrls(){
+  v4$('v4-fctrls').classList.remove('hide');
+  if(v4FrameTimer) clearTimeout(v4FrameTimer);
+  v4FrameTimer = setTimeout(function(){ const vd = v4$('v4-video'); if(vd && !vd.paused && vd.style.display !== 'none') v4$('v4-fctrls').classList.add('hide'); }, 2600);
+}
+function v4FrameSetup(id){
+  const fr = v4$('v4-player'); fr.style.display = 'none'; fr.src = '';
+  v4$('v4-fbadge').style.display = '';
+  const vd = v4$('v4-video');
+  vd.style.display = '';
+  if(!v4FrameWired){
+    v4FrameWired = true;
+    vd.addEventListener('playing', function(){ v4$('v4-fspin').style.display = 'none'; v4$('v4-fbig').classList.add('hide'); v4$('v4-fplay').textContent = '❚❚'; v4FrameShowCtrls(); });
+    vd.addEventListener('waiting', function(){ v4$('v4-fspin').style.display = 'block'; });
+    vd.addEventListener('pause', function(){ v4$('v4-fbig').classList.remove('hide'); v4$('v4-fplay').textContent = '▶'; v4$('v4-fctrls').classList.remove('hide'); });
+    vd.addEventListener('error', function(){ if(vd.style.display !== 'none') v4FrameFallback(); });
+    vd.addEventListener('timeupdate', function(){ if(vd.duration){ v4$('v4-fseek').value = Math.floor((vd.currentTime / vd.duration) * 1000); } v4$('v4-ftime').textContent = v4FmtTime(vd.currentTime) + ' / ' + v4FmtTime(vd.duration); });
+    vd.addEventListener('click', v4FrameToggle);
+  }
+  vd.poster = 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg';
+  vd.src = '/api/stream/' + id;
+  v4$('v4-fspin').style.display = 'block';
+  v4$('v4-fbig').classList.remove('hide');
+  v4$('v4-fplay').textContent = '▶';
+  v4FrameShowCtrls();
+  const p = vd.play(); if(p && p.catch) p.catch(function(){});
+}
+function v4FrameFallback(){
+  const vd = v4$('v4-video');
+  try{ vd.pause(); vd.removeAttribute('src'); vd.load(); }catch(e){}
+  vd.style.display = 'none';
+  v4$('v4-fspin').style.display = 'none';
+  v4$('v4-fbig').classList.add('hide');
+  v4$('v4-fctrls').classList.add('hide');
+  v4$('v4-fbadge').style.display = 'none';
+  const fr = v4$('v4-player');
+  fr.style.display = '';
+  if(v4Current) fr.src = 'https://www.youtube.com/embed/' + v4Current.videoId + '?autoplay=1&rel=0&enablejsapi=1&modestbranding=1';
+}
+function v4FrameToggle(){
+  const vd = v4$('v4-video');
+  if(!vd || vd.style.display === 'none') return;
+  if(vd.paused){ const p = vd.play(); if(p && p.catch) p.catch(function(){}); } else { vd.pause(); }
+  v4FrameShowCtrls();
+}
+function v4FrameSeek(el){
+  const vd = v4$('v4-video');
+  if(vd && vd.duration) vd.currentTime = (el.value / 1000) * vd.duration;
+}
+function v4FrameFull(){
+  const box = v4$('v4-frame');
+  if(box && box.requestFullscreen) box.requestFullscreen();
+}
 function v4OpenWatch(v){
   v4Current = v;
   if(v.channel) v4InterestAdd(v.channel, 1);
   if(v.title) v4InterestAdd(v.title.replace(/[^\p{L}\p{N} ]/gu, ' ').split(/\s+/).filter(function(w){ return w.length > 2; }).slice(0, 3).join(' '), 1);
   if(v4State.view !== 'watch') v4PrevView = v4State.view;
-  v4$('v4-player').src = 'https://www.youtube.com/embed/' + v.videoId + '?autoplay=1&rel=0&enablejsapi=1';
+  v4FrameSetup(v.videoId);
   v4$('v4-watch-title').textContent = v.title || '';
   v4$('v4-watch-channel').textContent = v.channel || '';
   v4Show('watch');
@@ -3869,7 +3949,12 @@ function v4OpenWatch(v){
   const kw = (v.title || '').split(' ').slice(0, 4).join(' ');
   if(kw) v4LoadFeed('v4-related', kw);
 }
-function v4Back(){ v4$('v4-player').src = ''; v4Show(v4PrevView || 'home'); }
+function v4Back(){
+  v4$('v4-player').src = '';
+  const vd = v4$('v4-video');
+  if(vd){ try{ vd.pause(); vd.removeAttribute('src'); vd.load(); }catch(e){} }
+  v4Show(v4PrevView || 'home');
+}
 function v4WatchDownload(){ if(v4Current) v4OpenSheet(v4Current.videoId); }
 
 /* ---------- download sheet ---------- */
@@ -3890,6 +3975,8 @@ async function v4OpenSheet(id){
   v4Lock(true);
   const pl = v4$('v4-player');
   if(pl && pl.contentWindow){ try{ pl.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*'); }catch(e){} }
+  const vd0 = v4$('v4-video');
+  if(vd0 && !vd0.paused){ try{ vd0.pause(); }catch(e){} }
   const btn = v4$('v4-sheet-download');
   if(v4State.config && v4State.config.toggles && v4State.config.toggles.downloads_enabled === false){ btn.disabled = true; btn.textContent = 'Downloads band hain'; }
   else { btn.disabled = false; btn.textContent = 'Download'; }
@@ -7016,6 +7103,88 @@ def download_file(download_id):
         return send_file(file_path, as_attachment=True, download_name=filename, mimetype='application/octet-stream')
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ============ APNA PLAYER STREAM (Update 59) ============
+_stream_cache = {}
+
+
+def _resolve_stream_url(video_id):
+    """Watch ke liye seedha play URL: audio+video wala mp4, zyada se
+    zyada 720p. Result 30 min cache — googlevideo links expire hote hain."""
+    _c = _stream_cache.get(video_id)
+    if _c and time.time() - _c[1] < 1800:
+        return _c[0]
+    info = _extract_with_clients(
+        'https://www.youtube.com/watch?v=' + video_id,
+        {'quiet': True, 'no_warnings': True, 'skip_download': True})
+    if not info:
+        return None
+    best = None
+    for f in (info.get('formats') or []):
+        if not f.get('url'):
+            continue
+        if f.get('vcodec') in (None, 'none') or f.get('acodec') in (None, 'none'):
+            continue
+        h = f.get('height') or 0
+        if h > 720:
+            continue
+        score = (1 if f.get('ext') == 'mp4' else 0, h)
+        if best is None or score > best[0]:
+            best = (score, f['url'])
+    url = best[1] if best else info.get('url')
+    if url:
+        _stream_cache[video_id] = (url, time.time())
+    return url
+
+
+@app.route('/api/stream/<video_id>')
+def api_stream(video_id):
+    """PlayTube ke apne player ke liye video stream — server se hokar
+    jati hai, Range support ke sath taake seek chal sake."""
+    if not re.fullmatch(r'[A-Za-z0-9_-]{6,20}', video_id or ''):
+        return jsonify({'error': 'bad id'}), 400
+    try:
+        url = _resolve_stream_url(video_id)
+    except Exception:
+        url = None
+    if not url:
+        return jsonify({'error': 'stream nahi mila'}), 503
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                             'AppleWebKit/537.36 (KHTML, like Gecko) '
+                             'Chrome/124.0 Safari/537.36'}
+    rng = request.headers.get('Range')
+    if rng:
+        headers['Range'] = rng
+    try:
+        up = requests.get(url, headers=headers, stream=True, timeout=30)
+    except Exception:
+        return jsonify({'error': 'stream fail'}), 502
+    if up.status_code not in (200, 206):
+        try:
+            up.close()
+        except Exception:
+            pass
+        return jsonify({'error': 'stream fail'}), 502
+    resp_headers = {'Content-Type': up.headers.get('Content-Type', 'video/mp4'),
+                    'Accept-Ranges': 'bytes'}
+    for _h in ('Content-Length', 'Content-Range'):
+        if up.headers.get(_h):
+            resp_headers[_h] = up.headers[_h]
+
+    def _gen():
+        try:
+            for chunk in up.iter_content(chunk_size=256 * 1024):
+                if chunk:
+                    yield chunk
+        finally:
+            try:
+                up.close()
+            except Exception:
+                pass
+
+    return Response(stream_with_context(_gen()), status=up.status_code,
+                    headers=resp_headers)
 
 @app.route('/api/downloads-list')
 def get_downloads_list():
