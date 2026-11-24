@@ -3475,10 +3475,7 @@ Downloads background me one by one chalte rahen ge.</div>
     </section>
 
     <section id="v4-view-more" class="v4-view">
-      <div class="v4-h">More — Sites &amp; Tools</div>
-      <p class="v4-muted" style="margin:0 2px 10px">Kisi bhi site ka link Social tab me paste karke download karein:</p>
-      <div class="v4-plats" id="v4-more-list"></div>
-      <div class="v4-h" style="margin-top:18px">Mazeed</div>
+      <div class="v4-h">More</div>
       <div class="v4-row" onclick="v4Show('app')"><span>📱</span><div class="grow">Download App (Android / PC)</div><span>›</span></div>
       <div class="v4-row" onclick="v4Show('premium')"><span>👑</span><div class="grow">Premium</div><span>›</span></div>
       <div class="v4-row" onclick="v4Show('favorites')"><span>⭐</span><div class="grow">Favorites</div><span>›</span></div>
@@ -3971,7 +3968,6 @@ function v4RenderPlats(){
   v4State.platsDone = 1;
   const h = V4_PLATFORMS.map(function(p){ return '<div class="v4-plat" data-p="' + p + '" onclick="v4PlatClick(this)">' + p + '<div class="v4-muted">Link paste karein</div></div>'; }).join('');
   v4$('v4-plat-list').innerHTML = h;
-  v4$('v4-more-list').innerHTML = h;
 }
 function v4PlatClick(el){ v4Show('social'); const inp = v4$('v4-social-url'); inp.placeholder = el.getAttribute('data-p') + ' ka link yahan paste karein...'; inp.focus(); }
 async function v4SocialFetch(e){
