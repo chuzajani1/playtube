@@ -3425,6 +3425,22 @@ Downloads background me one by one chalte rahen ge.</div>
         <button class="v4-chip v4-dchip" data-w="home" data-s="turkish" onclick="v4SetDramaSub(this)">🇹🇷 Turkish</button>
         <button class="v4-chip v4-dchip" data-w="home" data-s="dubbed" onclick="v4SetDramaSub(this)">🌐 Dubbed</button>
       </div>
+      <div class="v4-chips" id="v4-subm-home" style="display:none">
+        <button class="v4-chip v4-mchip on" data-w="home" data-s="all" onclick="v4SetMovieSub(this)">All</button>
+        <button class="v4-chip v4-mchip" data-w="home" data-s="indian" onclick="v4SetMovieSub(this)">🇮🇳 Indian</button>
+        <button class="v4-chip v4-mchip" data-w="home" data-s="pakistani" onclick="v4SetMovieSub(this)">🇵🇰 Pakistani</button>
+        <button class="v4-chip v4-mchip" data-w="home" data-s="english" onclick="v4SetMovieSub(this)">🇬🇧 English</button>
+        <button class="v4-chip v4-mchip" data-w="home" data-s="dubbed" onclick="v4SetMovieSub(this)">🎙️ Hindi Dubbed</button>
+        <button class="v4-chip v4-mchip" data-w="home" data-s="south" onclick="v4SetMovieSub(this)">🎬 South Indian</button>
+      </div>
+      <div class="v4-chips" id="v4-subk-home" style="display:none">
+        <button class="v4-chip v4-kchip on" data-w="home" data-s="all" onclick="v4SetKidsSub(this)">All</button>
+        <button class="v4-chip v4-kchip" data-w="home" data-s="motupatlu" onclick="v4SetKidsSub(this)">🧒 Motu Patlu</button>
+        <button class="v4-chip v4-kchip" data-w="home" data-s="cocomelon" onclick="v4SetKidsSub(this)">👶 Cocomelon</button>
+        <button class="v4-chip v4-kchip" data-w="home" data-s="doraemon" onclick="v4SetKidsSub(this)">🤖 Doraemon</button>
+        <button class="v4-chip v4-kchip" data-w="home" data-s="peppa" onclick="v4SetKidsSub(this)">🐷 Peppa Pig</button>
+        <button class="v4-chip v4-kchip" data-w="home" data-s="tomjerry" onclick="v4SetKidsSub(this)">🐱 Tom & Jerry</button>
+      </div>
       <div class="v4-h" id="v4-home-heading">Trending Videos</div>
       <div id="v4-home-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
     </section>
@@ -3449,6 +3465,22 @@ Downloads background me one by one chalte rahen ge.</div>
         <button class="v4-chip v4-dchip" data-w="youtube" data-s="indian" onclick="v4SetDramaSub(this)">🇮🇳 Indian</button>
         <button class="v4-chip v4-dchip" data-w="youtube" data-s="turkish" onclick="v4SetDramaSub(this)">🇹🇷 Turkish</button>
         <button class="v4-chip v4-dchip" data-w="youtube" data-s="dubbed" onclick="v4SetDramaSub(this)">🌐 Dubbed</button>
+      </div>
+      <div class="v4-chips" id="v4-subm-youtube" style="display:none">
+        <button class="v4-chip v4-mchip on" data-w="youtube" data-s="all" onclick="v4SetMovieSub(this)">All</button>
+        <button class="v4-chip v4-mchip" data-w="youtube" data-s="indian" onclick="v4SetMovieSub(this)">🇮🇳 Indian</button>
+        <button class="v4-chip v4-mchip" data-w="youtube" data-s="pakistani" onclick="v4SetMovieSub(this)">🇵🇰 Pakistani</button>
+        <button class="v4-chip v4-mchip" data-w="youtube" data-s="english" onclick="v4SetMovieSub(this)">🇬🇧 English</button>
+        <button class="v4-chip v4-mchip" data-w="youtube" data-s="dubbed" onclick="v4SetMovieSub(this)">🎙️ Hindi Dubbed</button>
+        <button class="v4-chip v4-mchip" data-w="youtube" data-s="south" onclick="v4SetMovieSub(this)">🎬 South Indian</button>
+      </div>
+      <div class="v4-chips" id="v4-subk-youtube" style="display:none">
+        <button class="v4-chip v4-kchip on" data-w="youtube" data-s="all" onclick="v4SetKidsSub(this)">All</button>
+        <button class="v4-chip v4-kchip" data-w="youtube" data-s="motupatlu" onclick="v4SetKidsSub(this)">🧒 Motu Patlu</button>
+        <button class="v4-chip v4-kchip" data-w="youtube" data-s="cocomelon" onclick="v4SetKidsSub(this)">👶 Cocomelon</button>
+        <button class="v4-chip v4-kchip" data-w="youtube" data-s="doraemon" onclick="v4SetKidsSub(this)">🤖 Doraemon</button>
+        <button class="v4-chip v4-kchip" data-w="youtube" data-s="peppa" onclick="v4SetKidsSub(this)">🐷 Peppa Pig</button>
+        <button class="v4-chip v4-kchip" data-w="youtube" data-s="tomjerry" onclick="v4SetKidsSub(this)">🐱 Tom & Jerry</button>
       </div>
       <div class="v4-h">YouTube Videos</div>
       <div id="v4-youtube-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
@@ -4687,16 +4719,25 @@ function v4SetFilter(btn){
   const feedId = 'v4-' + w + '-feed';
   const st = v4FeedState[feedId];
   const q = (st && st.q) || (w === 'youtube' ? 'trending videos' : (w === 'music' ? 'trending songs' : 'trending'));
-  const subRow = v4$('v4-sub-' + w);
-  if(t === 'dramas'){
+  const rows = {dramas: 'v4-sub-' + w, movies: 'v4-subm-' + w, kids: 'v4-subk-' + w};
+  Object.keys(rows).forEach(function(k){ const r2 = v4$(rows[k]); if(r2) r2.style.display = (k === t) ? '' : 'none'; });
+  if(rows[t]){
     let cur = 'all';
-    if(subRow){ subRow.style.display = ''; const onB = subRow.querySelector('.v4-dchip.on'); if(onB) cur = onB.getAttribute('data-s') || 'all'; }
+    const row = v4$(rows[t]);
+    if(row){ const onB = row.querySelector('[data-s].on'); if(onB) cur = onB.getAttribute('data-s') || 'all'; }
     v4LoadFeed(feedId, q, t, cur);
-  } else {
-    if(subRow) subRow.style.display = 'none';
-    v4LoadFeed(feedId, q, t);
-  }
+  } else v4LoadFeed(feedId, q, t);
 }
+function v4SubGo(btn, type){
+  const w = btn.getAttribute('data-w'), s = btn.getAttribute('data-s');
+  btn.parentElement.querySelectorAll('[data-s]').forEach(function(b){ b.classList.toggle('on', b === btn); });
+  const feedId = 'v4-' + w + '-feed';
+  const st = v4FeedState[feedId];
+  const q = (st && st.q) || (w === 'youtube' ? 'trending videos' : 'trending');
+  v4LoadFeed(feedId, q, type, s);
+}
+function v4SetMovieSub(btn){ v4SubGo(btn, 'movies'); }
+function v4SetKidsSub(btn){ v4SubGo(btn, 'kids'); }
 function v4SetDramaSub(btn){
   const w = btn.getAttribute('data-w'), s = btn.getAttribute('data-s');
   document.querySelectorAll('.v4-dchip[data-w="' + w + '"]').forEach(function(b){ b.classList.toggle('on', b === btn); });
@@ -5672,8 +5713,20 @@ def api_feed():
         return jsonify({'items': (live_first + rest)[:30], 'page': page,
                         'has_more': page < total_pages - 1})
     if ftype == 'movies':
-        # Update 71: Movies chip — 'full movie' talash, lambi videos
-        # (40+ minute) pehle
+        # Update 71/77: Movies chip — 'full movie' talash, lambi videos
+        # (40+ minute) pehle; andar sub-options (Indian/Pakistani/
+        # English/Hindi Dubbed/South)
+        _MOVIE_SUBS = {
+            'indian': (['indian full movie hindi', 'bollywood full movie', 'hindi movie full hd', 'new indian movie full'], ' indian full movie'),
+            'pakistani': (['pakistani full movie', 'punjabi full movie', 'lollywood full movie', 'pakistani film full'], ' pakistani full movie'),
+            'english': (['english full movie', 'hollywood full movie english', 'action full movie english'], ' english full movie'),
+            'dubbed': (['hollywood movie hindi dubbed full', 'english movie hindi dubbed', 'action movie hindi dubbed full'], ' hindi dubbed full movie'),
+            'south': (['south indian movie hindi dubbed', 'south movie hindi dubbed full', 'allu arjun movie hindi dubbed'], ' south indian hindi dubbed movie'),
+        }
+        _msub = (request.args.get('sub', 'all') or 'all').strip().lower()
+        if _msub in _MOVIE_SUBS:
+            _mp, _msuffix = _MOVIE_SUBS[_msub]
+            pool = list(_mp) if ('trend' in ql or not ql) else [q + _msuffix]
         merged = []
         seen_ids = set()
         for k in range(3):
@@ -5728,7 +5781,20 @@ def api_feed():
             else:
                 base_pool = list(FEED_DRAMA_POOL) if ('trend' in ql or not ql) else [q + ' drama episode']
         else:
-            base_pool = list(FEED_KIDS_POOL) if ('trend' in ql or not ql) else [q + ' for kids']
+            # Update 77: Kids ke andar famous naam wale options
+            _KIDS_SUBS = {
+                'motupatlu': (['motu patlu', 'motu patlu cartoon hindi', 'motu patlu new episode'], ' motu patlu'),
+                'cocomelon': (['cocomelon', 'cocomelon nursery rhymes', 'cocomelon songs'], ' cocomelon'),
+                'doraemon': (['doraemon cartoon hindi', 'doraemon new episodes hindi', 'doraemon movie hindi'], ' doraemon hindi'),
+                'peppa': (['peppa pig', 'peppa pig full episodes', 'peppa pig cartoon'], ' peppa pig'),
+                'tomjerry': (['tom and jerry', 'tom and jerry cartoon', 'tom and jerry hindi'], ' tom and jerry'),
+            }
+            _ksub = (request.args.get('sub', 'all') or 'all').strip().lower()
+            if _ksub in _KIDS_SUBS:
+                _kp, _ksuffix = _KIDS_SUBS[_ksub]
+                base_pool = list(_kp) if ('trend' in ql or not ql) else [q + _ksuffix]
+            else:
+                base_pool = list(FEED_KIDS_POOL) if ('trend' in ql or not ql) else [q + ' for kids']
         merged = []
         seen_ids = set()
         for k in range(3):
