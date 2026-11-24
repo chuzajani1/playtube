@@ -3420,7 +3420,7 @@ Downloads background me one by one chalte rahen ge.</div>
       </form>
       <div id="v4-social-result"></div>
       <div class="v4-h" style="margin-top:16px">Platforms</div>
-      <div class="v4-plats" id="v4-plat-list"></div>
+      <div class="v4-plats" id="v4-plat-list"><div class="v4-plat" data-p="YouTube" onclick="v4PlatClick(this)">YouTube<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="Facebook" onclick="v4PlatClick(this)">Facebook<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="Instagram" onclick="v4PlatClick(this)">Instagram<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="TikTok" onclick="v4PlatClick(this)">TikTok<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="WhatsApp Status" onclick="v4PlatClick(this)">WhatsApp Status<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="Pinterest" onclick="v4PlatClick(this)">Pinterest<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="Twitter / X" onclick="v4PlatClick(this)">Twitter / X<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="SnapChat" onclick="v4PlatClick(this)">SnapChat<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="Threads" onclick="v4PlatClick(this)">Threads<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="DailyMotion" onclick="v4PlatClick(this)">DailyMotion<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="SoundCloud" onclick="v4PlatClick(this)">SoundCloud<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="Vimeo" onclick="v4PlatClick(this)">Vimeo<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="Reddit" onclick="v4PlatClick(this)">Reddit<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="LinkedIn" onclick="v4PlatClick(this)">LinkedIn<div class="v4-muted">Link paste karein</div></div><div class="v4-plat" data-p="Twitch" onclick="v4PlatClick(this)">Twitch<div class="v4-muted">Link paste karein</div></div></div>
     </section>
 
     <section id="v4-view-more" class="v4-view">
@@ -5357,7 +5357,7 @@ def detect_platform(url):
         'dailymotion.com': 'Dailymotion',
         'linkedin.com': 'LinkedIn',
         'twitch.tv': 'Twitch',
-        'snapchat.com': 'Snapchat',
+        'snapchat.com': 'Snapchat', 'threads.net': 'Threads',
         'whatsapp.com': 'WhatsApp'
     }
     for domain, platform in platforms.items():
