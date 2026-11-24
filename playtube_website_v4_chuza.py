@@ -233,22 +233,45 @@ def _load_pending_codes():
 _load_pending_codes()
 
 
+def _send_via_brevo(email, subject, body):
+    """Brevo HTTPS API se email (Railway par SMTP ports band hain,
+    is liye ye pehla rasta hai). Sirf BREVO_API_KEY env se key ati hai."""
+    import urllib.request
+    payload = json.dumps({
+        'sender': {'name': 'PlayTube', 'email': GMAIL_EMAIL},
+        'to': [{'email': email}],
+        'subject': subject,
+        'textContent': body,
+    }).encode('utf-8')
+    req = urllib.request.Request(
+        'https://api.brevo.com/v3/smtp/email', data=payload, method='POST')
+    req.add_header('api-key', os.environ.get('BREVO_API_KEY'))
+    req.add_header('Content-Type', 'application/json')
+    req.add_header('Accept', 'application/json')
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return resp.status in (200, 201, 204)
+
+
 def send_verification_email(email, code, purpose='Verification'):
     """Best-effort email. Sirf tab True jab mail asal me chali jaye.
 
-    SMTP credentials env se aate hain (GMAIL_EMAIL / GMAIL_APP_PASSWORD).
-    Agar app password configured nahi hai to ye False return karta hai —
-    koi exception nahi — taake caller gracefully degrade kare (code
-    server-side store me rehta hai). Koi password code me nahi hai.
+    Pehla rasta Brevo HTTPS API (BREVO_API_KEY) — Railway SMTP ports
+    block karta hai. Dusra rasta Gmail SMTP (GMAIL_APP_PASSWORD).
+    Koi password/key code me nahi hai — sab env se ate hain.
     """
+    subject = f"PlayTube - {purpose} Code"
+    body = (f"Hello!\n\nYour PlayTube {purpose.lower()} code is: {code}\n\n"
+            f"This code will expire in 10 minutes.\n\n- PlayTube Team\n")
+    if os.environ.get('BREVO_API_KEY'):
+        try:
+            return _send_via_brevo(email, subject, body)
+        except Exception as e:
+            print(f"Brevo email error: {e}")
+            return False
     if not os.environ.get('GMAIL_APP_PASSWORD'):
-        print('[PlayTube] SMTP not configured (GMAIL_APP_PASSWORD missing) - code stored, email not sent.')
+        print('[PlayTube] Email not configured (BREVO_API_KEY / GMAIL_APP_PASSWORD missing) - code stored, email not sent.')
         return False
     try:
-        subject = f"PlayTube - {purpose} Code"
-        body = (f"Hello!\n\nYour PlayTube {purpose.lower()} code is: {code}\n\n"
-                f"This code will expire in 10 minutes.\n\n- PlayTube Team\n")
-
         msg = MIMEMultipart()
         msg['From'] = GMAIL_EMAIL
         msg['To'] = email
@@ -3207,11 +3230,13 @@ Downloads background me one by one chalte rahen ge.</div>
   /* sheet + modal */
   .v4-wrap{position:fixed;inset:0;z-index:200;display:none}
   .v4-wrap.open{display:block}
-  .v4-overlay{position:absolute;inset:0;background:rgba(4,2,16,.72)}
-  .v4-sheet{position:absolute;left:0;right:0;bottom:0;max-height:84vh;overflow-y:auto;background:var(--v4bg);border-radius:18px 18px 0 0;padding:14px 16px 18px;max-width:560px;margin:0 auto;border:1px solid var(--v4border)}
+  .v4-overlay{position:absolute;inset:0;background:rgba(4,2,16,.86)}
+  .v4-sheet{position:absolute;left:0;right:0;bottom:0;max-height:84vh;overflow-y:auto;overscroll-behavior:contain;background:var(--v4card);border-radius:18px 18px 0 0;padding:14px 16px 18px;max-width:560px;margin:0 auto;border:1px solid var(--v4border)}
   .v4-modalpanel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:92%;max-width:420px;max-height:88vh;overflow-y:auto;background:var(--v4bg);border:1px solid var(--v4border);border-radius:16px;padding:18px 16px}
   .v4-fmtrow{display:flex;align-items:center;gap:8px;padding:11px 6px;border-bottom:1px solid var(--v4border);cursor:pointer;border-radius:8px}
-  .v4-fmtrow.sel{background:rgba(124,92,255,.10)}
+  .v4-fmtrow.sel{background:rgba(45,212,191,.16);box-shadow:inset 3px 0 0 var(--v4teal)}
+  .v4-fmtrow.sel .nm{font-weight:800}
+  .v4-fmtrow.sel .sz{color:var(--v4teal);font-weight:700}
   .v4-fmtrow .nm{flex:1;font-size:13.5px}
   .v4-fmtrow .sz{font-size:12px;color:var(--v4muted)}
   .v4-radio{width:17px;height:17px;border-radius:50%;border:2px solid var(--v4muted);flex:none;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#06231f}
@@ -3242,6 +3267,18 @@ Downloads background me one by one chalte rahen ge.</div>
   .v4-msg.ok{display:block;background:rgba(20,184,166,.14);color:var(--v4teal)}
   /* downloads */
   .v4-dlrow{display:flex;gap:10px;align-items:center;background:var(--v4card);border:1px solid var(--v4border);border-radius:12px;padding:9px 10px;margin-bottom:8px}
+  .v4-dlrow2{display:flex;gap:11px;align-items:center;background:var(--v4card);border:1px solid var(--v4border);border-radius:14px;padding:9px 10px;margin-bottom:9px}
+  .v4-dlrow2.sel{border-color:var(--v4teal)}
+  .v4-dlthumb{position:relative;width:104px;height:60px;flex:none;border-radius:10px;overflow:hidden;background:#26224a;cursor:pointer}
+  .v4-dlthumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .v4-dlthumb.music{width:58px;height:58px;border-radius:50%}
+  .v4-playdot{position:absolute;right:5px;bottom:5px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;border:1px solid rgba(255,255,255,.55)}
+  .v4-dlthumb.music .v4-playdot{right:50%;bottom:50%;transform:translate(50%,50%)}
+  .v4-dlinfo{flex:1;min-width:0;cursor:pointer}
+  .v4-dltitle{font-size:13.5px;font-weight:600;line-height:1.32;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .v4-dlmeta{font-size:11.5px;color:var(--v4muted);margin-top:3px}
+  .v4-dotbtn{background:none;border:none;color:var(--v4text);font-size:22px;line-height:1;padding:10px 7px;cursor:pointer;flex:none}
+  .v4-menurow{display:flex;align-items:center;gap:12px;width:100%;padding:13px 4px;background:none;border:none;border-bottom:1px solid var(--v4border);color:var(--v4text);font-size:14px;cursor:pointer;text-align:left;text-decoration:none;box-sizing:border-box}
   .v4-dlrow img{width:64px;height:40px;object-fit:cover;border-radius:8px;flex:none;background:#26224a}
   .v4-dlrow .tt{flex:1;min-width:0}
   .v4-dlrow .t1{font-size:12.5px;font-weight:600}
@@ -3412,8 +3449,7 @@ Downloads background me one by one chalte rahen ge.</div>
       <div id="v4-dl-filterwrap" style="display:flex;align-items:center;gap:8px;position:relative">
         <div class="v4-h" style="flex:1;margin:4px 2px">Downloads</div>
         <button class="v4-iconbtn" onclick="v4DlFilterToggle()" title="Type ke hisab se filter karein"><i class="fa-solid fa-filter"></i> Filter</button>
-        <button class="v4-iconbtn" onclick="v4DlSelectMode()" title="Kai videos ek sath chunein">☑ Select</button>
-        <button class="v4-iconbtn" onclick="v4DeleteAll()" title="Saare downloads delete karein">🗑 Sab delete</button>
+        <button class="v4-iconbtn" onclick="v4DlSelectMode()" title="Kai videos ek sath chunein — select mode">🗑</button>
         <div id="v4-dl-typechips" class="v4-filterpop" style="display:none"></div>
       </div>
       <div id="v4-dl-selbar" class="v4-selbar" style="display:none"></div>
@@ -3571,6 +3607,34 @@ Downloads background me one by one chalte rahen ge.</div>
     <div class="v4-h" style="margin-top:12px">Download karein</div>
     <div id="v4-sheet-list"><p class="v4-muted">Formats load ho rahe hain...</p></div>
     <button class="v4-bigbtn" id="v4-sheet-download" onclick="v4SheetDownload()">Download</button>
+  </div>
+</div>
+
+<!-- Downloads 3-dot menu (Update 51/58) -->
+<div id="v4-dlmenuwrap" class="v4-wrap">
+  <div class="v4-overlay" onclick="v4CloseDlMenu()"></div>
+  <div class="v4-sheet">
+    <div style="display:flex;gap:10px;align-items:center">
+      <img id="v4-dlmenu-thumb" style="width:76px;height:46px;object-fit:cover;border-radius:8px;background:#26224a" alt="">
+      <div style="flex:1;min-width:0">
+        <div id="v4-dlmenu-title" style="font-size:13.5px;font-weight:600"></div>
+        <div id="v4-dlmenu-meta" class="v4-muted"></div>
+      </div>
+      <button class="v4-iconbtn" onclick="v4CloseDlMenu()">✕</button>
+    </div>
+    <div id="v4-dlmenu-list" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- Downloaded file ka player (Update 57) -->
+<div id="v4-playerwrap" class="v4-wrap">
+  <div class="v4-overlay" onclick="v4ClosePlayer()"></div>
+  <div class="v4-modalpanel" style="max-width:640px;width:94%">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+      <div id="v4-player-title" style="flex:1;font-size:13.5px;font-weight:600"></div>
+      <button class="v4-iconbtn" onclick="v4ClosePlayer()">✕</button>
+    </div>
+    <video id="v4-filevideo" controls playsinline style="width:100%;max-height:64vh;border-radius:12px;background:#000"></video>
   </div>
 </div>
 
@@ -3797,7 +3861,7 @@ function v4OpenWatch(v){
   if(v.channel) v4InterestAdd(v.channel, 1);
   if(v.title) v4InterestAdd(v.title.replace(/[^\p{L}\p{N} ]/gu, ' ').split(/\s+/).filter(function(w){ return w.length > 2; }).slice(0, 3).join(' '), 1);
   if(v4State.view !== 'watch') v4PrevView = v4State.view;
-  v4$('v4-player').src = 'https://www.youtube.com/embed/' + v.videoId + '?autoplay=1&rel=0';
+  v4$('v4-player').src = 'https://www.youtube.com/embed/' + v.videoId + '?autoplay=1&rel=0&enablejsapi=1';
   v4$('v4-watch-title').textContent = v.title || '';
   v4$('v4-watch-channel').textContent = v.channel || '';
   v4Show('watch');
@@ -3823,6 +3887,9 @@ async function v4OpenSheet(id){
   v4$('v4-sheet-channel').textContent = v.channel || '';
   v4$('v4-sheet-list').innerHTML = '<p class="v4-muted">Formats load ho rahe hain...</p>';
   v4$('v4-sheetwrap').classList.add('open');
+  v4Lock(true);
+  const pl = v4$('v4-player');
+  if(pl && pl.contentWindow){ try{ pl.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*'); }catch(e){} }
   const btn = v4$('v4-sheet-download');
   if(v4State.config && v4State.config.toggles && v4State.config.toggles.downloads_enabled === false){ btn.disabled = true; btn.textContent = 'Downloads band hain'; }
   else { btn.disabled = false; btn.textContent = 'Download'; }
@@ -3844,7 +3911,7 @@ function v4PickFmt(el){
   el.classList.add('sel');
   v4Sheet.sel = {format: el.getAttribute('data-fmt'), quality: el.getAttribute('data-q') || null};
 }
-function v4CloseSheet(){ v4$('v4-sheetwrap').classList.remove('open'); }
+function v4CloseSheet(){ v4$('v4-sheetwrap').classList.remove('open'); v4Lock(false); }
 function v4SheetDownload(){
   if(!v4Sheet.sel){ v4Toast('Pehle ek quality chunein'); return; }
   const params = {video_id: v4Sheet.id, format: v4Sheet.sel.format, quality: v4Sheet.sel.quality, title: v4$('v4-sheet-title').textContent || ''};
@@ -3898,6 +3965,9 @@ function v4DlTypeMatch(d){
   return ['MP4', '3GP', 'MKV', 'WEBM'].indexOf(fm) >= 0 && d.status === 'completed';
 }
 let v4DlSel = {on: false, set: {}};
+let v4DlMap = {};
+let v4MenuId = null;
+function v4Lock(on){ try{ document.body.style.overflow = on ? 'hidden' : ''; }catch(e){} }
 function v4DlSelectMode(){ v4DlSel.on = !v4DlSel.on; if(!v4DlSel.on) v4DlSel.set = {}; v4RenderDownloads(); }
 function v4DlToggleSel(id){ if(v4DlSel.set[id]) delete v4DlSel.set[id]; else v4DlSel.set[id] = 1; v4RenderDownloads(); }
 function v4DlSelectAll(){
@@ -3917,6 +3987,61 @@ async function v4DlBulkDelete(){
   for(let i = 0; i < ids.length; i++){ await v4Fetch('/api/delete-download/' + ids[i], {method: 'DELETE'}); }
   v4DlSel = {on: false, set: {}}; v4LoadDownloads(); v4Toast(ids.length + ' downloads delete ho gayin');
 }
+/* Update 51/57/58: Downloads ki nayi rows — bari thumbnail, play button
+   thumbnail ke andar, baqi saare options ⋮ menu mein. Play dabane par
+   downloaded file hi chalti hai, dobara download nahi hoti. */
+function v4DlRowHtml(d, selOn){
+  const vid = d.videoId || '';
+  const isSel = selOn && !!v4DlSel.set[d.downloadId];
+  const isMusic = ['MP3','M4A'].indexOf((d.format || '').toUpperCase()) >= 0;
+  const failed = d.status === 'failed';
+  const playAttr = failed ? '' : ' data-id="' + d.downloadId + '" onclick="v4PlayFile(this.dataset.id)"';
+  const thumb = '<div class="v4-dlthumb' + (isMusic ? ' music' : '') + '"' + playAttr + '>' + (vid ? v4Img(vid) : '') + (failed ? '' : '<span class="v4-playdot">▶</span>') + '</div>';
+  const meta = failed
+    ? '<div class="v4-dlmeta" style="color:var(--v4danger)">Fail ho gaya: ' + v4Esc(d.error || 'error') + '</div>'
+    : '<div class="v4-dlmeta">' + v4Esc([d.quality || d.format || '', v4MB(d.file_size)].filter(Boolean).join(' • ')) + '</div>';
+  const info = '<div class="v4-dlinfo"' + playAttr + '><div class="v4-dltitle">' + v4Esc(d.title || '') + '</div>' + meta + '</div>';
+  if(selOn) return '<div class="v4-dlrow2' + (isSel ? ' sel' : '') + '" data-id="' + d.downloadId + '" onclick="v4DlToggleSel(this.dataset.id)"><span class="v4-check' + (isSel ? ' on' : '') + '">✓</span>' + thumb + info + '</div>';
+  return '<div class="v4-dlrow2">' + thumb + info + '<button class="v4-dotbtn" data-id="' + d.downloadId + '" onclick="v4DlMenu(this.dataset.id)">⋮</button></div>';
+}
+function v4PlayFile(id){
+  const d = v4DlMap[id] || {};
+  v4$('v4-player-title').textContent = d.title || '';
+  const vid = v4$('v4-filevideo');
+  vid.src = '/api/download-file/' + id + '?play=1';
+  v4$('v4-playerwrap').classList.add('open'); v4Lock(true);
+  if(vid.play){ const p = vid.play(); if(p && p.catch) p.catch(function(){}); }
+}
+function v4ClosePlayer(){
+  const vid = v4$('v4-filevideo');
+  try{ vid.pause(); vid.removeAttribute('src'); vid.load(); }catch(e){}
+  v4$('v4-playerwrap').classList.remove('open'); v4Lock(false);
+}
+function v4DlMenu(id){
+  const d = v4DlMap[id]; if(!d) return;
+  v4MenuId = id;
+  v4$('v4-dlmenu-thumb').src = d.videoId ? ('https://i.ytimg.com/vi/' + d.videoId + '/hqdefault.jpg') : '';
+  v4$('v4-dlmenu-title').textContent = d.title || '';
+  v4$('v4-dlmenu-meta').textContent = [d.quality || d.format || '', v4MB(d.file_size), d.platform || 'YouTube'].filter(Boolean).join(' • ');
+  let h = '';
+  if(d.status === 'failed'){
+    if(d.videoId) h += '<button class="v4-menurow" data-vid="' + d.videoId + '" onclick="v4MenuRetry(this)">↻ Dobara try karein</button>';
+  } else {
+    h += '<button class="v4-menurow" onclick="v4MenuPlay()">▶ Play karein</button>';
+    h += '<a class="v4-menurow" href="/api/download-file/' + id + '" download>⬇ Phone mein save karo</a>';
+    h += '<button class="v4-menurow" onclick="v4MenuShare()">📤 Share karein</button>';
+    h += '<button class="v4-menurow" onclick="v4MenuPrivate()">' + (d.private ? '🔓 Private se nikalo' : '🔒 Private Folder mein daalo') + '</button>';
+  }
+  h += '<button class="v4-menurow" style="color:var(--v4danger)" onclick="v4MenuDelete()">🗑 Delete file</button>';
+  v4$('v4-dlmenu-list').innerHTML = h;
+  v4$('v4-dlmenuwrap').classList.add('open'); v4Lock(true);
+}
+function v4CloseDlMenu(){ v4$('v4-dlmenuwrap').classList.remove('open'); v4Lock(false); }
+function v4MenuPlay(){ const id = v4MenuId; v4CloseDlMenu(); v4PlayFile(id); }
+function v4MenuShare(){ const d = v4DlMap[v4MenuId] || {}; const id = v4MenuId; v4CloseDlMenu(); v4ShareDl(id, d.title || '', d.format || 'MP4'); }
+function v4MenuPrivate(){ const d = v4DlMap[v4MenuId] || {}; const id = v4MenuId; v4CloseDlMenu(); v4PrivToggle(id, !d.private); }
+function v4MenuDelete(){ const id = v4MenuId; v4CloseDlMenu(); v4DeleteDl(id); }
+function v4MenuRetry(el){ const vid = el.getAttribute('data-vid'); v4CloseDlMenu(); v4OpenSheet(vid); }
 function v4RenderDownloads(){
   const fEl = v4$('v4-dl-filter'); if(!fEl) return;
   const f = (fEl.value || '').toLowerCase();
@@ -3948,20 +4073,8 @@ function v4RenderDownloads(){
   v4$('v4-dl-active').innerHTML = act.length ? act.map(rowAct).join('') : '<p class="v4-muted">Koi download nahi chal raha</p>';
   const rowDone = function(d){
     const title = d.title || ''; if(f && title.toLowerCase().indexOf(f) < 0) return '';
-    const vid = d.videoId || '';
-    const selOn = v4DlSel.on, isSel = !!v4DlSel.set[d.downloadId];
-    const chk = selOn ? '<span class="v4-check' + (isSel ? ' on' : '') + '">✓</span>' : '';
-    const rowOpen = '<div class="v4-dlrow' + (selOn && isSel ? ' sel' : '') + '"' + (selOn ? ' data-id="' + d.downloadId + '" onclick="v4DlToggleSel(this.dataset.id)"' : '') + '>';
-    if(d.status === 'failed'){
-      return rowOpen + chk + (vid ? v4Img(vid) : '<span style="width:64px"></span>') + '<div class="tt"><div class="t1">' + v4Esc(title) + '</div><div class="t2" style="color:var(--v4danger)">Fail ho gaya: ' + v4Esc(d.error || 'error') + '</div></div>' + (selOn ? '' : (vid ? '<button class="v4-roundbtn" title="Dobara try" data-id="' + vid + '" onclick="v4DlClick(event, this.dataset.id)">↻</button>' : '') + '<button class="v4-roundbtn" title="Delete" data-id="' + d.downloadId + '" onclick="v4DeleteDl(this.dataset.id)">🗑</button>') + '</div>';
-    }
-    return rowOpen + chk + (vid ? v4Img(vid) : '<span style="width:64px"></span>') + '<div class="tt"><div class="t1">' + v4Esc(title) + '</div><div class="t2">' + v4Esc([d.quality || d.format || '', v4MB(d.file_size)].filter(Boolean).join(' • ')) + '</div></div>' +
-      (selOn ? '' :
-      '<a class="v4-roundbtn teal" title="Play" href="/api/download-file/' + d.downloadId + '">▶</a>' +
-      '<a class="v4-roundbtn" title="Phone me save karein" href="/api/download-file/' + d.downloadId + '" download>⬇</a>' +
-      '<button class="v4-roundbtn" title="Share — video + website link" data-id="' + d.downloadId + '" data-t="' + v4Esc(d.title || '') + '" data-f="' + (d.format || 'MP4') + '" onclick="v4ShareDl(this.dataset.id, this.dataset.t, this.dataset.f)">📤</button>' +
-      '<button class="v4-roundbtn" title="Private folder me chhupao" data-id="' + d.downloadId + '" onclick="v4PrivToggle(this.dataset.id, true)">🔒</button>' +
-      '<button class="v4-roundbtn" title="Delete" data-id="' + d.downloadId + '" onclick="v4DeleteDl(this.dataset.id)">🗑</button>') + '</div>';
+    v4DlMap[d.downloadId] = d;
+    return v4DlRowHtml(d, v4DlSel.on);
   };
   const doneList = (v4DlData.list || []).filter(function(d){ return !actIds[d.downloadId] && v4DlTypeMatch(d); });
   const statsEl = v4$('v4-dl-stats');
@@ -4114,12 +4227,8 @@ async function v4RenderPrivate(){
   const box = v4$('v4-priv-list'); if(!box) return;
   if(!list.length){ box.innerHTML = '<p class="v4-muted">Abhi koi private download nahi. Downloads mein kisi video par 🔒 dabakar yahan chhupayein.</p>'; return; }
   box.innerHTML = list.map(function(x){
-    return '<div class="v4-dlrow">' + (x.videoId ? v4Img(x.videoId) : '<span style="width:64px"></span>') + '<div class="tt"><div class="t1">' + v4Esc(x.title || '') + '</div><div class="t2">' + v4Esc([x.quality || x.format || '', v4MB(x.file_size)].filter(Boolean).join(' • ')) + '</div></div>' +
-      '<a class="v4-roundbtn teal" title="Play" href="/api/download-file/' + x.downloadId + '">▶</a>' +
-      '<a class="v4-roundbtn" title="Phone me save karein" href="/api/download-file/' + x.downloadId + '" download>⬇</a>' +
-      '<button class="v4-roundbtn" title="Share — video + website link" data-id="' + x.downloadId + '" data-t="' + v4Esc(x.title || '') + '" data-f="' + (x.format || 'MP4') + '" onclick="v4ShareDl(this.dataset.id, this.dataset.t, this.dataset.f)">📤</button>' +
-      '<button class="v4-roundbtn" title="Private se bahar nikalo" data-id="' + x.downloadId + '" onclick="v4PrivToggle(this.dataset.id, false)">🔓</button>' +
-      '<button class="v4-roundbtn" title="Delete" data-id="' + x.downloadId + '" onclick="v4DeleteDl(this.dataset.id)">🗑</button></div>';
+    v4DlMap[x.downloadId] = x;
+    return v4DlRowHtml(x, false);
   }).join('');
 }
 async function v4PrivSetPin(){ const pin = v4$('v4-priv-newpin').value.trim(); const r = await v4Post('/api/private/set-pin', {pin:pin}); if(r.ok && r.data.success){ v4Toast('PIN ban gaya — folder khul gaya'); v4RenderPrivate(); } else v4Toast((r.data && r.data.error) || 'PIN nahi bana'); }
@@ -4532,12 +4641,13 @@ function v4InstallPC(){ if(typeof installPlayTubeAppPC === 'function') installPl
 /* ---------- auth modal (Update 21/22) ---------- */
 function v4OpenAuth(tab, forgot){
   v4$('v4-authwrap').classList.add('open');
+  v4Lock(true);
   v4AuthMsg('', '');
   if(forgot){ v4ShowForgot(); return; }
   v4AuthTab(tab || 'signin');
 }
 function v4OpenAuthForgot(){ v4OpenAuth('signin', true); }
-function v4CloseAuth(){ v4$('v4-authwrap').classList.remove('open'); }
+function v4CloseAuth(){ v4$('v4-authwrap').classList.remove('open'); v4Lock(false); }
 function v4AuthMsg(txt, kind){ const m = v4$('v4-auth-msg'); m.className = 'v4-msg' + (kind ? ' ' + kind : ''); m.textContent = txt || ''; }
 function v4AuthForms(show){
   ['v4-form-signin','v4-form-signup','v4-form-verify','v4-form-forgot','v4-form-reset'].forEach(function(id){ v4$(id).style.display = (id === show) ? 'block' : 'none'; });
@@ -6887,7 +6997,21 @@ def download_file(download_id):
         return jsonify({"error": "File not found"}), 404
     
     filename = os.path.basename(file_path)
-    
+
+    # Update 57: ?play=1 par file browser/app ke andar PLAY hoti hai
+    # (inline + asal video/audio type) — dobara download nahi hoti.
+    if request.args.get('play'):
+        _ext = os.path.splitext(file_path)[1].lower()
+        _mt = {'.mp4': 'video/mp4', '.3gp': 'video/3gpp',
+               '.mkv': 'video/x-matroska', '.webm': 'video/webm',
+               '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4'}.get(
+                   _ext, 'application/octet-stream')
+        try:
+            return send_file(file_path, as_attachment=False,
+                             download_name=filename, mimetype=_mt)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
     try:
         return send_file(file_path, as_attachment=True, download_name=filename, mimetype='application/octet-stream')
     except Exception as e:
