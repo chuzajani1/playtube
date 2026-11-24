@@ -1750,17 +1750,7 @@ HTML = '''
         </div>
     </div>
 </div>
-<!-- Footer -->
-<div style="text-align:center; padding:20px; margin-top:30px; border-top:1px solid #333;">
-    <a href="/privacy-policy" style="color:#aaa; margin:0 10px; text-decoration:none;" data-i18n="privacy">Privacy Policy</a>
-    <span style="color:#666;">|</span>
-    <a href="/terms-of-service" style="color:#aaa; margin:0 10px; text-decoration:none;" data-i18n="terms">Terms of Service</a>
-    <span style="color:#666;">|</span>
-<a href="/about" style="color:#aaa; margin:0 10px; text-decoration:none;" data-i18n="about">About</a>
-<span style="color:#666;">|</span>
-<a href="/contact" style="color:#aaa; margin:0 10px; text-decoration:none;" data-i18n="contact">Contact</a>
-    <p style="color:#666; margin-top:10px; font-size:0.8rem;">© 2026 PlayTube - All Rights Reserved</p>
-</div>
+<!-- Footer links: Update 60 — ab More tab ke andar hain -->
     <!-- Premium Modal -->
     <div id="premiumModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:99999; overflow-y:auto; padding:20px;">
         <div style="background:#1a1a1a; padding:30px; border-radius:20px; max-width:500px; margin:20px auto;">
@@ -3293,6 +3283,10 @@ Downloads background me one by one chalte rahen ge.</div>
   #v4-fseek{flex:1;accent-color:var(--v4teal);height:4px;cursor:pointer}
   .v4-fspin{position:absolute;left:50%;top:50%;width:42px;height:42px;margin:-21px 0 0 -21px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:var(--v4teal);animation:v4spin .8s linear infinite;display:none;z-index:3}
   @keyframes v4spin{to{transform:rotate(360deg)}}
+  .v4-footlinks{margin-top:24px;padding:16px 6px 6px;border-top:1px solid var(--v4border);text-align:center}
+  .v4-footlinks a{color:var(--v4muted);text-decoration:none;font-size:12.5px;margin:0 8px}
+  .v4-footlinks span{color:var(--v4border)}
+  .v4-footlinks p{color:var(--v4muted);font-size:11.5px;margin:9px 0 0}
   .v4-dlrow img{width:64px;height:40px;object-fit:cover;border-radius:8px;flex:none;background:#26224a}
   .v4-dlrow .tt{flex:1;min-width:0}
   .v4-dlrow .t1{font-size:12.5px;font-weight:600}
@@ -3444,6 +3438,10 @@ Downloads background me one by one chalte rahen ge.</div>
         <p class="v4-muted v4-rate-sub">Agar PlayTube aap ko pasand aya hai to stars de kar hamari hosla-afzai karein — aap ki rating se hi PlayTube aur behtar banta hai. Shukriya!</p>
         <div class="v4-stars" id="v4-stars"><span onclick="v4Rate(1)">★</span><span onclick="v4Rate(2)">★</span><span onclick="v4Rate(3)">★</span><span onclick="v4Rate(4)">★</span><span onclick="v4Rate(5)">★</span></div>
         <p class="v4-rate-msg" id="v4-rate-msg"></p>
+      </div>
+      <div class="v4-footlinks">
+        <a href="/privacy-policy">Privacy Policy</a><span>|</span><a href="/terms-of-service">Terms of Service</a><span>|</span><a href="/about">About</a><span>|</span><a href="/contact">Contact</a>
+        <p>© 2026 PlayTube - All Rights Reserved</p>
       </div>
     </section>
 
@@ -7109,17 +7107,8 @@ def download_file(download_id):
 _stream_cache = {}
 
 
-def _resolve_stream_url(video_id):
-    """Watch ke liye seedha play URL: audio+video wala mp4, zyada se
-    zyada 720p. Result 30 min cache — googlevideo links expire hote hain."""
-    _c = _stream_cache.get(video_id)
-    if _c and time.time() - _c[1] < 1800:
-        return _c[0]
-    info = _extract_with_clients(
-        'https://www.youtube.com/watch?v=' + video_id,
-        {'quiet': True, 'no_warnings': True, 'skip_download': True})
-    if not info:
-        return None
+def _pick_combined_url(info):
+    """info se audio+video wala behtareen format (<=720p, mp4 tarjeeh)."""
     best = None
     for f in (info.get('formats') or []):
         if not f.get('url'):
@@ -7132,10 +7121,39 @@ def _resolve_stream_url(video_id):
         score = (1 if f.get('ext') == 'mp4' else 0, h)
         if best is None or score > best[0]:
             best = (score, f['url'])
-    url = best[1] if best else info.get('url')
-    if url:
-        _stream_cache[video_id] = (url, time.time())
-    return url
+    return best[1] if best else None
+
+
+def _resolve_stream_url(video_id):
+    """Watch ke liye seedha play URL. Har player client ko bari bari
+    azmata hai aur usi ka result leta hai jis mein audio+video wala
+    (combined) format mile — taake video awaz ke sath chale.
+    Result 30 min cache — googlevideo links expire hote hain."""
+    _c = _stream_cache.get(video_id)
+    if _c and time.time() - _c[1] < 1800:
+        return _c[0]
+    watch_url = 'https://www.youtube.com/watch?v=' + video_id
+    fallback = None
+    for _client in _YT_CLIENTS:
+        try:
+            _opts = _ydl_opts_with_client(
+                {'quiet': True, 'no_warnings': True, 'skip_download': True},
+                _client)
+            with yt_dlp.YoutubeDL(_opts) as _ydl:
+                _info = _ydl.extract_info(watch_url, download=False)
+        except Exception:
+            continue
+        if not _info:
+            continue
+        _u = _pick_combined_url(_info)
+        if _u:
+            _stream_cache[video_id] = (_u, time.time())
+            return _u
+        if fallback is None and _info.get('url'):
+            fallback = _info['url']
+    if fallback:
+        _stream_cache[video_id] = (fallback, time.time())
+    return fallback
 
 
 @app.route('/api/stream/<video_id>')
