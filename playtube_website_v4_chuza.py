@@ -2654,12 +2654,17 @@ async function showUsageStats() {
     <div style="text-align:center; padding:15px; background:#1a1a1a; margin-top:30px; border-top:1px solid #333;">
         <p style="color:#aaa; margin:0;">
             👥 Total Visits: <span id="visitorCount" style="color:#4CAF50; font-weight:bold;">0</span>
+            <span style="color:#555; margin:0 6px;">|</span>
+            🕒 <span id="liveClock" style="color:#4CAF50; font-weight:bold;">--:--:--</span>
         </p>
         <p style="color:#666; margin:5px 0 0; font-size:0.8rem;">
             © 2026 Playza - Coded by Chuza
         </p>
     </div>
 
+    <script>
+    (function(){ function tick(){ var el = document.getElementById('liveClock'); if(el){ el.textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}); } } tick(); setInterval(tick, 1000); })();
+    </script>
     <script>
     fetch('/api/visitor-stats')
         .then(res => res.json())
@@ -2745,9 +2750,7 @@ async function showUsageStats() {
 </style>
 
 <div class="pt2-fab">
-    <button id="themeFab" title="Dark / Light mode" onclick="toggleTheme()">🌗</button>
-    <button id="aiFab" title="AI Assistant" onclick="toggleAiDrawer()">🤖</button>
-</div>
+        </div>
 
 <div id="aiDrawer">
     <header>
@@ -3879,7 +3882,7 @@ function v4WatchClick(id){
   v4OpenWatch(v);
 }
 /* ---------- Playza ka apna player (Update 59) ---------- */
-let v4FrameTimer = null, v4FrameWired = false;
+let v4FrameTimer = null, v4FrameWired = false, v4FrameWatchdog = null;
 function v4FmtTime(s){ s = Math.max(0, Math.floor(s || 0)); const m = Math.floor(s / 60), r = s % 60; return m + ':' + (r < 10 ? '0' : '') + r; }
 function v4FrameShowCtrls(){
   v4$('v4-fctrls').classList.remove('hide');
@@ -3893,7 +3896,7 @@ function v4FrameSetup(id){
   vd.style.display = '';
   if(!v4FrameWired){
     v4FrameWired = true;
-    vd.addEventListener('playing', function(){ v4$('v4-fspin').style.display = 'none'; v4$('v4-fbig').classList.add('hide'); v4$('v4-fplay').textContent = '❚❚'; v4FrameShowCtrls(); });
+    vd.addEventListener('playing', function(){ if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog); v4$('v4-fspin').style.display = 'none'; v4$('v4-fbig').classList.add('hide'); v4$('v4-fplay').textContent = '❚❚'; v4FrameShowCtrls(); });
     vd.addEventListener('waiting', function(){ v4$('v4-fspin').style.display = 'block'; });
     vd.addEventListener('pause', function(){ v4$('v4-fbig').classList.remove('hide'); v4$('v4-fplay').textContent = '▶'; v4$('v4-fctrls').classList.remove('hide'); });
     vd.addEventListener('error', function(){ if(vd.style.display !== 'none') v4FrameFallback(); });
@@ -3902,6 +3905,8 @@ function v4FrameSetup(id){
   }
   vd.poster = 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg';
   vd.src = '/api/stream/' + id;
+  if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog);
+  v4FrameWatchdog = setTimeout(function(){ const v2 = v4$('v4-video'); if(v2 && v2.style.display !== 'none' && v2.readyState < 3) v4FrameFallback(); }, 6000);
   v4$('v4-fspin').style.display = 'block';
   v4$('v4-fbig').classList.remove('hide');
   v4$('v4-fplay').textContent = '▶';
@@ -5251,14 +5256,14 @@ def api_feed():
         # compilations nahi. Kai seeds mila kar dhoondte hain.
         merged = []
         seen_ids = set()
-        tries = 6 if shorts_pool_mode else 3
+        tries = 4 if shorts_pool_mode else 3
         for k in range(tries):
             s_k = pool[(eff + k) % len(pool)]
             if shorts_pool_mode:
                 q_k = s_k
             else:
                 q_k = (s_k + FEED_VARIANTS[k % len(FEED_VARIANTS)]).strip()
-            for it in _feed_search_items(q_k, 30):
+            for it in _feed_search_items(q_k, 20):
                 vid = (it.get('id') or {}).get('videoId')
                 if vid and vid not in seen_ids:
                     seen_ids.add(vid)
@@ -5271,8 +5276,40 @@ def api_feed():
                  if it.get('duration') and it['duration'] <= 65]
         return jsonify({'items': items, 'page': page,
                         'has_more': page < total_pages - 1})
-    items = _feed_search_items(seed_q, 30)
     has_more = page < (total_pages - 1)
+    if len(pool) <= 1:
+        items = _feed_search_items(seed_q, 30)
+        return jsonify({'items': items, 'page': page, 'has_more': has_more})
+    # Update 64: MIXED feed — har page 3 alag seeds se round-robin mila
+    # kar banta hai, taake ek hi topic ki videos na bharein. Ek channel
+    # ki zyada se zyada 4 videos per page, duplicate bilkul nahi.
+    _base = eff % len(pool)
+    _step = max(1, len(pool) // 3)
+    _seeds = []
+    for _k in range(3):
+        _s = pool[(_base + _k * _step) % len(pool)]
+        _v = FEED_VARIANTS[(eff + _k) % len(FEED_VARIANTS)]
+        _seeds.append((_s + _v).strip())
+    _buckets = [_feed_search_items(_sq, 12) for _sq in _seeds]
+    items, _seen, _chan = [], set(), {}
+    _idx = 0
+    while len(items) < 30:
+        _progressed = False
+        for _b in _buckets:
+            if _idx < len(_b):
+                _progressed = True
+                _it = _b[_idx]
+                _vid = (_it.get('id') or {}).get('videoId')
+                _ch = ((_it.get('snippet') or {}).get('channelTitle') or '')
+                if _vid and _vid not in _seen and _chan.get(_ch, 0) < 4:
+                    _seen.add(_vid)
+                    _chan[_ch] = _chan.get(_ch, 0) + 1
+                    items.append(_it)
+                if len(items) >= 30:
+                    break
+        _idx += 1
+        if not _progressed:
+            break
     return jsonify({'items': items, 'page': page, 'has_more': has_more})
 
 
@@ -7105,6 +7142,7 @@ def download_file(download_id):
 
 # ============ APNA PLAYER STREAM (Update 59) ============
 _stream_cache = {}
+_stream_fail_until = 0.0
 
 
 def _pick_combined_url(info):
@@ -7129,9 +7167,12 @@ def _resolve_stream_url(video_id):
     azmata hai aur usi ka result leta hai jis mein audio+video wala
     (combined) format mile — taake video awaz ke sath chale.
     Result 30 min cache — googlevideo links expire hote hain."""
+    global _stream_fail_until
     _c = _stream_cache.get(video_id)
     if _c and time.time() - _c[1] < 1800:
         return _c[0]
+    if time.time() < _stream_fail_until:
+        return None
     watch_url = 'https://www.youtube.com/watch?v=' + video_id
     fallback = None
     for _client in _YT_CLIENTS:
@@ -7153,6 +7194,11 @@ def _resolve_stream_url(video_id):
             fallback = _info['url']
     if fallback:
         _stream_cache[video_id] = (fallback, time.time())
+        _stream_fail_until = 0.0
+    else:
+        # Saare clients fail — 2 min ke liye foran fail, taake player
+        # har video par 8 second na latke (backup player foran khule).
+        _stream_fail_until = time.time() + 120
     return fallback
 
 
