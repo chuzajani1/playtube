@@ -3224,16 +3224,22 @@ Downloads background me one by one chalte rahen ge.</div>
   .v4-wrap{position:fixed;inset:0;z-index:200;display:none}
   .v4-wrap.open{display:block}
   .v4-overlay{position:absolute;inset:0;background:rgba(4,2,16,.86)}
-  .v4-sheet{position:absolute;left:0;right:0;bottom:0;max-height:84vh;overflow-y:auto;overscroll-behavior:contain;background:var(--v4card);border-radius:18px 18px 0 0;padding:14px 16px 18px;max-width:560px;margin:0 auto;border:1px solid var(--v4border)}
+  .v4-sheet{position:absolute;left:0;right:0;bottom:0;max-height:84vh;overflow-y:auto;overscroll-behavior:contain;background:#0b0916;border-radius:18px 18px 0 0;padding:14px 16px 18px;max-width:560px;margin:0 auto;border:1px solid var(--v4border)}
   .v4-modalpanel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:92%;max-width:420px;max-height:88vh;overflow-y:auto;background:var(--v4bg);border:1px solid var(--v4border);border-radius:16px;padding:18px 16px}
-  .v4-fmtrow{display:flex;align-items:center;gap:8px;padding:11px 6px;border-bottom:1px solid var(--v4border);cursor:pointer;border-radius:8px}
-  .v4-fmtrow.sel{background:rgba(45,212,191,.16);box-shadow:inset 3px 0 0 var(--v4teal)}
-  .v4-fmtrow.sel .nm{font-weight:800}
-  .v4-fmtrow.sel .sz{color:var(--v4teal);font-weight:700}
-  .v4-fmtrow .nm{flex:1;font-size:13.5px}
-  .v4-fmtrow .sz{font-size:12px;color:var(--v4muted)}
-  .v4-radio{width:17px;height:17px;border-radius:50%;border:2px solid var(--v4muted);flex:none;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#06231f}
-  .v4-fmtrow.sel .v4-radio{background:var(--v4teal);border-color:var(--v4teal)}
+  .v4-fmtrow{display:flex;align-items:center;gap:11px;padding:11px 10px;cursor:pointer;border-radius:12px;border-left:4px solid transparent;margin:2px 0}
+  .v4-fmtrow.sel{background:linear-gradient(90deg,rgba(124,92,255,.30),rgba(20,184,166,.20));border-left:4px solid var(--v4teal)}
+  .v4-fmtrow.sel .nm{font-weight:800;color:#fff}
+  .v4-fmtrow.sel .sz{color:#fff;font-weight:700}
+  .v4-fmtrow .ic{width:34px;height:34px;border-radius:9px;background:#1a1730;border:1px solid var(--v4border);display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+  .v4-fmtrow.sel .ic{background:rgba(124,92,255,.35);border-color:var(--v4violet)}
+  .v4-fmtrow .tx{flex:1;display:flex;flex-direction:column;gap:1px;min-width:0}
+  .v4-fmtrow .nm{font-size:14px;font-weight:600}
+  .v4-fmtrow .hint{font-size:11.5px;color:var(--v4muted)}
+  .v4-fmtrow.sel .hint{color:#cfc9ee}
+  .v4-fmtrow .sz{font-size:12.5px;color:var(--v4muted)}
+  .v4-radio{width:22px;height:22px;border-radius:50%;border:2px solid #4a4570;flex:none;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:transparent}
+  .v4-fmtrow.sel .v4-radio{background:linear-gradient(135deg,var(--v4violet),var(--v4teal));border-color:transparent;color:#fff}
+  #v4-sheet-download{background:linear-gradient(90deg,var(--v4violet),var(--v4teal));border-radius:999px;font-size:16px;padding:15px;box-shadow:0 8px 22px rgba(124,92,255,.35)}
   .v4-sect{font-size:11px;font-weight:700;color:var(--v4violet2);letter-spacing:.6px;margin:14px 0 2px}
   .v4-dlstats{margin-top:10px;padding:10px 14px;border-radius:14px;background:linear-gradient(135deg,rgba(124,58,237,.22),rgba(13,148,136,.18));border:1px solid rgba(124,58,237,.35);font-weight:700;font-size:.9rem;color:var(--v4text)}
   .v4-empty{text-align:center;padding:34px 18px 26px;border:1px dashed rgba(148,140,255,.35);border-radius:18px;margin-top:8px;background:rgba(124,58,237,.05)}
@@ -3978,7 +3984,6 @@ function v4ShortCard(it){
     '<div class="v4-short-prog"></div><div class="v4-short-spin"><i></i></div>' +
     '<div class="v4-short-rail">' +
       '<button class="v4-sbtn" data-act="like"><span class="ic">❤</span><span>' + v4FmtCount(it.view_count) + '</span></button>' +
-      '<button class="v4-sbtn" data-act="watch"><span class="ic">▶</span><span>Watch</span></button>' +
       '<button class="v4-sbtn" data-act="share"><span class="ic">⤴</span><span>Share</span></button>' +
       '<button class="v4-sbtn" data-act="dl"><span class="ic">⬇</span><span>Save</span></button>' +
     '</div>' +
@@ -4061,7 +4066,6 @@ function v4OpenShorts(){
       if(btn){
         const act = btn.getAttribute('data-act');
         if(act === 'like'){ btn.classList.toggle('liked'); }
-        else if(act === 'watch' && it){ v4CloseShorts(); v4OpenWatch(it); }
         else if(act === 'dl' && it){ v4CloseShorts(); v4OpenWatch(it); setTimeout(function(){ v4OpenSheet(it); }, 400); }
         else if(act === 'share'){
           const url = 'https://www.youtube.com/watch?v=' + vid;
@@ -4115,6 +4119,12 @@ function v4DlClick(ev, id){
   /* Update 44: guest bhi sheet khol sakta hai — limit server bataye ga */
   v4OpenSheet(id);
 }
+function v4FmtHint(f){
+  if(f.format === 'm4a') return 'Asal quality awaz';
+  if(f.format === 'mp3') return 'Sab devices par chalta hai';
+  const h = {'3GP':'Sab se chhoti file, sab se tez','144p':'Bohat halki quality','240p':'Halki file, jaldi download','360p':'Normal saaf quality','480p':'Achi quality, darmiyani size','720p HD':'Bilkul saaf HD quality','1080p HD':'Full HD, bari screen ke liye','1440p (2K)':'2K, bohat saaf','2160p (4K)':'4K, sab se best quality','4320p (8K)':'8K, sab se best quality'};
+  return h[f.label] || '';
+}
 async function v4OpenSheet(id){
   const v = v4Videos[id] || {videoId:id, title:'', channel:''};
   v4Sheet = {id:id, sel:null};
@@ -4137,7 +4147,7 @@ async function v4OpenSheet(id){
   const d = r.data;
   if(d.title) v4$('v4-sheet-title').textContent = d.title;
   if(d.channel) v4$('v4-sheet-channel').textContent = d.channel;
-  const row = function(f){ return '<div class="v4-fmtrow" data-fmt="' + f.format + '" data-q="' + (f.quality || '') + '" onclick="v4PickFmt(this)"><span class="nm">' + v4Esc(f.label) + '</span>' + (f.size_mb != null ? '<span class="sz">' + f.size_mb + ' MB</span>' : '') + '<span class="v4-radio">✓</span></div>'; };
+  const row = function(f){ const music = (f.format === 'mp3' || f.format === 'm4a'); return '<div class="v4-fmtrow" data-fmt="' + f.format + '" data-q="' + (f.quality || '') + '" onclick="v4PickFmt(this)"><span class="ic">' + (music ? '🎵' : '▶') + '</span><span class="tx"><span class="nm">' + v4Esc(f.label) + '</span><span class="hint">' + v4FmtHint(f) + '</span></span>' + (f.size_mb != null ? '<span class="sz">' + f.size_mb + ' MB</span>' : '') + '<span class="v4-radio">✓</span></div>'; };
   list.innerHTML = '<div class="v4-sect">MUSIC / AUDIO</div>' + (d.music || []).map(row).join('') + '<div class="v4-sect">VIDEO</div>' + (d.video || []).map(row).join('');
   let target = null;
   list.querySelectorAll('.v4-fmtrow').forEach(function(el){ if(el.getAttribute('data-q') === v4State.settings.defQuality) target = el; });
@@ -5133,6 +5143,8 @@ FEED_SHORTS_POOL = [
     'cricket shorts #shorts', 'motu patlu shorts #shorts',
     'comedy shorts hindi #shorts', 'funny shorts #shorts',
     'viral shorts #shorts', 'pubg shorts #shorts',
+    'tiktok funny #shorts', 'tiktok viral #shorts',
+    'reels funny #shorts', 'funny tiktok #shorts',
     'trending shorts #shorts', 'sad shorts #shorts',
 ]
 FEED_VARIANTS = [' latest', ' new', '', ' viral', ' best', ' 2026']
@@ -6642,6 +6654,42 @@ def _extract_with_clients(url, base_opts, download=False):
     return None
 
 
+def _extract_formats_info(url):
+    """Formats ke liye: jo client SAB SE ZYADA asal qualities de, usi ka
+    result — warna android client sirf 360p de kar baqi qualities chupa
+    deta tha. (Update 66)"""
+    _base = {'quiet': True, 'no_warnings': True,
+             'no_check_certificate': True, 'skip_download': True}
+    _best = None
+    _best_score = (-1, -1)
+    _last_err = None
+    for _client in _YT_CLIENTS:
+        _opts = _ydl_opts_with_client(_base, _client)
+        try:
+            with yt_dlp.YoutubeDL(_opts) as _ydl:
+                _info = _ydl.extract_info(url, download=False)
+        except Exception as e:
+            # Formats ke liye har client try karna hai — ek fail ho to
+            # agla; sirf tab fail jab koi bhi info na de.
+            _last_err = e
+            continue
+        if not _info:
+            continue
+        _fmts = _info.get('formats', []) or []
+        _maxh = max([f.get('height') or 0 for f in _fmts] or [0])
+        _score = (_maxh, len(_fmts))
+        if _score > _best_score:
+            _best_score = _score
+            _best = _info
+        if _maxh >= 2160 or len(_fmts) >= 25:
+            break
+    if _best:
+        return _best
+    if _last_err:
+        raise _last_err
+    return None
+
+
 # ============ SPEED SETTINGS (Update 9 - VIP) ============
 # Parallel fragment downloads + big chunks + aria2c (16 connections) when available.
 def _speed_opts():
@@ -7993,10 +8041,8 @@ def _fmt_size_mb(fmt):
 @app.route('/api/formats/<video_id>')
 def api_formats(video_id):
     try:
-        info = _extract_with_clients(
-            f"https://www.youtube.com/watch?v={video_id}",
-            {'quiet': True, 'no_warnings': True, 'no_check_certificate': True,
-             'skip_download': True})
+        info = _extract_formats_info(
+            f"https://www.youtube.com/watch?v={video_id}")
     except Exception as e:
         return jsonify({'error': re.sub(r'\x1b\[[0-9;]*m', '', str(e))[:150]}), 400
     if not info:
@@ -8036,7 +8082,7 @@ def api_formats(video_id):
     # Video ki har asal quality tier, us ke apne maximum tak (2K/4K bhi)
     _STANDARDS = [(144, '144p'), (240, '240p'), (360, '360p'), (480, '480p'),
                   (720, '720p HD'), (1080, '1080p HD'), (1440, '1440p (2K)'),
-                  (2160, '2160p (4K)')]
+                  (2160, '2160p (4K)'), (4320, '4320p (8K)')]
     _prev_h = 0
     for _h, _label in _STANDARDS:
         _cands = [f for f in formats if f.get('height') and _prev_h < f['height'] <= _h
