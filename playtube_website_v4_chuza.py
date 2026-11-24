@@ -3273,6 +3273,28 @@ Downloads background me one by one chalte rahen ge.</div>
   .v4-dotbtn{background:none;border:none;color:var(--v4text);font-size:22px;line-height:1;padding:10px 7px;cursor:pointer;flex:none}
   .v4-menurow{display:flex;align-items:center;gap:12px;width:100%;padding:13px 4px;background:none;border:none;border-bottom:1px solid var(--v4border);color:var(--v4text);font-size:14px;cursor:pointer;text-align:left;text-decoration:none;box-sizing:border-box}
   /* Playza ka apna player frame (Update 59) */
+  /* Shorts — Reels style, Playza design (Update 65) */
+#v4-shorts{position:fixed;inset:0;background:#000;z-index:1200;display:none}
+#v4-shorts.open{display:block}
+#v4-shorts-track{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#v4-shorts-track::-webkit-scrollbar{display:none}
+.v4-short{position:relative;height:100%;max-width:430px;margin:0 auto;scroll-snap-align:start;scroll-snap-stop:always;background:#000;overflow:hidden}
+.v4-short img.bg,.v4-short video,.v4-short iframe{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border:0}
+.v4-shorts-top{position:absolute;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;display:flex;align-items:center;padding:12px 14px;z-index:5;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent);box-sizing:border-box}
+.v4-shorts-logo{font-weight:800;font-size:17px;background:linear-gradient(90deg,var(--v4violet2),var(--v4teal));-webkit-background-clip:text;background-clip:text;color:transparent}
+.v4-shorts-close{margin-left:auto;background:rgba(20,18,40,.55);border:1px solid var(--v4border);color:#fff;width:36px;height:36px;border-radius:50%;font-size:15px;cursor:pointer}
+.v4-short-rail{position:absolute;right:10px;bottom:96px;display:flex;flex-direction:column;gap:15px;z-index:4;align-items:center}
+.v4-sbtn{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;cursor:pointer;color:#fff;font-size:11px;padding:0}
+.v4-sbtn .ic{width:47px;height:47px;border-radius:50%;background:rgba(18,16,31,.55);border:1px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:20px}
+.v4-sbtn.liked .ic{background:linear-gradient(135deg,#e0245e,#ff5c8a);border-color:transparent}
+.v4-short-meta{position:absolute;left:12px;right:78px;bottom:18px;z-index:4;color:#fff}
+.v4-short-chan{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14.5px;margin-bottom:7px;text-shadow:0 1px 6px rgba(0,0,0,.7)}
+.v4-short-ava{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--v4violet),var(--v4teal));display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid rgba(255,255,255,.65);flex:none}
+.v4-short-title{font-size:13.5px;line-height:1.45;text-shadow:0 1px 6px rgba(0,0,0,.7);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.v4-short-prog{position:absolute;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--v4violet),var(--v4teal));z-index:6;width:0}
+.v4-short-hint{position:absolute;left:50%;bottom:120px;transform:translateX(-50%);background:rgba(18,16,31,.8);border:1px solid var(--v4border);color:#fff;padding:7px 14px;border-radius:999px;font-size:12.5px;z-index:5;white-space:nowrap}
+.v4-short-spin{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:3}
+.v4-short-spin i{width:40px;height:40px;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:var(--v4teal);animation:v4spin .8s linear infinite}
   .v4-frame{margin-top:10px;border-radius:16px;padding:2px;background:linear-gradient(135deg,var(--v4violet),var(--v4teal));box-shadow:0 12px 34px rgba(0,0,0,.45)}
   .v4-framein{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:#000}
   .v4-frame video{position:absolute;inset:0;width:100%;height:100%;background:#000}
@@ -3652,6 +3674,11 @@ Downloads background me one by one chalte rahen ge.</div>
 </div>
 
 <!-- Downloaded file ka player (Update 57) -->
+<div id="v4-shorts">
+  <div id="v4-shorts-track"></div>
+  <div class="v4-shorts-top"><span class="v4-shorts-logo">▶ Playza Shorts</span><button class="v4-shorts-close" onclick="v4CloseShorts()">✕</button></div>
+  <div class="v4-short-hint" id="v4-shorts-hint">🔇 Awaz ke liye video par tap karein</div>
+</div>
 <div id="v4-playerwrap" class="v4-wrap">
   <div class="v4-overlay" onclick="v4ClosePlayer()"></div>
   <div class="v4-modalpanel" style="max-width:640px;width:94%">
@@ -3939,6 +3966,127 @@ function v4FrameFull(){
   const box = v4$('v4-frame');
   if(box && box.requestFullscreen) box.requestFullscreen();
 }
+/* ---------- Shorts: Reels style, Playza design (Update 65) ---------- */
+let v4ShortsPage = 0, v4ShortsLoading = false, v4ShortsDone = false, v4ShortsObs = null, v4ShortsMuted = true, v4ShortsSeq = 0;
+const v4ShortsItems = {};
+function v4FmtCount(n){ n = Number(n) || 0; if(n >= 1e6) return (n / 1e6).toFixed(1).replace('.0', '') + 'M'; if(n >= 1e3) return (n / 1e3).toFixed(1).replace('.0', '') + 'K'; return '' + n; }
+function v4ShortCard(it){
+  const id = it.id.videoId, sn = it.snippet || {};
+  const ava = (sn.channelTitle || '?').trim().charAt(0).toUpperCase();
+  return '<section class="v4-short" data-vid="' + id + '">' +
+    '<img class="bg" src="https://i.ytimg.com/vi/' + id + '/hqdefault.jpg" alt="">' +
+    '<div class="v4-short-prog"></div><div class="v4-short-spin"><i></i></div>' +
+    '<div class="v4-short-rail">' +
+      '<button class="v4-sbtn" data-act="like"><span class="ic">❤</span><span>' + v4FmtCount(it.view_count) + '</span></button>' +
+      '<button class="v4-sbtn" data-act="watch"><span class="ic">▶</span><span>Watch</span></button>' +
+      '<button class="v4-sbtn" data-act="share"><span class="ic">⤴</span><span>Share</span></button>' +
+      '<button class="v4-sbtn" data-act="dl"><span class="ic">⬇</span><span>Save</span></button>' +
+    '</div>' +
+    '<div class="v4-short-meta"><div class="v4-short-chan"><span class="v4-short-ava">' + v4Esc(ava) + '</span>' + v4Esc(sn.channelTitle || '') + '</div>' +
+    '<div class="v4-short-title">' + v4Esc(sn.title || '') + '</div></div></section>';
+}
+function v4ShortIframe(sec, vid){
+  const old = sec.querySelector('video'); if(old) old.remove();
+  if(sec.querySelector('iframe')) return;
+  const f = document.createElement('iframe');
+  f.src = 'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&mute=1&loop=1&playlist=' + vid + '&controls=0&playsinline=1&rel=0';
+  f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+  sec.insertBefore(f, sec.children[1] || null);
+  const spin = sec.querySelector('.v4-short-spin'); if(spin) spin.style.display = 'none';
+  const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none';
+}
+function v4ShortActivate(sec){
+  const vid = sec.getAttribute('data-vid');
+  if(sec.querySelector('video') || sec.querySelector('iframe')) return;
+  const spin = sec.querySelector('.v4-short-spin'); if(spin) spin.style.display = 'flex';
+  const v = document.createElement('video');
+  v.setAttribute('playsinline', ''); v.loop = true; v.muted = v4ShortsMuted;
+  v.poster = 'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg';
+  v.src = '/api/stream/' + vid;
+  const wd = setTimeout(function(){ if(v.readyState < 3 && sec.contains(v)) v4ShortIframe(sec, vid); }, 7000);
+  v.addEventListener('playing', function(){ clearTimeout(wd); if(spin) spin.style.display = 'none'; const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none'; });
+  v.addEventListener('error', function(){ v4ShortIframe(sec, vid); });
+  const prog = sec.querySelector('.v4-short-prog');
+  v.addEventListener('timeupdate', function(){ if(v.duration) prog.style.width = (v.currentTime / v.duration * 100) + '%'; });
+  sec.insertBefore(v, sec.children[1] || null);
+  const p = v.play(); if(p && p.catch) p.catch(function(){});
+}
+function v4ShortDeactivate(sec){
+  const v = sec.querySelector('video');
+  if(v){ try{ v.pause(); v.removeAttribute('src'); v.load(); }catch(e){} v.remove(); }
+  const f = sec.querySelector('iframe'); if(f) f.remove();
+  const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = '';
+  const prog = sec.querySelector('.v4-short-prog'); if(prog) prog.style.width = '0';
+  const spin = sec.querySelector('.v4-short-spin'); if(spin) spin.style.display = 'none';
+}
+function v4ShortsLoad(){
+  if(v4ShortsLoading || v4ShortsDone) return;
+  v4ShortsLoading = true;
+  fetch('/api/feed?q=trending shorts&type=shorts&page=' + v4ShortsPage + '&r=sh' + v4ShortsSeq)
+    .then(function(x){ return x.json(); })
+    .then(function(d){
+      v4ShortsLoading = false;
+      const items = (d.items || []).filter(function(it){ return it.id && it.id.videoId; });
+      if(!items.length){ v4ShortsDone = true; return; }
+      const track = v4$('v4-shorts-track');
+      items.forEach(function(it){
+        v4ShortsItems[it.id.videoId] = it;
+        if(track.querySelector('[data-vid="' + it.id.videoId + '"]')) return;
+        const div = document.createElement('div'); div.innerHTML = v4ShortCard(it);
+        const sec = div.firstChild; track.appendChild(sec);
+        if(v4ShortsObs) v4ShortsObs.observe(sec);
+      });
+      v4ShortsPage++;
+      if(!d.has_more) v4ShortsDone = true;
+    })
+    .catch(function(){ v4ShortsLoading = false; });
+}
+function v4OpenShorts(){
+  const ov = v4$('v4-shorts'); ov.classList.add('open'); v4Lock(true);
+  if(!v4ShortsObs){
+    v4ShortsObs = new IntersectionObserver(function(es){
+      es.forEach(function(en){
+        if(en.intersectionRatio >= 0.6) v4ShortActivate(en.target);
+        else v4ShortDeactivate(en.target);
+      });
+    }, {root: v4$('v4-shorts-track'), threshold: [0, 0.6]});
+    v4$('v4-shorts-track').addEventListener('scroll', function(){
+      const t = v4$('v4-shorts-track');
+      if(t.scrollTop + t.clientHeight > t.scrollHeight - 900) v4ShortsLoad();
+    });
+    v4$('v4-shorts-track').addEventListener('click', function(e){
+      const sec = e.target.closest('.v4-short'); if(!sec) return;
+      const vid = sec.getAttribute('data-vid'); const it = v4ShortsItems[vid];
+      const btn = e.target.closest('.v4-sbtn');
+      if(btn){
+        const act = btn.getAttribute('data-act');
+        if(act === 'like'){ btn.classList.toggle('liked'); }
+        else if(act === 'watch' && it){ v4CloseShorts(); v4OpenWatch(it); }
+        else if(act === 'dl' && it){ v4CloseShorts(); v4OpenWatch(it); setTimeout(function(){ v4OpenSheet(it); }, 400); }
+        else if(act === 'share'){
+          const url = 'https://www.youtube.com/watch?v=' + vid;
+          const sn = (it && it.snippet) || {};
+          if(navigator.share){ navigator.share({title: sn.title || 'Playza Short', url: url}).catch(function(){}); }
+          else if(navigator.clipboard){ navigator.clipboard.writeText(url); v4Toast('Link copy ho gaya'); }
+        }
+        return;
+      }
+      const v = sec.querySelector('video');
+      if(v){
+        v4ShortsMuted = !v4ShortsMuted; v.muted = v4ShortsMuted;
+        if(v.paused){ const p = v.play(); if(p && p.catch) p.catch(function(){}); }
+        if(!v4ShortsMuted){ const h = v4$('v4-shorts-hint'); if(h) h.style.display = 'none'; v4Toast('🔊 Awaz on'); }
+        else v4Toast('🔇 Awaz band');
+      }
+    });
+  }
+  if(!ov.getAttribute('data-init')){ ov.setAttribute('data-init', '1'); v4ShortsSeq = Date.now(); v4ShortsLoad(); }
+}
+function v4CloseShorts(){
+  v4$('v4-shorts').classList.remove('open'); v4Lock(false);
+  document.querySelectorAll('.v4-short').forEach(function(s){ v4ShortDeactivate(s); });
+}
+
 function v4OpenWatch(v){
   v4Current = v;
   if(v.channel) v4InterestAdd(v.channel, 1);
@@ -4431,6 +4579,7 @@ async function v4OpenPlaylist(pid, title){
 function v4SetFilter(btn){
   const w = btn.getAttribute('data-w'), t = btn.getAttribute('data-t');
   document.querySelectorAll('.v4-fchip[data-w="' + w + '"]').forEach(function(b){ b.classList.toggle('on', b === btn); });
+  if(t === 'shorts'){ v4OpenShorts(); return; }
   const feedId = 'v4-' + w + '-feed';
   const st = v4FeedState[feedId];
   const q = (st && st.q) || (w === 'youtube' ? 'trending videos' : (w === 'music' ? 'trending songs' : 'trending'));
@@ -5038,6 +5187,100 @@ def _feed_search_items(query, n=30):
     return items
 
 
+def _shorts_search_items(query, n=20):
+    """YouTube search SHORTS filter ke sath (sp=EgIYAQ) — asal shorts
+    milte hain, asal titles/durations ke sath. (Update 65)"""
+    cache_key = f"shorts_{query}_{n}"
+    if cache_key in search_cache:
+        _cd, _ts = search_cache[cache_key]
+        if time.time() - _ts < CACHE_DURATION:
+            return _cd
+    items = []
+    try:
+        import urllib.parse as _up
+        _url = ("https://www.youtube.com/results?search_query="
+                + _up.quote(query) + "&sp=EgIYAQ%3D%3D")
+        _headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                          'AppleWebKit/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+        _html = requests.get(_url, headers=_headers, timeout=10).text
+        _m = re.search(r'var ytInitialData = (\{.*?\});</script>',
+                       _html, re.S)
+        if _m:
+            _data = json.loads(_m.group(1))
+            _secs = (_data.get('contents', {})
+                     .get('twoColumnSearchResultsRenderer', {})
+                     .get('primaryContents', {})
+                     .get('sectionListRenderer', {})
+                     .get('contents', []))
+            _vrs = []
+            for _sec in _secs:
+                for _c in (_sec.get('itemSectionRenderer', {})
+                           .get('contents', [])):
+                    if 'videoRenderer' in _c:
+                        _vrs.append(_c['videoRenderer'])
+            for _vr in _vrs[:n]:
+                _vid = _vr.get('videoId')
+                if not _vid:
+                    continue
+                _title = ''.join(_r.get('text', '') for _r in
+                                 _vr.get('title', {}).get('runs', []))
+                _chan = ''
+                _runs = _vr.get('longBylineText', {}).get('runs', [])
+                if _runs:
+                    _chan = _runs[0].get('text', '')
+                _dur = None
+                _lt = (_vr.get('lengthText', {}) or {}).get('simpleText')
+                if _lt:
+                    try:
+                        _parts = [int(_p) for _p in _lt.split(':')]
+                        _dur = 0
+                        for _p in _parts:
+                            _dur = _dur * 60 + _p
+                    except Exception:
+                        _dur = None
+                _vc = None
+                _vct = (_vr.get('viewCountText', {}) or {}).get('simpleText', '')
+                if _vct:
+                    _mm = re.match(r'([\d.]+)\s*([KMB]?)', _vct.replace(',', ''))
+                    if _mm:
+                        _mult = {'K': 1e3, 'M': 1e6, 'B': 1e9}.get(_mm.group(2), 1)
+                        _vc = int(float(_mm.group(1)) * _mult)
+                items.append({
+                    'id': {'videoId': _vid},
+                    'snippet': {
+                        'title': _title or f'Video {_vid}',
+                        'channelTitle': _chan or 'YouTube',
+                        'channelId': '',
+                        'thumbnails': {
+                            'high': {'url': f'https://i.ytimg.com/vi/{_vid}/hqdefault.jpg'},
+                            'medium': {'url': f'https://i.ytimg.com/vi/{_vid}/mqdefault.jpg'},
+                            'default': {'url': f'https://i.ytimg.com/vi/{_vid}/default.jpg'},
+                        },
+                    },
+                    'duration': _dur,
+                    'view_count': _vc,
+                })
+    except Exception:
+        items = []
+    if items:
+        search_cache[cache_key] = (items, time.time())
+    return items
+
+
+def _shorts_feed_items(query, n=20):
+    """Shorts ke liye pehle dedicated Shorts-filter search; na mile to
+    aam feed search mein se <=65s wali."""
+    _items = _shorts_search_items(query, n)
+    if _items:
+        return [it for it in _items
+                if it.get('duration') is None or it['duration'] <= 65]
+    return [it for it in _feed_search_items(query, n)
+            if it.get('duration') and it['duration'] <= 65]
+
+
 def search_playlists_web(query, max_results=12):
     """YouTube search (playlist filter) — playlists: naam, channel, count.
     (Update 36)"""
@@ -5263,17 +5506,17 @@ def api_feed():
                 q_k = s_k
             else:
                 q_k = (s_k + FEED_VARIANTS[k % len(FEED_VARIANTS)]).strip()
-            for it in _feed_search_items(q_k, 20):
+            for it in _shorts_feed_items(q_k, 20):
                 vid = (it.get('id') or {}).get('videoId')
                 if vid and vid not in seen_ids:
                     seen_ids.add(vid)
                     merged.append(it)
             real_so_far = [it for it in merged
-                           if it.get('duration') and it['duration'] <= 65]
+                           if it.get('duration') is None or it['duration'] <= 65]
             if len(real_so_far) >= 18:
                 break
         items = [it for it in merged
-                 if it.get('duration') and it['duration'] <= 65]
+                 if it.get('duration') is None or it['duration'] <= 65]
         return jsonify({'items': items, 'page': page,
                         'has_more': page < total_pages - 1})
     has_more = page < (total_pages - 1)
