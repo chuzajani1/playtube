@@ -3414,6 +3414,8 @@ Downloads background me one by one chalte rahen ge.</div>
         <button class="v4-chip v4-fchip" data-w="home" data-t="videos" onclick="v4SetFilter(this)">Videos</button>
         <button class="v4-chip v4-fchip" data-w="home" data-t="playlists" onclick="v4SetFilter(this)">Playlists</button>
         <button class="v4-chip v4-fchip" data-w="home" data-t="shorts" onclick="v4SetFilter(this)">Shorts</button>
+        <button class="v4-chip v4-fchip" data-w="home" data-t="live" onclick="v4SetFilter(this)">🔴 Live</button>
+        <button class="v4-chip v4-fchip" data-w="home" data-t="movies" onclick="v4SetFilter(this)">🎬 Movies</button>
       </div>
       <div class="v4-h" id="v4-home-heading">Trending Videos</div>
       <div id="v4-home-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
@@ -3429,6 +3431,8 @@ Downloads background me one by one chalte rahen ge.</div>
         <button class="v4-chip v4-fchip" data-w="youtube" data-t="videos" onclick="v4SetFilter(this)">Videos</button>
         <button class="v4-chip v4-fchip" data-w="youtube" data-t="playlists" onclick="v4SetFilter(this)">Playlists</button>
         <button class="v4-chip v4-fchip" data-w="youtube" data-t="shorts" onclick="v4SetFilter(this)">Shorts</button>
+        <button class="v4-chip v4-fchip" data-w="youtube" data-t="live" onclick="v4SetFilter(this)">🔴 Live</button>
+        <button class="v4-chip v4-fchip" data-w="youtube" data-t="movies" onclick="v4SetFilter(this)">🎬 Movies</button>
       </div>
       <div class="v4-h">YouTube Videos</div>
       <div id="v4-youtube-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
@@ -5503,7 +5507,7 @@ def api_feed():
     else:
         pool = [q]
     ftype = (request.args.get('type', 'all') or 'all').strip().lower()
-    if ftype not in ('all', 'videos', 'playlists', 'shorts'):
+    if ftype not in ('all', 'videos', 'playlists', 'shorts', 'live', 'movies'):
         ftype = 'all'
     shorts_pool_mode = False
     if ftype == 'shorts' and ('trend' in ql or ql == 'shorts'):
@@ -5547,6 +5551,52 @@ def api_feed():
         items = [it for it in merged
                  if it.get('duration') is None or it['duration'] <= 65]
         return jsonify({'items': items, 'page': page,
+                        'has_more': page < total_pages - 1})
+    if ftype == 'live':
+        # Update 71: Live chip — 'live stream' talash, live-lagti
+        # videos pehle (duration None/0 ya title mein live)
+        merged = []
+        seen_ids = set()
+        for k in range(3):
+            s_k = pool[(eff + k) % len(pool)]
+            q_k = s_k if 'live' in s_k.lower() else (s_k + ' live stream').strip()
+            for it in _feed_search_items(q_k, 20):
+                vid = (it.get('id') or {}).get('videoId')
+                if vid and vid not in seen_ids:
+                    seen_ids.add(vid)
+                    merged.append(it)
+            if len(merged) >= 24:
+                break
+
+        def _is_live(it):
+            if it.get('duration') in (None, 0):
+                return True
+            return 'live' in ((it.get('snippet') or {}).get('title') or '').lower()
+
+        live_first = [it for it in merged if _is_live(it)]
+        rest = [it for it in merged if not _is_live(it)]
+        return jsonify({'items': (live_first + rest)[:30], 'page': page,
+                        'has_more': page < total_pages - 1})
+    if ftype == 'movies':
+        # Update 71: Movies chip — 'full movie' talash, lambi videos
+        # (40+ minute) pehle
+        merged = []
+        seen_ids = set()
+        for k in range(3):
+            s_k = pool[(eff + k) % len(pool)]
+            q_k = s_k if 'movie' in s_k.lower() else (s_k + ' full movie').strip()
+            for it in _feed_search_items(q_k, 20):
+                vid = (it.get('id') or {}).get('videoId')
+                if vid and vid not in seen_ids:
+                    seen_ids.add(vid)
+                    merged.append(it)
+            longs = [it for it in merged if (it.get('duration') or 0) >= 2400]
+            if len(longs) >= 12:
+                break
+        longs = [it for it in merged if (it.get('duration') or 0) >= 2400]
+        items = longs if len(longs) >= 6 else sorted(
+            merged, key=lambda x: -(x.get('duration') or 0))
+        return jsonify({'items': items[:30], 'page': page,
                         'has_more': page < total_pages - 1})
     has_more = page < (total_pages - 1)
     if len(pool) <= 1:
