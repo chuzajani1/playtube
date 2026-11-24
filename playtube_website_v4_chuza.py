@@ -3742,6 +3742,18 @@ Downloads background me one by one chalte rahen ge.</div>
 </div>
 
 <!-- Downloaded file ka player (Update 57) -->
+<div id="v4-audiobar" style="display:none;position:fixed;left:8px;right:8px;bottom:76px;z-index:950;background:#17142e;border:1px solid #2c2852;border-radius:14px;padding:9px 11px;box-shadow:0 12px 32px rgba(0,0,0,.55)">
+  <div style="display:flex;align-items:center;gap:10px">
+    <button id="v4-abtn" onclick="v4AudioToggle()" style="width:42px;height:42px;flex:none;border:0;border-radius:50%;background:linear-gradient(135deg,#7c5cff,#14b8a6);color:#fff;font-size:15px;cursor:pointer">▶</button>
+    <div style="flex:1;min-width:0">
+      <div id="v4-atitle" style="color:#eceaf6;font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Audio song</div>
+      <div id="v4-astat" style="color:#a49ec4;font-size:11.5px">Load ho raha hai...</div>
+    </div>
+    <button onclick="v4AudioDownload()" title="Download" style="width:38px;height:38px;flex:none;border:1px solid #2c2852;border-radius:50%;background:#1a1730;color:#eceaf6;font-size:15px;cursor:pointer">⬇</button>
+    <button onclick="v4AudioClose()" title="Band karein" style="width:38px;height:38px;flex:none;border:1px solid #2c2852;border-radius:50%;background:#1a1730;color:#eceaf6;font-size:14px;cursor:pointer">✕</button>
+  </div>
+  <audio id="v4-audio" preload="auto"></audio>
+</div>
 <div id="v4-shorts">
   <div id="v4-shorts-track"></div>
   <div class="v4-shorts-top"><span class="v4-shorts-logo">▶ Playza Shorts</span><button class="v4-shorts-close" onclick="v4CloseShorts()">✕</button></div>
@@ -3874,14 +3886,40 @@ function v4TopTab(t){ v4Show(t === 'search' ? 'home' : t); }
 /* ---------- feeds & cards (ONE renderer — Bug #1/#2) ---------- */
 function v4Norm(item){ const id = (item.id && item.id.videoId) || item.id || item.video_id || ''; const sn = item.snippet || {}; return {videoId:id, title:sn.title || item.title || '', channel:sn.channelTitle || item.channel || '', duration:item.duration || '', views:item.view_count || ''}; }
 let v4AudioCards = false;
-function v4Mp3Click(id){ v4DlClick(null, id); }
+let v4AudioId = '';
+let v4AudioWired = false;
+function v4PlayAudio(id){
+  const v = v4Videos[id] || {videoId:id, title:''};
+  v4AudioId = id;
+  const bar2 = v4$('v4-audiobar'); if(!bar2) return;
+  bar2.style.display = '';
+  v4$('v4-atitle').textContent = v.title || 'Audio song';
+  v4$('v4-astat').textContent = 'Load ho raha hai...';
+  v4$('v4-abtn').textContent = '❚❚';
+  const au = v4$('v4-audio');
+  if(!v4AudioWired){
+    v4AudioWired = true;
+    au.addEventListener('playing', function(){ v4$('v4-astat').textContent = 'Chal raha hai 🎵'; v4$('v4-abtn').textContent = '❚❚'; });
+    au.addEventListener('waiting', function(){ v4$('v4-astat').textContent = 'Load ho raha hai...'; });
+    au.addEventListener('pause', function(){ v4$('v4-abtn').textContent = '▶'; });
+    au.addEventListener('ended', function(){ v4$('v4-abtn').textContent = '▶'; v4$('v4-astat').textContent = 'Khatam ho gaya'; });
+    au.addEventListener('error', function(){ if(v4AudioId){ v4$('v4-astat').textContent = 'Ye song play nahi ho saka — ⬇ se download karke sunein'; v4$('v4-abtn').textContent = '▶'; } });
+  }
+  au.src = '/api/stream/' + id;
+  const p = au.play(); if(p && p.catch) p.catch(function(){});
+}
+function v4AudioToggle(){ const au = v4$('v4-audio'); if(!au || !v4AudioId) return; if(au.paused){ const p = au.play(); if(p && p.catch) p.catch(function(){}); } else au.pause(); }
+function v4AudioClose(){ const au = v4$('v4-audio'); if(au){ try{ au.pause(); au.removeAttribute('src'); au.load(); }catch(e){} } const b3 = v4$('v4-audiobar'); if(b3) b3.style.display = 'none'; v4AudioId = ''; }
+function v4AudioDownload(){ if(v4AudioId) v4OpenSheet(v4AudioId, true); }
+function v4SheetAudio(ev, id){ if(ev) ev.stopPropagation(); v4OpenSheet(id, true); }
+function v4Mp3Click(id){ v4PlayAudio(id); }
 function v4CardHTML(v){
   const meta = [v4Esc(v.channel), v4Views(v.views)].filter(Boolean).join(' • ');
   const tap = v4AudioCards ? 'v4Mp3Click' : 'v4WatchClick';
   const badge = v4AudioCards ? '<span class=\"v4-dur\" style=\"left:6px;right:auto\">🎵 MP3</span>' : '';
   return '<div class=\"v4-vcard\"><div class=\"v4-thumb\" data-id=\"' + v.videoId + '\" onclick=\"' + tap + '(this.dataset.id)\">' + v4Img(v.videoId) + badge + (v.duration ? '<span class=\"v4-dur\">' + v4Dur(v.duration) + '</span>' : '') + '</div>' +
     '<div class=\"v4-vrow\"><div class=\"v4-vtexts\" data-id=\"' + v.videoId + '\" onclick=\"' + tap + '(this.dataset.id)\"><div class=\"v4-vtitle\">' + v4Esc(v.title) + '</div>' + (meta ? '<div class=\"v4-vmeta\">' + meta + '</div>' : '') + '</div>' +
-    '<button class=\"v4-dlbtn\" title=\"Download\" data-id=\"' + v.videoId + '\" onclick=\"v4DlClick(event, this.dataset.id)\">' + (v4AudioCards ? '🎵' : '↓') + '</button></div></div>';
+    '<button class=\"v4-dlbtn\" title=\"Download\" data-id=\"' + v.videoId + '\" onclick=\"' + (v4AudioCards ? 'v4SheetAudio' : 'v4DlClick') + '(event, this.dataset.id)\">' + (v4AudioCards ? '🎵' : '↓') + '</button></div></div>';
 }
 function v4RenderCards(elId, items){
   const el = v4$(elId);
@@ -4042,41 +4080,54 @@ function v4FrameSetup(id){
     v4FrameWired = true;
     vd.addEventListener('playing', function(){ if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog); const _ar = v4$('v4-faltrow'); if(_ar) _ar.style.display = 'none'; v4$('v4-fspin').style.display = 'none'; v4$('v4-fbig').classList.add('hide'); v4$('v4-fplay').textContent = '❚❚'; v4FrameShowCtrls(); });
     vd.addEventListener('waiting', function(){ v4$('v4-fspin').style.display = 'block'; });
-    vd.addEventListener('pause', function(){ v4$('v4-fbig').classList.remove('hide'); v4$('v4-fplay').textContent = '▶'; v4$('v4-fctrls').classList.remove('hide'); });
+    vd.addEventListener('pause', function(){ v4$('v4-fbig').classList.remove('hide'); v4$('v4-fplay').textContent = '▶'; v4$('v4-fctrls').classList.remove('hide'); const _ar3 = v4$('v4-faltrow'); if(_ar3 && vd.style.display !== 'none') _ar3.style.display = ''; });
     vd.addEventListener('error', function(){ if(vd.style.display !== 'none') v4FrameFallback(); });
     vd.addEventListener('timeupdate', function(){ if(vd.duration){ v4$('v4-fseek').value = Math.floor((vd.currentTime / vd.duration) * 1000); } v4$('v4-ftime').textContent = v4FmtTime(vd.currentTime) + ' / ' + v4FmtTime(vd.duration); });
     vd.addEventListener('click', v4FrameToggle);
   }
-  vd.poster = 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg';
   v4FrameId = id; v4FrameQ = 0;
-  const qm0 = v4$('v4-fqmenu'); if(qm0) qm0.style.display = 'none';
-  const gr0 = v4$('v4-fgear'); if(gr0) gr0.style.display = '';
-  v4FrameLoadQualities(id);
-  const ar0 = v4$('v4-faltrow'); if(ar0) ar0.style.display = '';
-  vd.src = '/api/stream/' + id;
+  /* Update 78: pehle YouTube player (sab se pakka chalta hai, HD +
+     halki quality khud chun leta hai). Playza ka apna player neeche
+     wale button se khulta hai (background play usi par hai). */
+  v4FrameUseYT();
+}
+function v4FrameUseYT(){
+  const vd = v4$('v4-video');
+  if(vd){ try{ vd.pause(); vd.removeAttribute('src'); vd.load(); }catch(e){} vd.style.display = 'none'; }
   if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog);
-  v4FrameWatchdog = setTimeout(function(){ const v2 = v4$('v4-video'); if(v2 && v2.style.display !== 'none' && v2.readyState < 3) v4FrameFallback(); }, 6000);
+  v4$('v4-fspin').style.display = 'none';
+  v4$('v4-fbig').classList.add('hide');
+  v4$('v4-fctrls').classList.add('hide');
+  v4$('v4-fbadge').style.display = 'none';
+  const gr = v4$('v4-fgear'); if(gr) gr.style.display = 'none';
+  const qm = v4$('v4-fqmenu'); if(qm) qm.style.display = 'none';
+  const fr = v4$('v4-player');
+  fr.style.display = '';
+  fr.src = 'https://www.youtube-nocookie.com/embed/' + v4FrameId + '?autoplay=1&rel=0&playsinline=1&enablejsapi=1&modestbranding=1';
+  const ar = v4$('v4-faltrow');
+  if(ar){ ar.style.display = ''; ar.innerHTML = '<button class=\"v4-iconbtn\" style=\"width:100%\" onclick=\"v4FrameUseOwn()\">▶ Playza ke apne player par dekhein (background play ke liye)</button>'; }
+}
+function v4FrameUseOwn(){
+  const fr = v4$('v4-player'); fr.style.display = 'none'; fr.src = '';
+  v4$('v4-fbadge').style.display = '';
+  v4$('v4-fctrls').classList.remove('hide');
+  const gr = v4$('v4-fgear'); if(gr) gr.style.display = '';
+  const vd = v4$('v4-video');
+  vd.style.display = '';
+  vd.poster = 'https://i.ytimg.com/vi/' + v4FrameId + '/hqdefault.jpg';
+  v4FrameLoadQualities(v4FrameId);
+  const ar = v4$('v4-faltrow');
+  if(ar){ ar.style.display = ''; ar.innerHTML = '<button class=\"v4-iconbtn\" style=\"width:100%\" onclick=\"v4FrameFallback()\">▶ YouTube player par dekhein (sab se best HD)</button>'; }
+  vd.src = '/api/stream/' + v4FrameId + (v4FrameQ ? ('?q=' + v4FrameQ) : '');
+  if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog);
+  v4FrameWatchdog = setTimeout(function(){ const v2 = v4$('v4-video'); if(v2 && v2.style.display !== 'none' && v2.readyState < 3) v4FrameFallback(); }, 9000);
   v4$('v4-fspin').style.display = 'block';
   v4$('v4-fbig').classList.remove('hide');
   v4$('v4-fplay').textContent = '▶';
   v4FrameShowCtrls();
   const p = vd.play(); if(p && p.catch) p.catch(function(){});
 }
-function v4FrameFallback(){
-  const ar1 = v4$('v4-faltrow'); if(ar1) ar1.style.display = 'none';
-  const gr1 = v4$('v4-fgear'); if(gr1) gr1.style.display = 'none';
-  const qm1 = v4$('v4-fqmenu'); if(qm1) qm1.style.display = 'none';
-  const vd = v4$('v4-video');
-  try{ vd.pause(); vd.removeAttribute('src'); vd.load(); }catch(e){}
-  vd.style.display = 'none';
-  v4$('v4-fspin').style.display = 'none';
-  v4$('v4-fbig').classList.add('hide');
-  v4$('v4-fctrls').classList.add('hide');
-  v4$('v4-fbadge').style.display = 'none';
-  const fr = v4$('v4-player');
-  fr.style.display = '';
-  if(v4Current) fr.src = 'https://www.youtube.com/embed/' + v4Current.videoId + '?autoplay=1&rel=0&enablejsapi=1&modestbranding=1';
-}
+function v4FrameFallback(){ v4FrameUseYT(); }
 function v4FrameToggle(){
   const vd = v4$('v4-video');
   if(!vd || vd.style.display === 'none') return;
@@ -4244,9 +4295,9 @@ function v4FmtHint(f){
   const h = {'3GP':'Sab se chhoti file, sab se tez','144p':'Bohat halki quality','240p':'Halki file, jaldi download','360p':'Normal saaf quality','480p':'Achi quality, darmiyani size','720p HD':'Bilkul saaf HD quality','1080p HD':'Full HD, bari screen ke liye','1440p (2K)':'2K, bohat saaf','2160p (4K)':'4K, sab se best quality','4320p (8K)':'8K, sab se best quality'};
   return h[f.label] || '';
 }
-async function v4OpenSheet(id){
+async function v4OpenSheet(id, audioOnly){
   const v = v4Videos[id] || {videoId:id, title:'', channel:''};
-  v4Sheet = {id:id, sel:null};
+  v4Sheet = {id:id, sel:null, audioOnly: !!audioOnly};
   v4$('v4-sheet-thumb').src = 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg';
   v4$('v4-sheet-title').textContent = v.title || '';
   v4$('v4-sheet-channel').textContent = v.channel || '';
@@ -4267,10 +4318,11 @@ async function v4OpenSheet(id){
   if(d.title) v4$('v4-sheet-title').textContent = d.title;
   if(d.channel) v4$('v4-sheet-channel').textContent = d.channel;
   const row = function(f){ const music = (f.format === 'mp3' || f.format === 'm4a'); return '<div class="v4-fmtrow" data-fmt="' + f.format + '" data-q="' + (f.quality || '') + '" onclick="v4PickFmt(this)"><span class="ic">' + (music ? '🎵' : '▶') + '</span><span class="tx"><span class="nm">' + v4Esc(f.label) + '</span><span class="hint">' + v4FmtHint(f) + '</span></span>' + (f.size_mb != null ? '<span class="sz">' + f.size_mb + ' MB</span>' : '') + '<span class="v4-radio">✓</span></div>'; };
-  list.innerHTML = '<div class="v4-sect">MUSIC / AUDIO</div>' + (d.music || []).map(row).join('') + '<div class="v4-sect">VIDEO</div>' + (d.video || []).map(row).join('');
+  list.innerHTML = '<div class="v4-sect">MUSIC / AUDIO</div>' + (d.music || []).map(row).join('') + (v4Sheet.audioOnly ? '' : '<div class="v4-sect">VIDEO</div>' + (d.video || []).map(row).join(''));
   let target = null;
   list.querySelectorAll('.v4-fmtrow').forEach(function(el){ if(el.getAttribute('data-q') === v4State.settings.defQuality) target = el; });
   if(!target) list.querySelectorAll('.v4-fmtrow').forEach(function(el){ if(el.getAttribute('data-q') === '360p') target = el; });
+  if(!target && v4Sheet.audioOnly) target = list.querySelector('.v4-fmtrow');
   if(target) target.click();
 }
 function v4PickFmt(el){
