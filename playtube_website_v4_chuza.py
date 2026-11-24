@@ -3498,6 +3498,7 @@ Downloads background me one by one chalte rahen ge.</div>
           <button class="v4-fbtn" onclick="v4FrameFull()">⛶</button>
         </div>
       </div></div>
+      <div id="v4-faltrow" style="display:none;margin-top:8px"><button class="v4-iconbtn" style="width:100%" onclick="v4FrameFallback()">▶ Play dair se ho raha hai? YouTube player par dekhein (halki quality)</button></div>
       <div class="v4-h" id="v4-watch-title" style="margin-top:12px"></div>
       <p class="v4-muted" id="v4-watch-channel"></p>
       <button class="v4-bigbtn" style="background:var(--v4teal);color:#06231f" onclick="v4WatchDownload()">⬇ Download</button>
@@ -3936,7 +3937,7 @@ function v4FrameSetup(id){
   vd.style.display = '';
   if(!v4FrameWired){
     v4FrameWired = true;
-    vd.addEventListener('playing', function(){ if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog); v4$('v4-fspin').style.display = 'none'; v4$('v4-fbig').classList.add('hide'); v4$('v4-fplay').textContent = '❚❚'; v4FrameShowCtrls(); });
+    vd.addEventListener('playing', function(){ if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog); const _ar = v4$('v4-faltrow'); if(_ar) _ar.style.display = 'none'; v4$('v4-fspin').style.display = 'none'; v4$('v4-fbig').classList.add('hide'); v4$('v4-fplay').textContent = '❚❚'; v4FrameShowCtrls(); });
     vd.addEventListener('waiting', function(){ v4$('v4-fspin').style.display = 'block'; });
     vd.addEventListener('pause', function(){ v4$('v4-fbig').classList.remove('hide'); v4$('v4-fplay').textContent = '▶'; v4$('v4-fctrls').classList.remove('hide'); });
     vd.addEventListener('error', function(){ if(vd.style.display !== 'none') v4FrameFallback(); });
@@ -3944,6 +3945,7 @@ function v4FrameSetup(id){
     vd.addEventListener('click', v4FrameToggle);
   }
   vd.poster = 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg';
+  const ar0 = v4$('v4-faltrow'); if(ar0) ar0.style.display = '';
   vd.src = '/api/stream/' + id;
   if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog);
   v4FrameWatchdog = setTimeout(function(){ const v2 = v4$('v4-video'); if(v2 && v2.style.display !== 'none' && v2.readyState < 3) v4FrameFallback(); }, 6000);
@@ -3954,6 +3956,7 @@ function v4FrameSetup(id){
   const p = vd.play(); if(p && p.catch) p.catch(function(){});
 }
 function v4FrameFallback(){
+  const ar1 = v4$('v4-faltrow'); if(ar1) ar1.style.display = 'none';
   const vd = v4$('v4-video');
   try{ vd.pause(); vd.removeAttribute('src'); vd.load(); }catch(e){}
   vd.style.display = 'none';
@@ -7466,8 +7469,10 @@ _stream_fail_until = 0.0
 
 
 def _pick_combined_url(info):
-    """info se audio+video wala behtareen format (<=720p, mp4 tarjeeh)."""
-    best = None
+    """Update 70: halki quality pehle (<=480p, mp4 tarjeeh) taake slow
+    internet par bhi play foran shuru ho; na mile to <=720p."""
+    best_low = None
+    best_any = None
     for f in (info.get('formats') or []):
         if not f.get('url'):
             continue
@@ -7477,9 +7482,12 @@ def _pick_combined_url(info):
         if h > 720:
             continue
         score = (1 if f.get('ext') == 'mp4' else 0, h)
-        if best is None or score > best[0]:
-            best = (score, f['url'])
-    return best[1] if best else None
+        if best_any is None or score > best_any[0]:
+            best_any = (score, f['url'])
+        if h <= 480 and (best_low is None or score > best_low[0]):
+            best_low = (score, f['url'])
+    pick = best_low or best_any
+    return pick[1] if pick else None
 
 
 def _resolve_stream_url(video_id):
