@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 16  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 17  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1457,7 +1457,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">16</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">17</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -4340,6 +4340,51 @@ def api_feed():
     return _R(items, has_more)
 
 
+# v17: social downloads — Chrome pehchan (impersonation) + saaf errors.
+try:
+    import curl_cffi  # noqa: F401
+    _HAS_CFFI = True
+except Exception:
+    _HAS_CFFI = False
+
+_SOCIAL_UA = ('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 '
+              '(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36')
+
+
+def _social_opts(extra=None):
+    o = {'http_headers': {'User-Agent': _SOCIAL_UA},
+         'extractor_retries': 3, 'socket_timeout': 25}
+    if _HAS_CFFI:
+        o['impersonate'] = 'chrome'
+    if extra:
+        o.update(extra)
+    return o
+
+
+def _social_friendly_err(e, platform='Social'):
+    m = re.sub(r'\x1b\[[0-9;]*m', '', str(e or '')).lower()
+    if '429' in m or 'too many requests' in m or 'rate limit' in m \
+            or 'rate-limit' in m:
+        return (f'{platform} ne is waqt server ki requests rok di hain '
+                '(bohat zyada load). Ye aam tor par khud theek ho jata '
+                'hai — 2-3 minute baad dobara try karein.')
+    if 'login' in m or 'cookie' in m or 'sign in' in m \
+            or 'authentication' in m:
+        return (f'Is video ke liye {platform} login maang raha hai — '
+                'bina login ke sirf public videos download hoti hain. '
+                'Koi public video ka link try karein.')
+    if 'private' in m or 'unavailable' in m or 'not available' in m \
+            or 'removed' in m or 'deleted' in m:
+        return ('Ye video private hai, delete ho gayi hai, ya is link '
+                'par available nahi hai.')
+    if 'unsupported url' in m or 'no video' in m \
+            or 'unable to extract' in m:
+        return (f'{platform} ki is link se video nahi mil saki — '
+                'link check karke dobara try karein.')
+    return (f'{platform} se download nahi ho saka — net ya link ka '
+            'masla ho sakta hai, thodi dair baad dobara try karein.')
+
+
 @app.route('/api/fetch-social-info', methods=['POST'])
 def fetch_social_info():
     data = request.json
@@ -4349,13 +4394,24 @@ def fetch_social_info():
         return jsonify({"error": "URL is required"}), 400
 
     try:
-        ydl_opts = {
+        ydl_opts = _social_opts({
             'quiet': True, 'no_warnings': True, 'noplaylist': True,
             'skip_download': True, 'no_check_certificate': True,
-            'prefer_insecure': True, 'retries': 2,
-        }
-
-        info = _extract_with_clients(url, ydl_opts)
+            'retries': 2})
+        info = None
+        _last_e = None
+        for _att in range(2):
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as _ydl:
+                    info = _ydl.extract_info(url, download=False)
+                if info:
+                    break
+            except Exception as _e:
+                _last_e = _e
+                if _att == 0:
+                    time.sleep(3)
+        if not info:
+            raise _last_e or Exception('no info')
 
         if True:
             if info:
@@ -4373,8 +4429,7 @@ def fetch_social_info():
                     }
                 })
     except Exception as e:
-        error_msg = re.sub(r'\x1b\[[0-9;]*m', '', str(e))
-        return jsonify({"error": f"Could not fetch video info: {error_msg[:200]}"}), 400
+        return jsonify({"error": _social_friendly_err(e, detect_platform(url))}), 400
 
     return jsonify({"error": "Could not fetch video information"}), 400
 
@@ -4497,6 +4552,7 @@ def download_social_in_background(url, format_type, platform, download_id):
                 'merge_output_format': 'mp4', 'retries': 3, 'fragment_retries': 3,
             }
 
+        ydl_opts.update(_social_opts())
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             if info:
@@ -4568,14 +4624,7 @@ def download_social_in_background(url, format_type, platform, download_id):
     if download_progress.get(download_id, {}).get('status') == 'completed':
         return
     guest_pending.pop(download_id, None)
-    if 'Unsupported' in error_msg:
-        error_msg = 'URL not supported'
-    elif 'not found' in error_msg.lower():
-        error_msg = 'Video not found'
-    elif 'private' in error_msg.lower():
-        error_msg = 'Private video'
-    elif 'network' in error_msg.lower():
-        error_msg = 'Network error'
+    error_msg = _social_friendly_err(error_msg, platform)
 
     download_progress[download_id] = {
         'status': 'error',
@@ -7237,7 +7286,7 @@ def ai_parse_command(text):
     parsed = {'raw': raw, 'intent': 'download', 'title': '', 'episodes': [],
               'quality': '360p', 'format': 'mp4', 'schedule_at': None,
               'schedule_in_seconds': None, 'category': None,
-              'count': None, 'lang': None}
+              'count': None, 'lang': None, 'latest_count': None}
 
     # ---- schedule ----
     iso = re.search(r'(\d{4}-\d{2}-\d{2})[ t](\d{2}:\d{2})', t)
@@ -7308,7 +7357,7 @@ def ai_parse_command(text):
         t = re.sub(r'\b' + cntm[1] + r'\s+' + re.escape(str(parsed['count'])) + r'\b', ' ', t, count=1)
 
     # ---- episodes ----
-    rng = re.search(r'(?:episode|ep|qist)\s*(\d+)\s*(?:to|se|-|–|tak)\s*(\d+)', t)
+    rng = re.search(r'(?:episode|ep|qist)\s*(\d+)\s*(?:to|se|sy|say|tak|-|–)\s*(\d+)(?:\s*(?:tak|tk))?', t)
     if rng:
         a, b = int(rng.group(1)), int(rng.group(2))
         parsed['episodes'] = list(range(min(a, b), max(a, b) + 1))
@@ -7326,7 +7375,10 @@ def ai_parse_command(text):
             t = t.replace(_lst.group(0), ' ')
         elif cnt:
             n = int(cnt.group(1))
-            parsed['episodes'] = list(range(1, n + 1))
+            if re.search(r'\b(latest|new|naye|nayi|taza)\b', t):
+                parsed['latest_count'] = n
+            else:
+                parsed['episodes'] = list(range(1, n + 1))
             t = t.replace(cnt.group(0), ' ')
         elif single:
             parsed['episodes'] = [int(single.group(1))]
@@ -7671,6 +7723,42 @@ def _ai_run_job(job_id, only_idx=None):
     direct_items = job.get('direct_items') or []
     if direct_items:
         episodes = [None] * len(direct_items)
+    if only_idx is not None and not direct_items:
+        episodes = [_es.get('episode')
+                    for _es in (job.get('episodes_status') or [])] or episodes
+    # v17: "latest N episodes" — pehle asal latest episode numbers
+    # search se nikalo, phir wahi download hon ge (quality parsed wali).
+    if parsed.get('latest_count') and not direct_items and only_idx is None:
+        _want = int(parsed['latest_count'])
+        _found_eps = []
+        try:
+            _info = _extract_with_clients(
+                f"ytsearch30:{parsed['title']} episode",
+                {'quiet': True, 'no_warnings': True,
+                 'no_check_certificate': True, 'extract_flat': True,
+                 'skip_download': True, 'ignoreerrors': True,
+                 'socket_timeout': 20, 'retries': 2,
+                 'extractor_retries': 2})
+            _nums = set()
+            for _e in (_info or {}).get('entries') or []:
+                if not _e:
+                    continue
+                _m = re.search(r'episode\s*#?\s*(\d+)',
+                               (_e.get('title') or '').lower())
+                if _m:
+                    _nums.add(int(_m.group(1)))
+            _found_eps = sorted(_nums)[-_want:]
+        except Exception:
+            _found_eps = []
+        if not _found_eps:
+            _found_eps = list(range(1, _want + 1))
+        episodes = _found_eps
+        with ai_jobs_lock:
+            job['episodes_status'] = [{'episode': _ep, 'status': 'pending'}
+                                       for _ep in episodes]
+            job['total_count'] = len(episodes)
+            job['completed_count'] = 0
+            _save_ai_jobs()
     done = 0
     if only_idx is not None:
         done = sum(1 for _i, _es in enumerate(job.get('episodes_status') or [])
@@ -7872,6 +7960,9 @@ def api_ai_command():
                  '• Naam bolne par video / gana / drama / movie download\n'
                  '• Episodes ki poori list — jaise "Shiva 10 episodes"\n'
                  '• MP3 gana — naam ke sath "mp3" likhein\n'
+                 '• Episode range — "Bano episode 1 sy 20 tk"\n'
+                 '• Latest episodes — "Shiva ki latest 20 episodes"\n'
+                 '• Naam adhoora ho to main khud sawal kar lunga 👍\n'
                  '• YouTube link bhejne par seedha wahi video\n'
                  'Bas naam likh dein, baqi mera kaam hai. 👍')
     elif any(w in _low for w in (' salam ', ' assalamualaikum ', ' assalam ', ' hello ', ' hi ', ' hey ', ' aoa ')) and len(_low.split()) <= 5 and not parsed.get('category') and not parsed.get('episodes'):
@@ -8016,6 +8107,7 @@ def api_ai_command():
             _c['pending'] = {'step': step, 'title': p.get('title') or '',
                              'category': p.get('category'),
                              'count': p.get('count'),
+                             'latest_count': p.get('latest_count'),
                              'episodes': p.get('episodes') or [],
                              'quality': p.get('quality') or '360p',
                              'format': p.get('format') or 'mp4',
@@ -8047,7 +8139,8 @@ def api_ai_command():
             if _cat == 'shorts' and not qexp:
                 return 'quality'
             if _cat in ('drama', 'cartoon') and _has \
-                    and not p.get('episodes') and not p.get('count'):
+                    and not p.get('episodes') and not p.get('count') \
+                    and not p.get('latest_count'):
                 return 'episodes'
             return None
 
@@ -8105,6 +8198,7 @@ def api_ai_command():
                        'schedule_at': None, 'schedule_in_seconds': None,
                        'category': _pend.get('category'),
                        'count': _pend.get('count'),
+                       'latest_count': _pend.get('latest_count'),
                        'lang': _pend.get('lang')}
                 if _ans.get('title') and _ans['title'] != 'Video' \
                         and re.search(r'[a-zA-Z]', _ans['title']):
@@ -8113,6 +8207,8 @@ def api_ai_command():
                     _mg['episodes'] = _ans['episodes']
                 if _ans.get('count'):
                     _mg['count'] = _ans['count']
+                if _ans.get('latest_count'):
+                    _mg['latest_count'] = _ans['latest_count']
                 if _ans.get('category'):
                     _mg['category'] = _ans['category']
                 if _ans.get('lang'):
@@ -8286,6 +8382,7 @@ def api_ai_command():
     # v9: single download — pehle dhoond kar DETAILS ke sath jawab;
     # mili hui video hi job mein jati hai (ghalat video nahi utarti).
     if parsed['intent'] == 'download' and not parsed.get('episodes') \
+            and not parsed.get('latest_count') \
             and not parsed.get('schedule_at') \
             and not parsed.get('schedule_in_seconds') and parsed.get('title') \
             and parsed.get('title') != 'Video':
@@ -8360,8 +8457,11 @@ def api_ai_command():
         th.daemon = True
         th.start()
 
-    ep_text = (f"episodes {episodes[0]} to {episodes[-1]}" if len(episodes) > 1
-               else (f"episode {episodes[0]}" if episodes[0] else 'video'))
+    if parsed.get('latest_count'):
+        ep_text = f"latest {parsed['latest_count']} episodes"
+    else:
+        ep_text = (f"episodes {episodes[0]} to {episodes[-1]}" if len(episodes) > 1
+                   else (f"episode {episodes[0]}" if episodes[0] else 'video'))
     q_text = parsed['quality'] if parsed['format'] == 'mp4' else (
         f"MP3 {parsed['quality']}K" if parsed['format'] == 'mp3' else 'M4A')
     msg = (f"🤖 Samajh gaya! '{parsed['title']}' ki {ep_text} "
