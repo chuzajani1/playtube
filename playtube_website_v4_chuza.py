@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 14  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 15  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1457,7 +1457,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">14</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">15</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2209,6 +2209,10 @@ function v4FmtHint(f){
   return h[f.label] || '';
 }
 function v4FriendlyErr(e){ const s = String(e || ''); if(/sign in to confirm|not a bot|bot-check/i.test(s)) return 'YouTube ne server ko kuch der ke liye roka hai — ye rukawat khud khatam ho jati hai, 10-15 minute baad dobara try karein'; if(/timed out|timeout|network|failed to fetch/i.test(s)) return 'Network masla — net check karke dobara try karein'; return s; }
+function v4NativeMode(){ try{ return !!(window.PlayTubeApp && PlayTubeApp.nativeAvailable && PlayTubeApp.nativeAvailable()); }catch(e){ return false; } }
+let v4NativeFmtWait = null;
+function v4NativeFormatsResult(jsonStr){ const w = v4NativeFmtWait; v4NativeFmtWait = null; if(!w) return; if(!jsonStr){ w(null); return; } try{ w(JSON.parse(jsonStr)); }catch(e){ w(null); } }
+function v4NativeFormats(id){ return new Promise(function(res){ v4NativeFmtWait = res; try{ PlayTubeApp.nativeFormats(id); }catch(e){ v4NativeFmtWait = null; res(null); return; } setTimeout(function(){ if(v4NativeFmtWait === res){ v4NativeFmtWait = null; res(null); } }, 45000); }); }
 async function v4OpenSheet(id, audioOnly){
   const v = v4Videos[id] || {videoId:id, title:'', channel:''};
   v4Sheet = {id:id, sel:null, audioOnly: !!audioOnly};
@@ -2225,13 +2229,17 @@ async function v4OpenSheet(id, audioOnly){
   const btn = v4$('v4-sheet-download');
   if(v4State.config && v4State.config.toggles && v4State.config.toggles.downloads_enabled === false){ btn.disabled = true; btn.textContent = 'Downloads band hain'; }
   else { btn.disabled = false; btn.textContent = 'Download'; }
-  const r = await v4Fetch('/api/formats/' + id);
   const list = v4$('v4-sheet-list');
-  if(!r.ok || !r.data || r.data.error){ list.innerHTML = '<p class="v4-muted">Formats nahi mil sake: ' + v4Esc(v4FriendlyErr((r.data && r.data.error) || 'error')) + '</p>'; return; }
-  const d = r.data;
+  let d = null;
+  if(v4NativeMode()){ d = await v4NativeFormats(id); if(d && !d.error){ d.nativeMode = true; } else d = null; }
+  if(!d){
+    const r = await v4Fetch('/api/formats/' + id);
+    if(!r.ok || !r.data || r.data.error){ list.innerHTML = '<p class="v4-muted">Formats nahi mil sake: ' + v4Esc(v4FriendlyErr((r.data && r.data.error) || 'error')) + '</p>'; return; }
+    d = r.data;
+  }
   if(d.title) v4$('v4-sheet-title').textContent = d.title;
   if(d.channel) v4$('v4-sheet-channel').textContent = d.channel;
-  const row = function(f){ const music = (f.format === 'mp3' || f.format === 'm4a'); return '<div class="v4-fmtrow" data-fmt="' + f.format + '" data-q="' + (f.quality || '') + '" onclick="v4PickFmt(this)"><span class="ic">' + (music ? '🎵' : '▶') + '</span><span class="tx"><span class="nm">' + v4Esc(f.label) + '</span><span class="hint">' + v4FmtHint(f) + '</span></span>' + (f.size_mb != null ? '<span class="sz">' + f.size_mb + ' MB</span>' : '') + '<span class="v4-radio">✓</span></div>'; };
+  const row = function(f){ const music = (f.format === 'mp3' || f.format === 'm4a'); return '<div class="v4-fmtrow" data-fmt="' + f.format + '" data-q="' + (f.quality || '') + '" data-nk="' + (f.native_key || '') + '" onclick="v4PickFmt(this)"><span class="ic">' + (music ? '🎵' : '▶') + '</span><span class="tx"><span class="nm">' + v4Esc(f.label) + '</span><span class="hint">' + v4FmtHint(f) + '</span></span>' + (f.size_mb != null ? '<span class="sz">' + f.size_mb + ' MB</span>' : '') + '<span class="v4-radio">✓</span></div>'; };
   list.innerHTML = '<div class="v4-sect">MUSIC / AUDIO</div>' + (d.music || []).map(row).join('') + (v4Sheet.audioOnly ? '' : '<div class="v4-sect">VIDEO</div>' + (d.video || []).map(row).join(''));
   let target = null;
   list.querySelectorAll('.v4-fmtrow').forEach(function(el){ if(el.getAttribute('data-q') === v4State.settings.defQuality) target = el; });
@@ -2242,11 +2250,12 @@ async function v4OpenSheet(id, audioOnly){
 function v4PickFmt(el){
   document.querySelectorAll('#v4-sheet-list .v4-fmtrow').forEach(function(x){ x.classList.remove('sel'); });
   el.classList.add('sel');
-  v4Sheet.sel = {format: el.getAttribute('data-fmt'), quality: el.getAttribute('data-q') || null};
+  v4Sheet.sel = {format: el.getAttribute('data-fmt'), quality: el.getAttribute('data-q') || null, nk: el.getAttribute('data-nk') || ''};
 }
 function v4CloseSheet(){ v4$('v4-sheetwrap').classList.remove('open'); v4Lock(false); }
 function v4SheetDownload(){
   if(!v4Sheet.sel){ v4Toast('Pehle ek quality chunein'); return; }
+  if(v4NativeMode() && v4Sheet.sel.nk){ try{ PlayTubeApp.nativeDownload(v4Sheet.id, v4Sheet.sel.nk, v4$('v4-sheet-title').textContent || ''); v4CloseSheet(); }catch(e){ v4Toast('Phone download shuru nahi ho saka'); } return; }
   const params = {video_id: v4Sheet.id, format: v4Sheet.sel.format, quality: v4Sheet.sel.quality, title: v4$('v4-sheet-title').textContent || ''};
   v4StartDownload(params);
 }
