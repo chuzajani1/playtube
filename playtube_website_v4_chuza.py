@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 11  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 12  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1457,7 +1457,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">11</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">12</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -1790,7 +1790,7 @@ const v4JobTimers = {};
 
 function v4$(id){ return document.getElementById(id); }
 function v4Esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-async function v4Fetch(url, opts){ const r = await fetch(url, opts || {}); let d = null; try{ d = await r.json(); }catch(e){} return {ok:r.ok, status:r.status, data:d}; }
+async function v4Fetch(url, opts){ const c = new AbortController(); const t = setTimeout(function(){ c.abort(); }, 30000); const o = Object.assign({}, opts || {}, {signal: c.signal}); try{ const r = await fetch(url, o); let d = null; try{ d = await r.json(); }catch(e){} clearTimeout(t); return {ok:r.ok, status:r.status, data:d}; }catch(e){ clearTimeout(t); return {ok:false, status:0, data:null}; } }
 function v4Post(url, body){ return v4Fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body || {})}); }
 function v4Toast(msg){ const t = v4$('v4-toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(function(){ t.style.display = 'none'; }, 3400); }
 function v4Dur(s){ if(!s) return ''; s = parseInt(s); if(!s) return ''; const m = Math.floor(s/60), ss = s % 60, h = Math.floor(m/60); if(h) return h + ':' + String(m%60).padStart(2,'0') + ':' + String(ss).padStart(2,'0'); return m + ':' + String(ss).padStart(2,'0'); }
@@ -2026,7 +2026,7 @@ function v4WatchShare(){
 }
 
 /* ---------- Shorts: Reels style, Playza design (Update 65) ---------- */
-let v4ShortsPage = 0, v4ShortsLoading = false, v4ShortsDone = false, v4ShortsObs = null, v4ShortsMuted = false, v4ShortsSeq = 0, v4ShortsQuery = 'trending shorts';
+let v4ShortsPage = 0, v4ShortsLoading = false, v4ShortsDone = false, v4ShortsObs = null, v4ShortsMuted = (localStorage.getItem('pt_short_muted') === '1'), v4ShortsSeq = 0, v4ShortsQuery = 'trending shorts';
 const v4ShortsItems = {};
 function v4FmtCount(n){ n = Number(n) || 0; if(n >= 1e6) return (n / 1e6).toFixed(1).replace('.0', '') + 'M'; if(n >= 1e3) return (n / 1e3).toFixed(1).replace('.0', '') + 'K'; return '' + n; }
 function v4ShortCard(it){
@@ -2037,6 +2037,7 @@ function v4ShortCard(it){
     '<div class="v4-short-prog"></div><div class="v4-short-spin"><i></i></div>' +
     '<div class="v4-short-rail">' +
       '<button class="v4-sbtn" data-act="like"><span class="ic">❤</span><span>' + v4FmtCount(it.view_count) + '</span></button>' +
+      '<button class="v4-sbtn" data-act="mute"><span class="ic">' + (v4ShortsMuted ? '🔇' : '🔊') + '</span><span>Sound</span></button>' +
       '<button class="v4-sbtn" data-act="share"><span class="ic">⤴</span><span>Share</span></button>' +
       '<button class="v4-sbtn" data-act="dl"><span class="ic">⬇</span><span>Save</span></button>' +
     '</div>' +
@@ -2046,10 +2047,11 @@ function v4ShortCard(it){
 function v4ShortActivate(sec){
   const vid = sec.getAttribute('data-vid');
   if(vid) v4SeenAdd([vid]);
+  const _sit = v4ShortsItems[vid]; if(_sit && _sit.snippet && _sit.snippet.title) v4InterestAdd(_sit.snippet.title.replace(/[^a-zA-Z0-9 ]/g, ' ').split(/\s+/).filter(function(w){ return w.length > 2; }).slice(0, 3).join(' '), 1);
   if(sec.querySelector('video')) return;
   const spin = sec.querySelector('.v4-short-spin'); if(spin) spin.style.display = 'flex';
   const v = document.createElement('video');
-  v.setAttribute('playsinline', ''); v.loop = true; v.muted = false;
+  v.setAttribute('playsinline', ''); v.loop = true; v.muted = v4ShortsMuted;
   v.poster = 'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg';
   v.src = '/api/stream/' + vid;
   let retried = 0;
@@ -2069,10 +2071,11 @@ function v4ShortDeactivate(sec){
   const prog = sec.querySelector('.v4-short-prog'); if(prog) prog.style.width = '0';
   const spin = sec.querySelector('.v4-short-spin'); if(spin) spin.style.display = 'none';
 }
+function v4FetchT(url, ms){ const c = new AbortController(); const t = setTimeout(function(){ c.abort(); }, ms || 30000); return fetch(url, {signal: c.signal}).then(function(r){ clearTimeout(t); return r; }, function(e){ clearTimeout(t); throw e; }); }
 function v4ShortsLoad(){
   if(v4ShortsLoading || v4ShortsDone) return;
   v4ShortsLoading = true;
-  fetch('/api/feed?q=' + encodeURIComponent(v4ShortsQuery) + '&type=shorts&page=' + v4ShortsPage + '&r=sh' + v4ShortsSeq + '&seen=' + encodeURIComponent(v4SeenParam()))
+  v4FetchT('/api/feed?q=' + encodeURIComponent(v4ShortsQuery) + '&type=shorts&page=' + v4ShortsPage + '&r=sh' + v4ShortsSeq + '&seen=' + encodeURIComponent(v4SeenParam()), 30000)
     .then(function(x){ return x.json(); })
     .then(function(d){
       v4ShortsLoading = false;
@@ -2113,6 +2116,7 @@ function v4OpenShorts(query){
       if(btn){
         const act = btn.getAttribute('data-act');
         if(act === 'like'){ btn.classList.toggle('liked'); }
+        else if(act === 'mute'){ v4ShortsMuted = !v4ShortsMuted; localStorage.setItem('pt_short_muted', v4ShortsMuted ? '1' : '0'); document.querySelectorAll('#v4-shorts-track video').forEach(function(v){ v.muted = v4ShortsMuted; }); document.querySelectorAll('.v4-sbtn[data-act="mute"] .ic').forEach(function(s){ s.textContent = v4ShortsMuted ? '🔇' : '🔊'; }); }
         else if(act === 'dl' && it){ v4CloseShorts(); v4OpenWatch(it); setTimeout(function(){ v4OpenSheet(it); }, 400); }
         else if(act === 'share'){
           const url = 'https://www.youtube.com/watch?v=' + vid;
@@ -2215,9 +2219,10 @@ function v4SheetDownload(){
 }
 async function v4StartDownload(params){
   if(params && params.video_id) v4SeenAdd([params.video_id]);
+  if(params && params.title) v4InterestAdd(params.title.replace(/[^a-zA-Z0-9 ]/g, ' ').split(/\s+/).filter(function(w){ return w.length > 2; }).slice(0, 3).join(' '), 1);
   const body = Object.assign({}, params, {download_id: 'v4_' + Date.now()});
   const r = await v4Post('/api/start-download', body);
-  if(r.ok && r.data && r.data.success){ v4CloseSheet(); if(r.data.guest_remaining != null){ const left = Math.max(0, r.data.guest_remaining - 1); v4Toast(left > 0 ? ('Download shuru — guest ke ab ' + left + ' free downloads baqi hain') : 'Download shuru — ye guest ka akhri free download hai, agli ke liye account banayein'); } else v4Toast('Download shuru ho gaya — Downloads me dekhein'); v4LoadDownloads(); return; }
+  if(r.ok && r.data && r.data.success){ if(r.data.already){ v4CloseSheet(); v4Toast('Ye video pehle se Downloads mein hai'); v4LoadDownloads(); return; } v4CloseSheet(); if(r.data.guest_remaining != null){ const left = Math.max(0, r.data.guest_remaining - 1); v4Toast(left > 0 ? ('Download shuru — guest ke ab ' + left + ' free downloads baqi hain') : 'Download shuru — ye guest ka akhri free download hai, agli ke liye account banayein'); } else v4Toast('Download shuru ho gaya — Downloads me dekhein'); v4LoadDownloads(); return; }
   const d = r.data || {};
   if(d.login_required){ v4Pending = {type:'start', params:params}; v4CloseSheet(); v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); return; }
   if(d.premium_required){ v4CloseSheet(); v4Toast('HD quality ke liye Premium chahiye'); v4Show('premium'); return; }
@@ -2230,7 +2235,26 @@ async function v4LoadDownloads(){
     const res = await Promise.all([v4Fetch('/api/download-progress'), v4Fetch('/api/downloads-list')]);
     if(res[0].ok) v4DlData.progress = res[0].data || {};
     if(res[1].ok && res[1].data) v4DlData.list = res[1].data.downloads || [];
-    v4RenderDownloads(); v4UpdateBadge();
+    v4RenderDownloads(); v4UpdateBadge(); v4AutoSaveApk();
+  }catch(e){}
+}
+let v4KnownDone = null;
+function v4AutoSaveApk(){
+  try{
+    if(!window.PlayTubeApp) return;
+    const doneIds = (v4DlData.list || []).filter(function(x){ return x.status === 'completed' && x.downloadId; }).map(function(x){ return x.downloadId; });
+    if(v4KnownDone === null){ v4KnownDone = new Set(doneIds); return; }
+    let saved = [];
+    try{ saved = JSON.parse(localStorage.getItem('pt_autosaved') || '[]'); }catch(e){}
+    let changed = false;
+    doneIds.forEach(function(id){
+      if(!v4KnownDone.has(id) && saved.indexOf(id) < 0){
+        saved.push(id); changed = true;
+        const a = document.createElement('a'); a.href = '/api/download-file/' + id; a.style.display = 'none'; document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); }, 800);
+      }
+      v4KnownDone.add(id);
+    });
+    if(changed) localStorage.setItem('pt_autosaved', JSON.stringify(saved.slice(-300)));
   }catch(e){}
 }
 function v4UpdateBadge(){
