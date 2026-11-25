@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 20  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 21  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1457,7 +1457,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">20</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">21</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2048,6 +2048,7 @@ function v4WatchClick(id){
 let v4FrameId = '';
 function v4FrameSetup(id){
   v4FrameId = id;
+  window._v4fTry = 0;
   const lk = v4$('v4-frame-yt2');
   if(lk) lk.href = 'https://www.youtube.com/watch?v=' + id;
   v4FrameUseOwn();
@@ -2075,16 +2076,22 @@ function v4FrameWatchdog(){
   if(window._v4fwd) clearTimeout(window._v4fwd);
   window._v4fwd = setTimeout(function(){
     const vid = v4$('v4-frame-video');
-    if(v4FrameId && vid && vid.readyState < 2 && !vid.paused) v4FrameOwnFail();
+    if(v4FrameId && vid && vid.readyState < 2) v4FrameOwnFail();
   }, 15000);
 }
 function v4FrameOwnFail(){
   if(!v4FrameId) return;
+  window._v4fTry = (window._v4fTry || 0) + 1;
+  if(window._v4fTry <= 3){
+    const _id = v4FrameId;
+    setTimeout(function(){ if(v4FrameId === _id) v4FrameUseOwn(); }, 900);
+    return;
+  }
   const vid = v4$('v4-frame-video');
   if(vid){ try{ vid.pause(); }catch(e){} }
   const f = v4$('v4-frame-fail'); if(f) f.style.display = 'flex';
 }
-function v4FrameRetry(){ v4FrameUseOwn(); }
+function v4FrameRetry(){ window._v4fTry = 0; v4FrameUseOwn(); }
 function v4FrameStop(){
   v4FrameId = '';
   const vid = v4$('v4-frame-video');
