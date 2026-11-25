@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 22  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 23  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1164,7 +1164,7 @@ HTML = '''
   .v4-menurow{display:flex;align-items:center;gap:12px;width:100%;padding:13px 4px;background:none;border:none;border-bottom:1px solid var(--v4border);color:var(--v4text);font-size:14px;cursor:pointer;text-align:left;text-decoration:none;box-sizing:border-box}
   /* Playza ka apna player frame (Update 59) */
   /* Shorts — Reels style, Playza design (Update 65) */
-#v4-shorts{position:fixed;top:0;left:0;right:0;bottom:62px;background:#000;z-index:1200;display:none;overscroll-behavior:contain}
+#v4-shorts{position:fixed;top:0;left:0;right:0;bottom:0;background:#000;z-index:1200;display:none;overscroll-behavior:contain}
 #v4-shorts.open{display:block}
 #v4-shorts-track{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior:contain;touch-action:pan-y}
 #v4-shorts-track::-webkit-scrollbar{display:none}
@@ -1457,7 +1457,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">22</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">23</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2147,7 +2147,7 @@ function v4FetchT(url, ms){ const c = new AbortController(); const t = setTimeou
 function v4ShortsLoad(){
   if(v4ShortsLoading || v4ShortsDone) return;
   v4ShortsLoading = true;
-  v4FetchT('/api/feed?q=' + encodeURIComponent(v4ShortsQuery) + '&type=shorts&page=' + v4ShortsPage + '&r=sh' + v4ShortsSeq + '&seen=' + encodeURIComponent(v4SeenParam()), 30000)
+  v4FetchT('/api/feed?q=' + encodeURIComponent(v4ShortsQuery) + '&type=shorts&page=' + v4ShortsPage + '&r=sh' + v4ShortsSeq + '&seen=' + encodeURIComponent(v4SeenParam()) + '&int=' + encodeURIComponent(v4InterestTop(5).join('|')), 30000)
     .then(function(x){ return x.json(); })
     .then(function(d){
       v4ShortsLoading = false;
@@ -2214,6 +2214,20 @@ function v4CloseShorts(){
   document.querySelectorAll('.v4-short').forEach(function(s){ v4ShortDeactivate(s); });
 }
 
+async function v4LoadRelated(v){
+  const el = v4$('v4-related'); if(!el) return;
+  const cands = [];
+  const kw = (v.title || '').split(' ').slice(0, 4).join(' ').trim();
+  if(kw) cands.push(kw);
+  if(v.channel && cands.indexOf(v.channel) < 0) cands.push(v.channel);
+  const top = v4InterestTop(1)[0];
+  if(top && cands.indexOf(top) < 0) cands.push(top);
+  cands.push('trending');
+  for(let i = 0; i < cands.length; i++){
+    await v4LoadFeed('v4-related', cands[i]);
+    if(el.querySelectorAll('img').length) return;
+  }
+}
 function v4OpenWatch(v){
   v4Current = v;
   if(v && v.videoId) v4SeenAdd([v.videoId]);
@@ -2225,8 +2239,7 @@ function v4OpenWatch(v){
   v4$('v4-watch-channel').textContent = v.channel || '';
   v4Show('watch');
   v4Post('/api/add-history', {video_id:v.videoId, title:v.title || '', channel:v.channel || ''});
-  const kw = (v.title || '').split(' ').slice(0, 4).join(' ');
-  if(kw) v4LoadFeed('v4-related', kw);
+  v4LoadRelated(v);
 }
 function v4Back(){
   const vd = v4$('v4-video');
