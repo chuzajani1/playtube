@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 6  # Update 79: har update par +1 — More page par dikhta hai
+APP_VERSION = 7  # Update 79: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1359,7 +1359,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">6</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">7</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -3525,10 +3525,14 @@ def _shorts_feed_items(query, n=20):
     """Shorts ke liye pehle dedicated Shorts-filter search; na mile to
     aam feed search mein se <=65s wali."""
     _items = _shorts_search_items(query, n)
-    if _items:
-        return [it for it in _items
-                if it.get('duration') is None or it['duration'] <= 65]
-    return [it for it in _feed_search_items(query, n)
+    _short = [it for it in _items
+              if it.get('duration') is None or it['duration'] <= 65]
+    if _short:
+        return _short
+    # Scrape khali ya sirf lambi videos de to yt-dlp search zyada
+    # results me se asal shorts chuno (v7 fix: pehle n chhota tha,
+    # is liye Home ki Shorts line khali reh jati thi)
+    return [it for it in _feed_search_items(query, max(n, 30))
             if it.get('duration') and it['duration'] <= 65]
 
 
@@ -3901,6 +3905,11 @@ def api_feed():
             try:
                 _srq = (q if len(pool) <= 1 else pool[0]) + ' shorts'
                 _srow = _shorts_feed_items(_srq, 10)
+                if not _srow:
+                    # Query se na mile to Shorts pool ki seed se —
+                    # line har haal me aani chahiye (Update 79/80)
+                    _srow = _shorts_feed_items(
+                        FEED_SHORTS_POOL[page % len(FEED_SHORTS_POOL)], 10)
                 if _srow:
                     _resp['shorts_row'] = _srow
             except Exception:
