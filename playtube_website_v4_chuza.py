@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 7  # Update 79: har update par +1 — More page par dikhta hai
+APP_VERSION = 8  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -871,6 +871,100 @@ def save_downloads_db():
 
 downloaded_files = load_downloads_db()
 
+# ============ STORAGE AUTO-CLEANUP (Update 82 / v8) ============
+# User ka rule: server ki jagah 80% bhar jaye to sab se PURANI mukammal
+# downloads khud delete hoti rahen (75% tak). Private folder wali aur
+# chalti hui downloads kabhi auto-delete nahi hoti.
+STORAGE_LIMIT_PCT = 80.0
+STORAGE_TARGET_PCT = 75.0
+
+
+def _storage_info():
+    try:
+        _u = shutil.disk_usage(DATA_DIR)
+        total, used, free = _u.total, _u.used, _u.free
+    except Exception:
+        total = used = free = 0
+    dl_bytes = 0
+    dl_count = 0
+    for _v in downloaded_files.values():
+        if _v.get('status', 'completed') == 'completed':
+            dl_count += 1
+            try:
+                dl_bytes += int(_v.get('file_size') or 0)
+            except Exception:
+                pass
+    pct = round(used * 100.0 / total, 1) if total else 0.0
+    return {'total_mb': round(total / 1048576, 1), 'used_mb': round(used / 1048576, 1),
+            'free_mb': round(free / 1048576, 1), 'used_pct': pct,
+            'downloads_mb': round(dl_bytes / 1048576, 1), 'downloads_count': dl_count}
+
+
+def _storage_cleanup():
+    """80% se zyada bharne par sab se purani completed downloads delete
+    karo jab tak istemal 75% se neeche na aa jaye. (freed_mb, removed)."""
+    freed = 0
+    removed = 0
+    try:
+        info = _storage_info()
+        if not info['total_mb'] or info['used_pct'] < STORAGE_LIMIT_PCT:
+            return (0, 0)
+        cands = []
+        for _did, _v in downloaded_files.items():
+            if _v.get('status', 'completed') != 'completed':
+                continue
+            if _v.get('private'):
+                continue
+            if not _v.get('file_path'):
+                continue
+            cands.append((str(_v.get('timestamp', '')), _did))
+        cands.sort()
+        for _ts, _did in cands:
+            if _storage_info()['used_pct'] < STORAGE_TARGET_PCT:
+                break
+            _v = downloaded_files.get(_did)
+            if not _v:
+                continue
+            _fp = _v.get('file_path')
+            _sz = 0
+            if _fp and os.path.exists(_fp):
+                try:
+                    _sz = os.path.getsize(_fp)
+                    os.remove(_fp)
+                except Exception:
+                    pass
+            downloaded_files.pop(_did, None)
+            download_progress.pop(_did, None)
+            if _did in download_meta:
+                del download_meta[_did]
+            freed += _sz
+            removed += 1
+        if removed:
+            save_downloads_db()
+            _save_download_meta()
+            print('[Playza] Storage cleanup: %d purani downloads delete, %s MB khaali'
+                  % (removed, round(freed / 1048576, 1)))
+    except Exception as _e:
+        print('[Playza] Storage cleanup error: %s' % _e)
+    return (round(freed / 1048576, 1), removed)
+
+
+def _storage_watch():
+    while True:
+        time.sleep(900)
+        try:
+            _storage_cleanup()
+        except Exception:
+            pass
+
+
+try:
+    _storage_cleanup()
+except Exception:
+    pass
+threading.Thread(target=_storage_watch, daemon=True).start()
+
+
 # Helper functions
 
 
@@ -1359,7 +1453,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">7</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">8</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2947,6 +3041,7 @@ async function v4RenderAdmin(){
   const tog = function(key, label){ return '<div class="v4-row"><div class="grow">' + label + '</div><button class="v4-switch' + (t[key] ? ' on' : '') + '" data-key="' + key + '" onclick="v4AdminToggle(this)"><i></i></button></div>'; };
   let h = '<div class="v4-stats"><div class="v4-stat"><b>' + (ss.total_users || 0) + '</b><span>Total Users</span></div><div class="v4-stat"><b>' + (ss.downloads_today || 0) + '</b><span>Aaj ke Downloads</span></div><div class="v4-stat"><b>' + (ss.pending_premium_requests || 0) + '</b><span>Premium Requests</span></div></div>';
   h += '<div class="v4-stats"><div class="v4-stat"><b>' + (ss.total_visits || 0) + '</b><span>Total Visits</span></div><div class="v4-stat"><b>' + (ss.today_visits || 0) + '</b><span>Aaj ke Visits</span></div><div class="v4-stat"><b>' + (ss.today_unique || 0) + '</b><span>Aaj ke Visitors (alag log)</span></div></div>';
+  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">💾 STORAGE (SERVER)</div><div id="v4-storage-box" class="v4-muted">Loading...</div></div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">WEBSITE ON / OFF</div>';
   h += tog('ai_enabled', 'AI Assistant') + tog('downloads_enabled', 'Downloads') + tog('premium_enabled', 'Premium System') + tog('social_enabled', 'Social Tab') + tog('signup_enabled', 'Naya Signup (registration)') + tog('floating_enabled', 'Floating Button (APK)') + tog('maintenance_mode', 'Maintenance (site band)') + '</div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">ELAAN (ANNOUNCEMENT)</div><input class="v4-input" id="v4-adm-ann" placeholder="Home par sab ko dikhne wala message" value="' + v4Esc(cfg.announcement || '') + '"><button class="v4-btn2" onclick="v4AdminSaveAnn()">Save Elaan</button></div>';
@@ -2996,7 +3091,10 @@ async function v4RenderAdmin(){
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">PRIVATE FOLDER</div><div class="v4-row"><div class="grow">PIN ki halat<div class="v4-muted">' + (cfg.pin_set ? 'PIN set hai' : 'Abhi PIN set nahi hai') + '</div></div>' + (cfg.pin_set ? '<button class="v4-btn2" onclick="v4AdminResetPin()">PIN Reset karein</button>' : '') + '</div><div class="v4-muted">PIN bhool jayein to yahan se reset karein — phir naya PIN banana pare ga.</div></div>';
   h += '<button class="v4-bigbtn" style="background:var(--v4card);border:1px solid var(--v4border)" onclick="v4AdminLogout()">Admin Logout</button>';
   body.innerHTML = h;
+  v4LoadStorage();
 }
+async function v4LoadStorage(){ const box = v4$('v4-storage-box'); if(!box) return; const r = await v4Fetch('/api/admin/storage'); if(!r.ok || !r.data){ box.textContent = 'Storage ki maloomat nahi mil sakin'; return; } const d = r.data; const pct = Math.min(100, d.used_pct || 0); const col = pct >= 80 ? '#f87171' : (pct >= 60 ? '#fbbf24' : '#14b8a6'); let h = '<div class="v4-row"><div class="grow">Istemaal shuda jagah</div><b>' + d.used_mb + ' / ' + d.total_mb + ' MB (' + pct + '%)</b></div>'; h += '<div style="height:10px;border-radius:99px;background:var(--v4border);overflow:hidden;margin:6px 0"><div style="height:100%;width:' + pct + '%;background:' + col + '"></div></div>'; h += '<div class="v4-muted">Khaali jagah: ' + d.free_mb + ' MB - Downloads: ' + d.downloads_count + ' files (' + d.downloads_mb + ' MB)</div>'; h += '<div class="v4-muted" style="margin-top:4px">Auto rule: jagah 80% bharne par sab se purani downloads khud delete ho jati hain (Private folder wali kabhi nahi).</div>'; h += '<button class="v4-btn2" style="margin-top:8px" onclick="v4AdminCleanup()">Abhi safai karein</button>'; box.innerHTML = h; }
+async function v4AdminCleanup(){ const r = await v4Post('/api/admin/storage-cleanup', {}); if(r.ok && r.data){ if(r.data.removed) v4Toast(r.data.removed + ' purani downloads delete - ' + r.data.freed_mb + ' MB khaali'); else v4Toast('Safai ki zaroorat nahi - jagah 80% se kam bhari hai'); v4LoadStorage(); } else v4Toast('Safai nahi ho saki'); }
 function v4DealRowDel(btn){ const r = btn.closest('.v4-dealrow'); if(r) r.remove(); }
 function v4DealRow(d){
   d = d || {};
@@ -4156,6 +4254,10 @@ def fetch_social_info():
 
 @app.route('/api/download-social', methods=['POST'])
 def download_social_media():
+    try:
+        _storage_cleanup()
+    except Exception:
+        pass
     data = request.json
     url = data.get('url', '').strip()
     format_type = data.get('format', 'video')
@@ -5309,6 +5411,10 @@ def _speed_opts():
 def download_in_background(video_id, format_type, quality, download_id, user_id=None,
                            clip_start=None, clip_end=None, _client_idx=0, title_hint=None,
                            _retry_pass=0):
+    try:
+        _storage_cleanup()
+    except Exception:
+        pass
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
     started_at = time.time()
 
@@ -7236,6 +7342,10 @@ def _ai_wait_download(download_id, timeout=1800):
 
 
 def _ai_run_job(job_id):
+    try:
+        _storage_cleanup()
+    except Exception:
+        pass
     with ai_jobs_lock:
         job = ai_jobs.get(job_id)
         if not job:
@@ -7872,6 +7982,27 @@ def api_admin_v4_stats():
                     'total_visits': visits['total'],
                     'today_visits': visits['today_opens'],
                     'today_unique': visits['today_uniq']})
+
+
+@app.route('/api/admin/storage')
+def api_admin_storage():
+    guard = _v4_admin_guard()
+    if guard:
+        return guard
+    info = _storage_info()
+    info['success'] = True
+    return jsonify(info)
+
+
+@app.route('/api/admin/storage-cleanup', methods=['POST'])
+def api_admin_storage_cleanup():
+    guard = _v4_admin_guard()
+    if guard:
+        return guard
+    freed, removed = _storage_cleanup()
+    info = _storage_info()
+    info.update({'success': True, 'freed_mb': freed, 'removed': removed})
+    return jsonify(info)
 
 
 @app.route('/api/admin/v4-users')
