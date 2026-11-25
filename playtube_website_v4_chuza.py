@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 9  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 10  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1457,7 +1457,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">9</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">10</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -1817,7 +1817,7 @@ function v4CloseAllOverlays(){ try{ v4CloseShorts(); }catch(e){} try{ v4CloseSea
 function v4Show(view){
   v4CloseAllOverlays();
   if(view !== 'watch') v4FrameStop();
-  if(view === 'home' && v4State.view === 'home'){ v4FeedSession = Math.random().toString(36).slice(2, 10); const hh = v4$('v4-home-heading'); if(hh) hh.textContent = 'Trending Videos'; v4SearchState.q = ''; v4RenderSearchBar(); v4LoadFeed('v4-home-feed', 'trending'); }
+  if(view === 'home' && v4State.view === 'home'){ v4FeedSession = Math.random().toString(36).slice(2, 10); const hh = v4$('v4-home-heading'); if(hh) hh.textContent = 'Trending Videos'; v4SearchState.q = ''; v4RenderSearchBar(); v4SetSearchBoxes(''); v4LoadFeed('v4-home-feed', 'trending'); }
   const rb = v4$('v4-refresh-btn'); if(rb) rb.style.display = (view === 'home' || view === 'youtube' || view === 'music') ? 'block' : 'none';
   document.querySelectorAll('.v4-view').forEach(function(s){ s.classList.remove('active'); });
   const el = v4$('v4-view-' + view); if(el) el.classList.add('active');
@@ -1934,7 +1934,7 @@ async function v4FeedMore(elId, first){
   st.loading = true;
   let added = 0, tries = 0, failed = false;
   let stripHtml = '';
-  while(tries < 3 && added < 8 && !st.done){
+  while(tries < 5 && added < 8 && !st.done){
     tries++;
     const r = await v4Fetch('/api/feed?q=' + encodeURIComponent(st.q) + '&page=' + st.page + '&type=' + (st.type || 'videos') + (st.sub ? '&sub=' + st.sub : '') + (st.sort ? '&sort=' + st.sort : '') + (st.minDur ? '&min_dur=' + st.minDur : '') + '&seen=' + encodeURIComponent(v4SeenParam()) + '&r=' + v4FeedSession + '&int=' + encodeURIComponent(v4InterestTop(5).join('|')));
     if(!(r.ok && r.data && r.data.items)){ failed = true; break; }
@@ -2072,7 +2072,7 @@ function v4ShortDeactivate(sec){
 function v4ShortsLoad(){
   if(v4ShortsLoading || v4ShortsDone) return;
   v4ShortsLoading = true;
-  fetch('/api/feed?q=' + encodeURIComponent(v4ShortsQuery) + '&type=shorts&page=' + v4ShortsPage + '&r=sh' + v4ShortsSeq)
+  fetch('/api/feed?q=' + encodeURIComponent(v4ShortsQuery) + '&type=shorts&page=' + v4ShortsPage + '&r=sh' + v4ShortsSeq + '&seen=' + encodeURIComponent(v4SeenParam()))
     .then(function(x){ return x.json(); })
     .then(function(d){
       v4ShortsLoading = false;
@@ -2705,6 +2705,7 @@ function v4SuggRender(){
   }, 220);
 }
 function v4SuggPick(el){ const q = el.getAttribute('data-q'); if(q) v4RunSearch(q); }
+function v4SetSearchBoxes(q){ ['v4-q-home','v4-q-youtube','v4-q-music'].forEach(function(id){ const el = v4$(id); if(el) el.value = q; }); }
 function v4RunSearch(q){
   q = (q || '').trim(); if(!q) return;
   v4RecentAdd(q);
@@ -2712,6 +2713,7 @@ function v4RunSearch(q){
   v4Show('home');
   v4SearchState = {q:q, filter:'all', platform:'all'};
   v4RenderSearchBar();
+  v4SetSearchBoxes(q);
   v4$('v4-home-heading').textContent = 'Results: ' + q;
   v4InterestAdd(q, 2);
   v4LoadFeed('v4-home-feed', q, 'all');
@@ -2774,10 +2776,10 @@ async function v4OpenPlaylist(pid, title){
 function v4SetFilter(btn){
   const w = btn.getAttribute('data-w'), t = btn.getAttribute('data-t');
   document.querySelectorAll('.v4-fchip[data-w="' + w + '"]').forEach(function(b){ b.classList.toggle('on', b === btn); });
-  if(t === 'shorts'){ v4OpenShorts(); return; }
   const feedId = 'v4-' + w + '-feed';
   const st = v4FeedState[feedId];
   const q = (st && st.q) || (w === 'youtube' ? 'trending videos' : (w === 'music' ? 'trending songs' : 'trending'));
+  if(t === 'shorts'){ const _dq = (q === 'trending' || q === 'trending videos' || q === 'trending songs') ? '' : q; v4OpenShorts(_dq); return; }
   const rows = {dramas: 'v4-sub-' + w, movies: 'v4-subm-' + w, kids: 'v4-subk-' + w};
   Object.keys(rows).forEach(function(k){ const r2 = v4$(rows[k]); if(r2) r2.style.display = (k === t) ? '' : 'none'; });
   if(rows[t]){
@@ -3409,16 +3411,40 @@ FEED_NAAT_POOL = ['naat sharif', 'new naat 2026', 'beautiful urdu naat', 'madina
 FEED_DRAMA_POOL = ['pakistani drama episode', 'hindi drama serial new episode', 'turkish drama urdu dubbed', 'korean drama hindi dubbed', 'english web series hindi dubbed', 'new drama 2026 episode', 'hum tv drama', 'indian tv serial']
 FEED_KIDS_POOL = ['kids cartoon', 'motu patlu cartoon', 'kids rhymes', 'cocomelon', 'baby shark', 'kids learning videos', 'peppa pig', 'cartoon for kids']
 FEED_SHORTS_POOL = [
+    'trending shorts #shorts', 'viral shorts #shorts',
+    'funny shorts #shorts', 'tiktok viral #shorts',
+    'instagram reels shorts #shorts', 'reels funny #shorts',
+    'comedy shorts hindi #shorts', 'dance shorts #shorts',
+    'cricket shorts #shorts', 'pakistani drama shorts #shorts',
+    'movie shorts #shorts', 'bollywood shorts #shorts',
     'naat shorts #shorts', 'islamic shorts #shorts',
-    'poetry shorts #shorts', 'dance shorts #shorts',
-    'cricket shorts #shorts', 'motu patlu shorts #shorts',
-    'comedy shorts hindi #shorts', 'funny shorts #shorts',
-    'viral shorts #shorts', 'pubg shorts #shorts',
-    'tiktok funny #shorts', 'tiktok viral #shorts',
-    'reels funny #shorts', 'funny tiktok #shorts',
-    'trending shorts #shorts', 'sad shorts #shorts',
+    'poetry shorts #shorts', 'motu patlu shorts #shorts',
+    'pubg shorts #shorts', 'tiktok funny #shorts',
+    'funny tiktok #shorts', 'sad shorts #shorts',
 ]
 FEED_VARIANTS = [' latest', ' new', '', ' viral', ' best', ' 2026']
+# v10: lambe scroll par naye cycle — feed/search kabhi khatam nahi hoti
+FEED_CYCLES = ['', ' 2025', ' hd', ' part 2', ' new season', ' special']
+
+
+def _shorts_seeds_for(text):
+    """Shorts line hamesha USI type ki jis ki search/feed hai."""
+    t = (text or '').lower()
+    if 'cartoon' not in t and any(w in t for w in ('drama', 'serial', 'qist')):
+        return ['pakistani drama shorts #shorts', 'drama shorts #shorts',
+                'hindi drama shorts #shorts']
+    if any(w in t for w in ('movie', 'film')):
+        return ['movie shorts #shorts', 'bollywood shorts #shorts',
+                'movie scenes shorts #shorts']
+    if any(w in t for w in ('song', 'gana', 'geet', 'music')):
+        return ['song shorts #shorts', 'bollywood song shorts #shorts',
+                'punjabi song shorts #shorts']
+    if 'naat' in t or 'islamic' in t:
+        return ['naat shorts #shorts', 'islamic shorts #shorts']
+    if any(w in t for w in ('cartoon', 'motu', 'doraemon', 'kids')):
+        return ['motu patlu shorts #shorts', 'cartoon shorts #shorts',
+                'doraemon shorts #shorts']
+    return FEED_SHORTS_POOL
 
 
 def _feed_search_items(query, n=30):
@@ -3569,7 +3595,7 @@ def _shorts_feed_items(query, n=20):
     # Scrape khali ya sirf lambi videos de to yt-dlp search zyada
     # results me se asal shorts chuno (v7 fix: pehle n chhota tha,
     # is liye Home ki Shorts line khali reh jati thi)
-    return [it for it in _feed_search_items(query, max(n, 30))
+    return [it for it in _feed_search_items(query, max(n, 60))
             if it.get('duration') and it['duration'] <= 65]
 
 
@@ -3940,29 +3966,39 @@ def api_feed():
         if _sr and page == 0 and ftype not in ('shorts', 'playlists') \
                 and _items:
             try:
-                # v9: seed session ke hisab se ghumao (har dafa wahi line
-                # nahi) + dekhi hui shorts line me dobara nahi.
+                # v10: seed session ke hisab se ghumao + dekhi hui shorts
+                # dobara nahi + line hamesha USI type ki jis ki feed/search
+                # hai (drama search -> sirf drama shorts).
                 _off = (sum(ord(c) for c in
                              (request.args.get('r', '') or 'x'))
                         % len(pool)) if len(pool) > 1 else 0
                 _srq = (q if len(pool) <= 1 else pool[_off]) + ' shorts'
                 _srow = _shorts_feed_items(_srq, 10)
+                if len(_srow) < 4 and len(pool) <= 1:
+                    _have0 = set()
+                    for _x in _srow:
+                        _have0.add((_x.get('id') or {}).get('videoId') or '')
+                    for _it in _shorts_feed_items(q + ' #shorts', 10):
+                        _v0 = (_it.get('id') or {}).get('videoId') or ''
+                        if _v0 and _v0 not in _have0:
+                            _srow.append(_it)
+                            _have0.add(_v0)
                 if _seen_ids:
                     _srow = [it for it in _srow
                              if (((it.get('id') or {}).get('videoId')
                                   or '') not in _seen_ids)]
                 if len(_srow) < 4:
-                    _srow2 = _shorts_feed_items(
-                        FEED_SHORTS_POOL[(page + _off)
-                                         % len(FEED_SHORTS_POOL)], 10)
                     _have = set()
                     for _x in _srow:
                         _have.add((_x.get('id') or {}).get('videoId') or '')
-                    for _it in _srow2:
-                        _v = (_it.get('id') or {}).get('videoId') or ''
-                        if _v and _v not in _have and _v not in _seen_ids:
-                            _srow.append(_it)
-                            _have.add(_v)
+                    for _sq in _shorts_seeds_for(_srq + ' ' + q):
+                        for _it in _shorts_feed_items(_sq, 10):
+                            _v = (_it.get('id') or {}).get('videoId') or ''
+                            if _v and _v not in _have and _v not in _seen_ids:
+                                _srow.append(_it)
+                                _have.add(_v)
+                            if len(_srow) >= 10:
+                                break
                         if len(_srow) >= 10:
                             break
                 if _srow:
@@ -3974,8 +4010,10 @@ def api_feed():
     eff = page + offset
     seed = pool[eff % len(pool)]
     variant = FEED_VARIANTS[(eff // len(pool)) % len(FEED_VARIANTS)]
-    seed_q = (seed + variant).strip()
-    total_pages = len(pool) * len(FEED_VARIANTS)
+    _cyc = FEED_CYCLES[(eff // (len(pool) * len(FEED_VARIANTS)))
+                       % len(FEED_CYCLES)]
+    seed_q = (seed + variant + _cyc).strip()
+    total_pages = len(pool) * len(FEED_VARIANTS) * len(FEED_CYCLES)
     if ftype == 'playlists':
         items = search_playlists_web(seed_q, 12)
         return _R(items, page < 6, False)
@@ -3988,21 +4026,21 @@ def api_feed():
         # compilations nahi. Kai seeds mila kar dhoondte hain.
         merged = []
         seen_ids = set()
-        tries = 4 if shorts_pool_mode else 3
+        tries = 6 if shorts_pool_mode else 4
         for k in range(tries):
             s_k = pool[(eff + k) % len(pool)]
             if shorts_pool_mode:
                 q_k = s_k
             else:
                 q_k = (s_k + FEED_VARIANTS[k % len(FEED_VARIANTS)]).strip()
-            for it in _shorts_feed_items(q_k, 20):
+            for it in _shorts_feed_items(q_k, 24):
                 vid = (it.get('id') or {}).get('videoId')
                 if vid and vid not in seen_ids:
                     seen_ids.add(vid)
                     merged.append(it)
             real_so_far = [it for it in merged
                            if it.get('duration') is None or it['duration'] <= 65]
-            if len(real_so_far) >= 18:
+            if len(real_so_far) >= 24:
                 break
         items = [it for it in merged
                  if it.get('duration') is None or it['duration'] <= 65]
@@ -4146,7 +4184,7 @@ def api_feed():
     for _k in range(3):
         _s = pool[(_base + _k * _step) % len(pool)]
         _v = FEED_VARIANTS[(eff + _k) % len(FEED_VARIANTS)]
-        _seeds.append((_s + _v).strip())
+        _seeds.append((_s + _v + _cyc).strip())
     _buckets = [_feed_search_items(_sq, 12) for _sq in _seeds]
     items, _seen, _chan = [], set(), {}
     _idx = 0
@@ -7051,7 +7089,7 @@ def ai_parse_command(text):
             parsed['quality'] = '192'
 
     # ---- count (v9): '10 songs / 5 gaane / 3 movies' = utni videos ki list ----
-    cntm = re.search(r'(\d+)\s+(?:new\s+|latest\s+)?(songs?|gana|gaane|geet|movies?|films?|videos?|naats?|dramas?|cartoons?)\b', t)
+    cntm = re.search(r'(\d+)\s+(?:(?:new|latest|top|best|mix|mixed|indian|pakistani|hindi|urdu|punjabi|bollywood|old|fresh)\s+){0,3}(songs?|gana|gaane|geet|movies?|films?|videos?|naats?|dramas?|cartoons?)\b', t)
     if not cntm:
         cntm = re.search(r'(songs?|movies?|naats?|dramas?|cartoons?)\s+(\d+)\b', t)
         if cntm:
@@ -7059,7 +7097,7 @@ def ai_parse_command(text):
     else:
         cntm = (cntm.group(1), cntm.group(2))
     if cntm:
-        parsed['count'] = max(1, min(50, int(cntm[0])))
+        parsed['count'] = max(1, min(100, int(cntm[0])))
         _noun2cat = {'song': 'song', 'songs': 'song', 'gana': 'song',
                      'gaane': 'song', 'geet': 'song', 'movie': 'movie',
                      'movies': 'movie', 'film': 'movie', 'films': 'movie',
@@ -7697,6 +7735,10 @@ def api_ai_command():
                     break
         except Exception:
             _items = []
+        if _items:
+            _dd = set()
+            _items = [x for x in _items
+                      if not (x['video_id'] in _dd or _dd.add(x['video_id']))]
         if not _items:
             return jsonify({'success': False, 'parsed': parsed,
                             'message': f"😔 '{_q}' ke liye kuch nahi mila — naam thoda badal kar try karein."})
