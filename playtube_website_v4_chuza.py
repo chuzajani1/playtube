@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 17  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 18  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1457,7 +1457,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">17</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">18</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -1849,6 +1849,22 @@ function v4Norm(item){ const id = (item.id && item.id.videoId) || item.id || ite
 let v4AudioCards = false;
 let v4AudioId = '';
 let v4AudioWired = false;
+let v4NaActive = false;
+let v4NaPoll = null;
+function v4NativeAudio(){ return !!(window.PlayTubeApp && PlayTubeApp.playAudio); }
+function v4NaStopPoll(){ if(v4NaPoll){ clearInterval(v4NaPoll); v4NaPoll = null; } }
+function v4NaStartPoll(){
+  v4NaStopPoll();
+  v4NaPoll = setInterval(function(){
+    if(!v4NaActive || !v4AudioId){ v4NaStopPoll(); return; }
+    let s = null;
+    try{ s = JSON.parse(PlayTubeApp.audioState()); }catch(e){}
+    if(!s) return;
+    if(s.playing){ v4$('v4-astat').textContent = 'Chal raha hai 🎵'; v4$('v4-abtn').textContent = '❚❚'; }
+    else if(s.ended){ v4$('v4-abtn').textContent = '▶'; v4$('v4-astat').textContent = 'Khatam ho gaya'; }
+    else if(s.ready){ v4$('v4-abtn').textContent = '▶'; v4$('v4-astat').textContent = 'Ruka hua hai'; }
+  }, 700);
+}
 function v4PlayAudio(id){
   const v = v4Videos[id] || {videoId:id, title:''};
   v4AudioId = id;
@@ -1857,6 +1873,13 @@ function v4PlayAudio(id){
   v4$('v4-atitle').textContent = v.title || 'Audio song';
   v4$('v4-astat').textContent = 'Load ho raha hai...';
   v4$('v4-abtn').textContent = '❚❚';
+  if(v4NativeAudio()){
+    v4NaActive = true;
+    try{ PlayTubeApp.playAudio(location.origin + '/api/stream/' + id, v.title || 'Audio song'); }catch(e){}
+    v4NaStartPoll();
+    return;
+  }
+  v4NaActive = false;
   const au = v4$('v4-audio');
   if(!v4AudioWired){
     v4AudioWired = true;
@@ -1869,8 +1892,8 @@ function v4PlayAudio(id){
   au.src = '/api/stream/' + id;
   const p = au.play(); if(p && p.catch) p.catch(function(){});
 }
-function v4AudioToggle(){ const au = v4$('v4-audio'); if(!au || !v4AudioId) return; if(au.paused){ const p = au.play(); if(p && p.catch) p.catch(function(){}); } else au.pause(); }
-function v4AudioClose(){ const au = v4$('v4-audio'); if(au){ try{ au.pause(); au.removeAttribute('src'); au.load(); }catch(e){} } const b3 = v4$('v4-audiobar'); if(b3) b3.style.display = 'none'; v4AudioId = ''; }
+function v4AudioToggle(){ if(v4NaActive){ let s = null; try{ s = JSON.parse(PlayTubeApp.audioState()); }catch(e){} if(s && s.playing){ try{ PlayTubeApp.pauseAudio(); }catch(e){} v4$('v4-abtn').textContent = '▶'; } else if(s && s.ended){ v4PlayAudio(v4AudioId); } else { try{ PlayTubeApp.resumeAudio(); }catch(e){} v4$('v4-abtn').textContent = '❚❚'; } return; } const au = v4$('v4-audio'); if(!au || !v4AudioId) return; if(au.paused){ const p = au.play(); if(p && p.catch) p.catch(function(){}); } else au.pause(); }
+function v4AudioClose(){ if(v4NaActive){ try{ PlayTubeApp.stopAudio(); }catch(e){} v4NaActive = false; v4NaStopPoll(); } const au = v4$('v4-audio'); if(au){ try{ au.pause(); au.removeAttribute('src'); au.load(); }catch(e){} } const b3 = v4$('v4-audiobar'); if(b3) b3.style.display = 'none'; v4AudioId = ''; }
 function v4AudioDownload(){ if(v4AudioId) v4OpenSheet(v4AudioId, true); }
 function v4SheetAudio(ev, id){ if(ev) ev.stopPropagation(); v4OpenSheet(id, true); }
 function v4Mp3Click(id){ v4PlayAudio(id); }
@@ -2395,7 +2418,7 @@ function v4DlMenu(id){
     if(d.videoId) h += '<button class="v4-menurow" data-vid="' + d.videoId + '" onclick="v4MenuRetry(this)">↻ Dobara try karein</button>';
   } else {
     h += '<button class="v4-menurow" onclick="v4MenuPlay()">▶ Play karein</button>';
-    h += '<a class="v4-menurow" href="/api/download-file/' + id + '" download>⬇ Phone mein save karo</a>';
+    h += '<a class="v4-menurow" href="javascript:void(0)" data-id="' + id + '" onclick="v4MenuSavePhone(this.dataset.id)">⬇ Phone mein save karo</a>';
     h += '<button class="v4-menurow" onclick="v4MenuShare()">📤 Share karein</button>';
     h += '<button class="v4-menurow" onclick="v4MenuPrivate()">' + (d.private ? '🔓 Private se nikalo' : '🔒 Private Folder mein daalo') + '</button>';
   }
@@ -2466,6 +2489,26 @@ function v4RenderDownloads(){
   else v4$('v4-dl-done').innerHTML = '<div class="v4-empty"><div class="v4-empty-ic">🎬</div><div class="v4-empty-t">Abhi tak koi download nahi</div><p class="v4-muted">Jo videos aap download karein ge, wo yahan mehfooz milengi — baghair internet ke dekhne ke liye.</p><button class="v4-bigbtn" style="max-width:240px;margin:10px auto 0" data-v="home" onclick="v4Show(this.dataset.v)">Videos dekhein</button></div>';
 }
 let v4AutoSaveBase = false;
+function v4SaveFileName(it){
+  let t = String((it && it.title) || 'Video').replace(/[\\/:*?"<>|\\n\\r\\t]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100);
+  const f = String((it && it.format) || '').toUpperCase();
+  const ext = f === 'MP3' ? '.mp3' : (f === 'M4A' ? '.m4a' : (f === 'IMAGE' ? '.jpg' : '.mp4'));
+  return (t || 'Video') + ext;
+}
+function v4PhoneSave(it){
+  if(!it || !it.downloadId) return false;
+  if(window.PlayTubeApp && PlayTubeApp.saveNamed){
+    try{ PlayTubeApp.saveNamed(location.origin + '/api/download-file/' + it.downloadId, v4SaveFileName(it)); return true; }catch(e){}
+  }
+  return false;
+}
+function v4MenuSavePhone(id){
+  const it = (v4DlData.list || []).find(function(x){ return x && x.downloadId === id; }) || {downloadId:id, title:'Video', format:'MP4'};
+  if(v4PhoneSave(it)){ v4Toast('📥 Phone mein save ho raha hai: ' + (it.title || 'Video')); return; }
+  const a = document.createElement('a');
+  a.href = '/api/download-file/' + id; a.setAttribute('download', '');
+  document.body.appendChild(a); a.click(); a.remove();
+}
 function v4AutoSaveOnce(){
   if(!window.PlayTubeApp) return;
   let saved = {};
@@ -2477,11 +2520,13 @@ function v4AutoSaveOnce(){
     if(saved[it.downloadId]) return;
     saved[it.downloadId] = now;
     if(!v4AutoSaveBase) return; /* pehli list = purani downloads, inhe auto-save nahi karna */
-    try{
-      const a = document.createElement('a');
-      a.href = '/api/download-file/' + it.downloadId; a.setAttribute('download', '');
-      document.body.appendChild(a); a.click(); a.remove();
-    }catch(e){}
+    if(!v4PhoneSave(it)){
+      try{
+        const a = document.createElement('a');
+        a.href = '/api/download-file/' + it.downloadId; a.setAttribute('download', '');
+        document.body.appendChild(a); a.click(); a.remove();
+      }catch(e){}
+    }
     if(PlayTubeApp.notifyDone){ try{ PlayTubeApp.notifyDone(it.title || 'Video'); }catch(e){} }
     v4Toast('📥 Auto-save: ' + (it.title || 'Video'));
   });
@@ -3500,11 +3545,13 @@ def api_search():
         items = search_youtube_api(query, max_results)
         if items:
             data = {'items': items}
+            _enrich_channels(data.get('items'))
             search_cache[cache_key] = (data, time.time())
             return jsonify(data)
 
     # Method 4: Fallback
     data = {'items': POPULAR_VIDEOS[:max_results]}
+    _enrich_channels(data.get('items'))
     return jsonify(data)
 
 
@@ -4005,6 +4052,62 @@ def api_suggest():
     return jsonify({'suggestions': out})
 
 
+_OE_CACHE = {}
+
+
+def _oembed_channel(_vid):
+    if _vid in _OE_CACHE:
+        return _OE_CACHE[_vid]
+    _name = None
+    try:
+        _r = requests.get(
+            'https://www.youtube.com/oembed',
+            params={'url': f'https://www.youtube.com/watch?v={_vid}',
+                    'format': 'json'},
+            headers={'User-Agent': 'Mozilla/5.0'}, timeout=3)
+        if _r.status_code == 200:
+            _name = (_r.json() or {}).get('author_name') or None
+    except Exception:
+        _name = None
+    if len(_OE_CACHE) > 3000:
+        _OE_CACHE.clear()
+    _OE_CACHE[_vid] = _name
+    return _name
+
+
+def _enrich_channels(_items):
+    """v18: jin items ka channel 'Unknown'/khali hai, un ka asal channel
+    naam YouTube oEmbed se lao (cache ke sath) — cards par asal naam."""
+    try:
+        _missing = []
+        for _it in _items or []:
+            if not isinstance(_it, dict):
+                continue
+            _sn = _it.get('snippet')
+            _holder = _sn if isinstance(_sn, dict) else _it
+            _ch = _holder.get('channelTitle') or _holder.get('channel') or ''
+            if _ch and _ch != 'Unknown':
+                continue
+            _idv = _it.get('id')
+            _vid = (_idv.get('videoId') if isinstance(_idv, dict) else None) \
+                or _it.get('video_id') \
+                or (_idv if isinstance(_idv, str) else '')
+            if _vid:
+                _missing.append((_holder, _vid))
+        if not _missing:
+            return
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=8) as _ex:
+            _names = list(_ex.map(lambda _t: _oembed_channel(_t[1]), _missing))
+        for (_holder, _vid), _nm in zip(_missing, _names):
+            if _nm:
+                _holder['channelTitle'] = _nm
+                if 'channel' in _holder or _holder is not _it:
+                    _holder['channel'] = _nm
+    except Exception:
+        pass
+
+
 @app.route('/api/feed')
 def api_feed():
     q = (request.args.get('q', 'trending') or 'trending').strip()
@@ -4126,6 +4229,8 @@ def api_feed():
                     _resp['shorts_row'] = _srow[:10]
             except Exception:
                 pass
+        _enrich_channels(_resp.get('items'))
+        _enrich_channels(_resp.get('shorts_row'))
         return jsonify(_resp)
 
     eff = page + offset
@@ -5571,6 +5676,8 @@ def _extract_formats_info(url):
     deta tha. (Update 66)"""
     _base = {'quiet': True, 'no_warnings': True,
              'no_check_certificate': True, 'skip_download': True}
+    if _HAS_CFFI:
+        _base['impersonate'] = 'chrome'
     _best = None
     _best_score = (-1, -1)
     _last_err = None
