@@ -124,6 +124,8 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
+APP_VERSION = 5  # Update 79: har update par +1 — More page par dikhta hai
+
 # Cache system
 search_cache = {}
 CACHE_DURATION = 1800
@@ -3287,7 +3289,7 @@ Downloads background me one by one chalte rahen ge.</div>
   .v4-menurow{display:flex;align-items:center;gap:12px;width:100%;padding:13px 4px;background:none;border:none;border-bottom:1px solid var(--v4border);color:var(--v4text);font-size:14px;cursor:pointer;text-align:left;text-decoration:none;box-sizing:border-box}
   /* Playza ka apna player frame (Update 59) */
   /* Shorts — Reels style, Playza design (Update 65) */
-#v4-shorts{position:fixed;inset:0;background:#000;z-index:1200;display:none}
+#v4-shorts{position:fixed;top:0;left:0;right:0;bottom:62px;background:#000;z-index:1200;display:none}
 #v4-shorts.open{display:block}
 #v4-shorts-track{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 #v4-shorts-track::-webkit-scrollbar{display:none}
@@ -3306,6 +3308,53 @@ Downloads background me one by one chalte rahen ge.</div>
 .v4-short-title{font-size:13.5px;line-height:1.45;text-shadow:0 1px 6px rgba(0,0,0,.7);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .v4-short-prog{position:absolute;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--v4violet),var(--v4teal));z-index:6;width:0}
 .v4-short-hint{position:absolute;left:50%;bottom:120px;transform:translateX(-50%);background:rgba(18,16,31,.8);border:1px solid var(--v4border);color:#fff;padding:7px 14px;border-radius:999px;font-size:12.5px;z-index:5;white-space:nowrap}
+#v4-authwrap{top:0;bottom:62px}
+#v4-authwrap .v4-overlay{background:#000}
+#v4-searchwrap{top:0;left:0;right:0;bottom:62px;background:#0b0916;z-index:300;overflow-y:auto}
+.v4-authpanel{background:#12101f;border:1px solid #2c2852;border-radius:20px;max-width:400px}
+.v4-authlogo{text-align:center;font-weight:800;font-size:21px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent}
+.v4-authpill{background:rgba(20,184,166,.12);border:1px solid rgba(20,184,166,.45);color:#99f6e4;font-size:12.5px;line-height:1.45;padding:9px 12px;border-radius:12px;text-align:center;margin:10px 0 12px}
+.v4-flabel{font-size:10.5px;font-weight:800;letter-spacing:.8px;color:var(--v4muted);margin:10px 0 5px}
+.v4-seg{display:flex;background:#1a1730;border:1px solid var(--v4border);border-radius:999px;padding:4px}
+.v4-seg button{flex:1;border:0;background:none;border-radius:999px;padding:9px 0;color:var(--v4muted);font-size:13px;cursor:pointer}
+.v4-seg button.active{background:linear-gradient(90deg,var(--v4violet),var(--v4teal));color:#fff;font-weight:800}
+.v4-codeboxes{display:flex;gap:7px;justify-content:center;margin:14px 0 4px}
+.v4-cbox{width:42px;height:50px;text-align:center;font-size:20px;font-weight:800;background:#0b0916;border:1px solid var(--v4border);border-radius:12px;color:var(--v4text)}
+.v4-cbox:focus{border-color:var(--v4teal);outline:none}
+.v4-srow{grid-column:1 / -1;margin:2px 0 6px}
+.v4-srow-h{font-size:14px;font-weight:800;margin:4px 0 8px}
+.v4-srow-track{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+.v4-srow-track::-webkit-scrollbar{display:none}
+.v4-scard{flex:0 0 108px;cursor:pointer}
+.v4-scard .im{position:relative;border-radius:12px;overflow:hidden;aspect-ratio:9/14;background:#26224a}
+.v4-scard img{width:100%;height:100%;object-fit:cover;display:block}
+.v4-scard .du{position:absolute;right:5px;bottom:5px;background:rgba(0,0,0,.65);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px}
+.v4-scard .ti{font-size:11.5px;line-height:1.3;margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.v4-scard .vw{font-size:10.5px;color:var(--v4muted)}
+.v4-sbar{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 2px}
+.v4-sbar button{padding:7px 13px;border-radius:999px;background:#1a1730;border:1px solid var(--v4border);color:var(--v4muted);font-size:12.5px;cursor:pointer}
+.v4-sbar button.active{background:linear-gradient(90deg,var(--v4violet),var(--v4teal));color:#fff;font-weight:700;border-color:transparent}
+.v4-sugrow{display:flex;align-items:center;gap:11px;padding:11px 4px;border-bottom:1px solid #211d42;cursor:pointer;font-size:14px}
+.v4-sugrow .ic{color:var(--v4muted);font-size:13px}
+.v4-sugrow b{color:#5eead4}
+.v4-ailist{margin-top:8px;background:#17142e;border:1px solid var(--v4border);border-radius:14px;padding:10px}
+.v4-ailist-h{display:flex;align-items:center;gap:8px}
+.v4-ailist-h .t{font-size:13.5px;font-weight:800;flex:1}
+.v4-ailist-h .cnt{font-size:11.5px;font-weight:800;color:#5eead4;background:rgba(20,184,166,.13);border:1px solid rgba(20,184,166,.45);padding:3px 9px;border-radius:999px}
+.v4-sabband{font-size:11.5px;font-weight:800;color:#fda4af;background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.45);padding:4px 10px;border-radius:999px;cursor:pointer}
+.v4-ai-row{margin-top:8px;background:#12101f;border:1px solid var(--v4border);border-radius:11px;padding:9px 10px}
+.v4-ai-row.act{border-color:var(--v4violet)}
+.v4-ai-r1{display:flex;align-items:center;gap:9px}
+.v4-ai-ic{width:22px;height:22px;flex:none;border-radius:50%;background:#262250;color:#a49ec4;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.v4-ai-ic.ok{background:var(--v4teal);color:#06231f}
+.v4-ai-ic.dl{background:linear-gradient(135deg,var(--v4violet),var(--v4teal));color:#fff}
+.v4-ai-ic.bad{background:rgba(244,63,94,.2);color:#fda4af}
+.v4-ai-ic.stop{background:rgba(244,63,94,.15);color:#fda4af}
+.v4-ai-t{flex:1;font-size:12.5px;font-weight:600;line-height:1.35;white-space:normal}
+.v4-ai-r1 .pct{font-size:11px;color:#c4b0ff;font-weight:700}
+.v4-ai-stop{width:26px;height:26px;flex:none;border-radius:50%;background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.55);color:#fda4af;display:flex;align-items:center;justify-content:center;font-size:11px}
+.v4-ai-bar{height:5px;border-radius:99px;background:#262250;margin-top:7px}
+.v4-ai-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--v4violet),var(--v4teal))}
 .v4-short-spin{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:3}
 .v4-short-spin i{width:40px;height:40px;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:var(--v4teal);animation:v4spin .8s linear infinite}
   .v4-frame{margin-top:10px;border-radius:16px;padding:2px;background:linear-gradient(135deg,var(--v4violet),var(--v4teal));box-shadow:0 12px 34px rgba(0,0,0,.45)}
@@ -3442,6 +3491,7 @@ Downloads background me one by one chalte rahen ge.</div>
         <button class="v4-chip v4-kchip" data-w="home" data-s="tomjerry" onclick="v4SetKidsSub(this)">🐱 Tom & Jerry</button>
       </div>
       <div class="v4-h" id="v4-home-heading">Trending Videos</div>
+      <div id="v4-searchbar" style="display:none"></div>
       <div id="v4-home-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
     </section>
 
@@ -3530,6 +3580,13 @@ Downloads background me one by one chalte rahen ge.</div>
         <div class="v4-stars" id="v4-stars"><span onclick="v4Rate(1)">★</span><span onclick="v4Rate(2)">★</span><span onclick="v4Rate(3)">★</span><span onclick="v4Rate(4)">★</span><span onclick="v4Rate(5)">★</span></div>
         <p class="v4-rate-msg" id="v4-rate-msg"></p>
       </div>
+      <div class="v4-ratecard" id="v4-aboutcard">
+        <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
+        <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">5</span></div>
+        <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
+        <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
+      </div>
       <div class="v4-footlinks">
         <a href="/privacy-policy">Privacy Policy</a><span>|</span><a href="/terms-of-service">Terms of Service</a><span>|</span><a href="/about">About</a><span>|</span><a href="/contact">Contact</a>
         <p>© 2026 Playza - All Rights Reserved</p>
@@ -3540,7 +3597,6 @@ Downloads background me one by one chalte rahen ge.</div>
       <button class="v4-btn2" onclick="v4Back()">← Back</button>
       <div class="v4-frame" id="v4-frame"><div class="v4-framein">
         <video id="v4-video" playsinline preload="metadata"></video>
-        <iframe id="v4-player" style="display:none" frameborder="0" allowfullscreen allow="autoplay; encrypted-media" title="Playza player"></iframe>
         <div class="v4-fbadge">▶ Playza</div>
         <div class="v4-fspin" id="v4-fspin"></div>
         <div id="v4-fqmenu" style="display:none;position:absolute;right:8px;bottom:58px;z-index:6;background:rgba(10,8,24,.97);border:1px solid #2c2852;border-radius:12px;padding:6px;min-width:158px;max-height:240px;overflow:auto"></div>
@@ -3552,7 +3608,6 @@ Downloads background me one by one chalte rahen ge.</div>
           <button class="v4-fbtn" id="v4-fgear" title="Quality" onclick="v4FrameQualityMenu(event)">⚙</button><button class="v4-fbtn" onclick="v4FrameFull()">⛶</button>
         </div>
       </div></div>
-      <div id="v4-faltrow" style="display:none;margin-top:8px"><button class="v4-iconbtn" style="width:100%" onclick="v4FrameFallback()">▶ Play dair se ho raha hai? YouTube player par dekhein (halki quality)</button></div>
       <div class="v4-h" id="v4-watch-title" style="margin-top:12px"></div>
       <p class="v4-muted" id="v4-watch-channel"></p>
       <button class="v4-bigbtn" style="background:var(--v4teal);color:#06231f" onclick="v4WatchDownload()">⬇ Download</button>
@@ -3639,6 +3694,7 @@ Downloads background me one by one chalte rahen ge.</div>
       <div class="v4-h" style="margin-top:10px">Settings</div>
       <div class="v4-sect">DOWNLOAD</div>
       <div class="v4-row"><div class="grow">Download folder<div class="v4-muted">Phone me is naam ke folder me jayengi (app me)</div></div><input id="v4-set-folder" class="v4-input" style="width:130px;margin:0" onchange="v4SaveSettings()"></div>
+      <div class="v4-row" id="v4-set-dlpath-row" style="display:none"><div class="grow">Download folder (APK)<div class="v4-muted" id="v4-set-dlpath">Downloads/Playza</div></div><button class="v4-btn2" onclick="v4PickFolder()">Folder chunein</button></div>
       <div class="v4-row"><div class="grow">Default quality</div><select id="v4-set-quality" class="v4-input" style="width:130px;margin:0" onchange="v4SaveSettings()"><option>144p</option><option>240p</option><option>360p</option><option>480p</option><option>720p</option><option>3gp</option></select></div>
       <div class="v4-row"><div class="grow">Ek sath downloads</div><select id="v4-set-conc" class="v4-input" style="width:130px;margin:0" onchange="v4SaveSettings()"><option>1</option><option>2</option><option>3</option><option>5</option></select></div>
       <div class="v4-row"><div class="grow">Speed limit</div><select id="v4-set-speed" class="v4-input" style="width:130px;margin:0" onchange="v4SaveSettings()"><option>Unlimited</option><option>1 MB/s</option><option>2 MB/s</option><option>5 MB/s</option></select></div>
@@ -3708,6 +3764,17 @@ Downloads background me one by one chalte rahen ge.</div>
 </div>
 
 <!-- Download sheet -->
+<div id="v4-searchwrap" class="v4-wrap">
+  <div style="max-width:640px;margin:0 auto;padding:12px">
+    <div style="display:flex;align-items:center;gap:9px;background:#17142e;border:1px solid #2c2852;border-radius:12px;padding:4px 8px 4px 4px">
+      <button class="v4-iconbtn" onclick="v4CloseSearch()">←</button>
+      <input id="v4-sq" placeholder="Video ka naam likhein..." autocomplete="off" style="flex:1;background:none;border:0;color:var(--v4text);font-size:15px;padding:9px 2px;outline:none">
+      <button class="v4-iconbtn" onclick="v4ClearSearchInput()">✕</button>
+    </div>
+    <div id="v4-sugg"></div>
+  </div>
+</div>
+
 <div id="v4-sheetwrap" class="v4-wrap">
   <div class="v4-overlay" onclick="v4CloseSheet()"></div>
   <div class="v4-sheet">
@@ -3757,7 +3824,6 @@ Downloads background me one by one chalte rahen ge.</div>
 <div id="v4-shorts">
   <div id="v4-shorts-track"></div>
   <div class="v4-shorts-top"><span class="v4-shorts-logo">▶ Playza Shorts</span><button class="v4-shorts-close" onclick="v4CloseShorts()">✕</button></div>
-  <div class="v4-short-hint" id="v4-shorts-hint">🔇 Awaz ke liye video par tap karein</div>
 </div>
 <div id="v4-playerwrap" class="v4-wrap">
   <div class="v4-overlay" onclick="v4ClosePlayer()"></div>
@@ -3772,36 +3838,52 @@ Downloads background me one by one chalte rahen ge.</div>
 
 <!-- Auth modal (Update 21) -->
 <div id="v4-authwrap" class="v4-wrap">
-  <div class="v4-overlay" onclick="v4CloseAuth()"></div>
-  <div class="v4-modalpanel">
+  <div class="v4-overlay"></div>
+  <div class="v4-modalpanel v4-authpanel">
+    <div class="v4-authlogo">▶ Playza</div>
     <div style="display:flex;align-items:center">
-      <div class="v4-h" style="flex:1;margin:0" id="v4-auth-heading">Welcome to Playza</div>
+      <div class="v4-h" style="flex:1;margin:0;text-align:center" id="v4-auth-heading">Create Account</div>
       <button class="v4-iconbtn" onclick="v4CloseAuth()">✕</button>
     </div>
-    <p class="v4-muted" style="margin:6px 0 12px">Video dekhne aur download karne ke liye pehle account banayein ya sign in karein.</p>
+    <div class="v4-authpill" id="v4-auth-pill">Video dekhne aur download karne ke liye pehle account banayein ya sign in karein.</div>
     <div id="v4-auth-msg" class="v4-msg"></div>
-    <div class="v4-authtabs">
+    <div class="v4-authtabs v4-seg">
       <button id="v4-tab-signin" class="active" onclick="v4AuthTab('signin')">Sign In</button>
       <button id="v4-tab-signup" onclick="v4AuthTab('signup')">Create Account</button>
     </div>
 
     <form id="v4-form-signin" onsubmit="v4SignIn(event)">
+      <div class="v4-flabel">GMAIL</div>
       <input class="v4-input" id="v4-li-email" placeholder="Email ya username" autocomplete="username">
+      <div class="v4-flabel">PASSWORD</div>
       <input class="v4-input" id="v4-li-pass" type="password" placeholder="Password" autocomplete="current-password">
       <button class="v4-bigbtn" type="submit" style="margin-top:2px">Sign In</button>
       <p style="text-align:center;margin-top:10px"><a href="#" onclick="v4ShowForgot(event)" style="color:var(--v4violet2);font-size:12.5px">Password bhool gaye?</a></p>
     </form>
 
     <form id="v4-form-signup" style="display:none" onsubmit="v4SignUpStart(event)">
+      <div class="v4-flabel">USERNAME</div>
       <input class="v4-input" id="v4-su-name" placeholder="Username" autocomplete="username">
+      <div class="v4-flabel">GMAIL</div>
       <input class="v4-input" id="v4-su-email" placeholder="Gmail (email)" autocomplete="email">
+      <div class="v4-flabel">PASSWORD</div>
       <input class="v4-input" id="v4-su-pass" type="password" placeholder="Password (kam se kam 6)" autocomplete="new-password">
       <button class="v4-bigbtn" type="submit" style="margin-top:2px">Gmail par Code Bhejein</button>
     </form>
     <form id="v4-form-verify" style="display:none" onsubmit="v4SignUpVerify(event)">
-      <p class="v4-muted" id="v4-verify-note">Aap ki Gmail par 6-digit code bheja gaya hai — neeche darj karein.</p>
-      <input class="v4-input" id="v4-su-code" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code">
-      <button class="v4-bigbtn" type="submit" style="margin-top:2px">Verify &amp; Create Account</button>
+      <div class="v4-authpill">📧 Code bheja gaya: <b id="v4-verify-email"></b></div>
+      <div class="v4-codeboxes">
+        <input class="v4-cbox" id="v4-cb0" inputmode="numeric" autocomplete="one-time-code">
+        <input class="v4-cbox" id="v4-cb1" inputmode="numeric">
+        <input class="v4-cbox" id="v4-cb2" inputmode="numeric">
+        <input class="v4-cbox" id="v4-cb3" inputmode="numeric">
+        <input class="v4-cbox" id="v4-cb4" inputmode="numeric">
+        <input class="v4-cbox" id="v4-cb5" inputmode="numeric">
+      </div>
+      <p class="v4-muted" id="v4-code-timer" style="text-align:center">Code khatam honay mein: 10:00</p>
+      <button class="v4-bigbtn" type="submit" style="margin-top:2px">Verify — Account Banayein</button>
+      <p class="v4-muted" style="text-align:center;margin-top:10px">Code nahi aya? <a href="#" onclick="v4ResendCode();return false;">Dobara bhejein</a></p>
+      <p class="v4-muted" style="text-align:center;margin-top:2px"><a href="#" onclick="v4BackToSignup();return false;">← Wapas — details badlein</a></p>
     </form>
 
     <form id="v4-form-forgot" style="display:none" onsubmit="v4ForgotStart(event)">
@@ -3810,7 +3892,15 @@ Downloads background me one by one chalte rahen ge.</div>
       <button class="v4-bigbtn" type="submit" style="margin-top:2px">Code Bhejein</button>
     </form>
     <form id="v4-form-reset" style="display:none" onsubmit="v4ForgotReset(event)">
-      <input class="v4-input" id="v4-fg-code" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code">
+      <div class="v4-codeboxes">
+        <input class="v4-cbox" id="v4-rb0" inputmode="numeric" autocomplete="one-time-code">
+        <input class="v4-cbox" id="v4-rb1" inputmode="numeric">
+        <input class="v4-cbox" id="v4-rb2" inputmode="numeric">
+        <input class="v4-cbox" id="v4-rb3" inputmode="numeric">
+        <input class="v4-cbox" id="v4-rb4" inputmode="numeric">
+        <input class="v4-cbox" id="v4-rb5" inputmode="numeric">
+      </div>
+      <div class="v4-flabel">NAYA PASSWORD</div>
       <input class="v4-input" id="v4-fg-pass" type="password" placeholder="Naya password (kam se kam 6)" autocomplete="new-password">
       <button class="v4-bigbtn" type="submit" style="margin-top:2px">Password Badlein</button>
     </form>
@@ -3858,7 +3948,7 @@ function v4RefreshCurrent(){
   window.scrollTo(0, 0);
 }
 function v4Show(view){
-  if(view === 'home' && v4State.view === 'home'){ v4FeedSession = Math.random().toString(36).slice(2, 10); const hh = v4$('v4-home-heading'); if(hh) hh.textContent = 'Trending Videos'; v4LoadFeed('v4-home-feed', 'trending'); }
+  if(view === 'home' && v4State.view === 'home'){ v4FeedSession = Math.random().toString(36).slice(2, 10); const hh = v4$('v4-home-heading'); if(hh) hh.textContent = 'Trending Videos'; v4SearchState.q = ''; v4RenderSearchBar(); v4LoadFeed('v4-home-feed', 'trending'); }
   const rb = v4$('v4-refresh-btn'); if(rb) rb.style.display = (view === 'home' || view === 'youtube' || view === 'music') ? 'block' : 'none';
   document.querySelectorAll('.v4-view').forEach(function(s){ s.classList.remove('active'); });
   const el = v4$('v4-view-' + view); if(el) el.classList.add('active');
@@ -3881,10 +3971,11 @@ function v4Show(view){
   if(view === 'music' && !v4State.loadedMu){ v4State.loadedMu = 1; v4LoadFeed('v4-music-feed', 'trending songs'); }
   if((view === 'social' || view === 'more') && !v4State.platsDone) v4RenderPlats();
 }
-function v4TopTab(t){ v4Show(t === 'search' ? 'home' : t); }
+function v4TopTab(t){ if(t === 'search'){ v4Show('home'); v4OpenSearch(); return; } v4Show(t); }
 
 /* ---------- feeds & cards (ONE renderer — Bug #1/#2) ---------- */
-function v4Norm(item){ const id = (item.id && item.id.videoId) || item.id || item.video_id || ''; const sn = item.snippet || {}; return {videoId:id, title:sn.title || item.title || '', channel:sn.channelTitle || item.channel || '', duration:item.duration || '', views:item.view_count || ''}; }
+function v4AgeText(it){ if(!it) return ''; if(it.age_text) return String(it.age_text).replace('Streamed ', ''); const ts = it.age_ts; if(ts){ const s = Math.max(0, Math.floor(Date.now() / 1000) - Number(ts)); if(s < 3600) return Math.max(1, Math.floor(s / 60)) + ' minutes ago'; if(s < 86400) return Math.floor(s / 3600) + ' hours ago'; if(s < 2592000) return Math.floor(s / 86400) + ' days ago'; if(s < 31536000) return Math.floor(s / 2592000) + ' months ago'; return Math.floor(s / 31536000) + ' years ago'; } return ''; }
+function v4Norm(item){ const id = (item.id && item.id.videoId) || item.id || item.video_id || ''; const sn = item.snippet || {}; return {videoId:id, title:sn.title || item.title || '', channel:sn.channelTitle || item.channel || '', duration:item.duration || '', views:item.view_count || '', age:v4AgeText(item)}; }
 let v4AudioCards = false;
 let v4AudioId = '';
 let v4AudioWired = false;
@@ -3914,12 +4005,18 @@ function v4AudioDownload(){ if(v4AudioId) v4OpenSheet(v4AudioId, true); }
 function v4SheetAudio(ev, id){ if(ev) ev.stopPropagation(); v4OpenSheet(id, true); }
 function v4Mp3Click(id){ v4PlayAudio(id); }
 function v4CardHTML(v){
-  const meta = [v4Esc(v.channel), v4Views(v.views)].filter(Boolean).join(' • ');
+  const meta = [v4Esc(v.channel), v4Views(v.views), v4Esc(v.age || '')].filter(Boolean).join(' • ');
   const tap = v4AudioCards ? 'v4Mp3Click' : 'v4WatchClick';
   const badge = v4AudioCards ? '<span class=\"v4-dur\" style=\"left:6px;right:auto\">🎵 MP3</span>' : '';
   return '<div class=\"v4-vcard\"><div class=\"v4-thumb\" data-id=\"' + v.videoId + '\" onclick=\"' + tap + '(this.dataset.id)\">' + v4Img(v.videoId) + badge + (v.duration ? '<span class=\"v4-dur\">' + v4Dur(v.duration) + '</span>' : '') + '</div>' +
     '<div class=\"v4-vrow\"><div class=\"v4-vtexts\" data-id=\"' + v.videoId + '\" onclick=\"' + tap + '(this.dataset.id)\"><div class=\"v4-vtitle\">' + v4Esc(v.title) + '</div>' + (meta ? '<div class=\"v4-vmeta\">' + meta + '</div>' : '') + '</div>' +
     '<button class=\"v4-dlbtn\" title=\"Download\" data-id=\"' + v.videoId + '\" onclick=\"' + (v4AudioCards ? 'v4SheetAudio' : 'v4DlClick') + '(event, this.dataset.id)\">' + (v4AudioCards ? '🎵' : '↓') + '</button></div></div>';
+}
+function v4ShortStripHTML(items){
+  if(!items || !items.length) return '';
+  let h = '<div class="v4-srow"><div class="v4-srow-h">⚡ Shorts</div><div class="v4-srow-track">';
+  items.forEach(function(it){ const v = v4Norm(it); if(!v.videoId) return; v4Videos[v.videoId] = v; h += '<div class="v4-scard" data-id="' + v.videoId + '" onclick="v4OpenShorts()"><div class="im"><img loading="lazy" src="https://i.ytimg.com/vi/' + v.videoId + '/hqdefault.jpg" alt="">' + (v.duration ? '<span class="du">' + v4Dur(v.duration) + '</span>' : '') + '</div><div class="ti">' + v4Esc(v.title) + '</div><div class="vw">' + v4Views(v.views) + '</div></div>'; });
+  return h + '</div></div>';
 }
 function v4RenderCards(elId, items){
   const el = v4$(elId);
@@ -3952,9 +4049,9 @@ const v4FeedObs = ('IntersectionObserver' in window) ? new IntersectionObserver(
 function v4FeedSentinelHTML(elId){
   return '<div class="v4-more" data-feed="' + elId + '" style="grid-column:1 / -1;text-align:center;padding:16px"><span class="v4-muted">Aur videos load ho rahi hain...</span></div>';
 }
-async function v4LoadFeed(elId, q, type, sub){
+async function v4LoadFeed(elId, q, type, sub, opts){
   const el = v4$(elId); if(!el) return;
-  v4FeedState[elId] = {q:q, type:(type || 'videos'), sub:(sub || ''), page:0, seen:{}, loading:false, done:false};
+  v4FeedState[elId] = {q:q, type:(type || 'videos'), sub:(sub || ''), page:0, seen:{}, loading:false, done:false, sort:(opts && opts.sort) || '', minDur:(opts && opts.minDur) || 0};
   el.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
   await v4FeedMore(elId, true);
 }
@@ -3963,10 +4060,12 @@ async function v4FeedMore(elId, first){
   if(!st || !el || st.loading || st.done) return;
   st.loading = true;
   let added = 0, tries = 0, failed = false;
+  let stripHtml = '';
   while(tries < 3 && added < 8 && !st.done){
     tries++;
-    const r = await v4Fetch('/api/feed?q=' + encodeURIComponent(st.q) + '&page=' + st.page + '&type=' + (st.type || 'videos') + (st.sub ? '&sub=' + st.sub : '') + '&r=' + v4FeedSession + '&int=' + encodeURIComponent(v4InterestTop(5).join('|')));
+    const r = await v4Fetch('/api/feed?q=' + encodeURIComponent(st.q) + '&page=' + st.page + '&type=' + (st.type || 'videos') + (st.sub ? '&sub=' + st.sub : '') + (st.sort ? '&sort=' + st.sort : '') + (st.minDur ? '&min_dur=' + st.minDur : '') + '&r=' + v4FeedSession + '&int=' + encodeURIComponent(v4InterestTop(5).join('|')));
     if(!(r.ok && r.data && r.data.items)){ failed = true; break; }
+    if(first && !stripHtml && r.data.shorts_row) stripHtml = v4ShortStripHTML(r.data.shorts_row);
     st.page++;
     if(r.data.has_more === false) st.done = true;
     v4AudioCards = (elId === 'v4-music-feed' && st.type === 'mp3');
@@ -3982,7 +4081,7 @@ async function v4FeedMore(elId, first){
     });
     v4AudioCards = false;
     if(pageCount){
-      if(first && added === 0) el.innerHTML = pageHtml;
+      if(first && added === 0) el.innerHTML = stripHtml + pageHtml;
       else { const old = el.querySelector('.v4-more'); if(old) old.remove(); el.insertAdjacentHTML('beforeend', pageHtml); }
       added += pageCount;
     }
@@ -4004,7 +4103,7 @@ async function v4FeedMore(elId, first){
   if(s && v4FeedObs) v4FeedObs.observe(s);
   if(s){ const rc = s.getBoundingClientRect(); if(rc.top < window.innerHeight + 700) v4FeedMore(elId); }
 }
-function v4HomeSearch(e){ e.preventDefault(); const q = v4$('v4-q-home').value.trim(); if(!q) return; if(q.indexOf('http') === 0){ v4SmartLink(q); return; } v4$('v4-home-heading').textContent = 'Results: ' + q; v4InterestAdd(q, 2); v4LoadFeed('v4-home-feed', q, 'all'); }
+function v4HomeSearch(e){ e.preventDefault(); const q = v4$('v4-q-home').value.trim(); if(!q) return; if(q.indexOf('http') === 0){ v4SmartLink(q); return; } v4RunSearch(q); }
 async function v4SmartLink(q){
   const r = await v4Post('/api/smart-link', {url:q});
   if(r.ok && r.data){
@@ -4031,6 +4130,7 @@ function v4FrameShowCtrls(){
   v4FrameTimer = setTimeout(function(){ const vd = v4$('v4-video'); if(vd && !vd.paused && vd.style.display !== 'none') v4$('v4-fctrls').classList.add('hide'); }, 2600);
 }
 let v4FrameQ = 0;
+let v4FrameRetries = 0;
 let v4FrameId = '';
 function v4FrameQualityMenu(ev){
   if(ev) ev.stopPropagation();
@@ -4055,7 +4155,7 @@ function v4FrameLoadQualities(id){
     if(r.ok && r.data && r.data.qualities && r.data.qualities.length){
       r.data.qualities.forEach(function(q){ html += '<button data-q="' + q.height + '" onclick="v4FrameSetQ(' + q.height + ')" style="display:block;width:100%;text-align:left;background:none;border:0;color:#eceaf6;font-size:13.5px;padding:8px 10px;border-radius:8px;cursor:pointer">' + q.label + '</button>'; });
     }
-    html += '<button onclick="v4FrameFallback()" style="display:block;width:100%;text-align:left;background:none;border:0;color:#7ee8d8;font-size:13.5px;padding:8px 10px;border-radius:8px;cursor:pointer">📺 Sab se best HD — YouTube player</button>';
+
     mn.innerHTML = html; v4FrameMarkQ();
   });
 }
@@ -4069,65 +4169,53 @@ function v4FrameSetQ(h){
   const onMeta = function(){ try{ vd.currentTime = t; }catch(e){} if(!wasPaused){ const p = vd.play(); if(p && p.catch) p.catch(function(){}); } vd.removeEventListener('loadedmetadata', onMeta); };
   vd.addEventListener('loadedmetadata', onMeta);
   if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog);
-  v4FrameWatchdog = setTimeout(function(){ const v2 = v4$('v4-video'); if(v2 && v2.style.display !== 'none' && v2.readyState < 3) v4FrameFallback(); }, 9000);
+  v4FrameArmWatchdog();
 }
 function v4FrameSetup(id){
-  const fr = v4$('v4-player'); fr.style.display = 'none'; fr.src = '';
   v4$('v4-fbadge').style.display = '';
   const vd = v4$('v4-video');
   vd.style.display = '';
   if(!v4FrameWired){
     v4FrameWired = true;
-    vd.addEventListener('playing', function(){ if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog); const _ar = v4$('v4-faltrow'); if(_ar) _ar.style.display = 'none'; v4$('v4-fspin').style.display = 'none'; v4$('v4-fbig').classList.add('hide'); v4$('v4-fplay').textContent = '❚❚'; v4FrameShowCtrls(); });
+    vd.addEventListener('playing', function(){ if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog); v4$('v4-fspin').style.display = 'none'; v4$('v4-fbig').classList.add('hide'); v4$('v4-fplay').textContent = '❚❚'; v4FrameShowCtrls(); });
     vd.addEventListener('waiting', function(){ v4$('v4-fspin').style.display = 'block'; });
-    vd.addEventListener('pause', function(){ v4$('v4-fbig').classList.remove('hide'); v4$('v4-fplay').textContent = '▶'; v4$('v4-fctrls').classList.remove('hide'); const _ar3 = v4$('v4-faltrow'); if(_ar3 && vd.style.display !== 'none') _ar3.style.display = ''; });
-    vd.addEventListener('error', function(){ if(vd.style.display !== 'none') v4FrameFallback(); });
+    vd.addEventListener('pause', function(){ v4$('v4-fbig').classList.remove('hide'); v4$('v4-fplay').textContent = '▶'; v4$('v4-fctrls').classList.remove('hide'); });
+    vd.addEventListener('error', function(){ if(vd.style.display !== 'none') v4FrameRetry(); });
     vd.addEventListener('timeupdate', function(){ if(vd.duration){ v4$('v4-fseek').value = Math.floor((vd.currentTime / vd.duration) * 1000); } v4$('v4-ftime').textContent = v4FmtTime(vd.currentTime) + ' / ' + v4FmtTime(vd.duration); });
     vd.addEventListener('click', v4FrameToggle);
   }
-  v4FrameId = id; v4FrameQ = 0;
-  /* Update 78: pehle YouTube player (sab se pakka chalta hai, HD +
-     halki quality khud chun leta hai). Playza ka apna player neeche
-     wale button se khulta hai (background play usi par hai). */
-  v4FrameUseYT();
+  v4FrameId = id; v4FrameQ = 0; v4FrameRetries = 0;
+  /* Update 79: SIRF Playza ka apna player — YouTube player bilkul nahi.
+     Stream fail ho to khud retry (neeche v4FrameRetry). */
+  v4FrameStartOwn();
 }
-function v4FrameUseYT(){
-  const vd = v4$('v4-video');
-  if(vd){ try{ vd.pause(); vd.removeAttribute('src'); vd.load(); }catch(e){} vd.style.display = 'none'; }
-  if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog);
-  v4$('v4-fspin').style.display = 'none';
-  v4$('v4-fbig').classList.add('hide');
-  v4$('v4-fctrls').classList.add('hide');
-  v4$('v4-fbadge').style.display = 'none';
-  const gr = v4$('v4-fgear'); if(gr) gr.style.display = 'none';
-  const qm = v4$('v4-fqmenu'); if(qm) qm.style.display = 'none';
-  const fr = v4$('v4-player');
-  fr.style.display = '';
-  fr.src = 'https://www.youtube-nocookie.com/embed/' + v4FrameId + '?autoplay=1&rel=0&playsinline=1&enablejsapi=1&modestbranding=1';
-  const ar = v4$('v4-faltrow');
-  if(ar){ ar.style.display = ''; ar.innerHTML = '<button class=\"v4-iconbtn\" style=\"width:100%\" onclick=\"v4FrameUseOwn()\">▶ Playza ke apne player par dekhein (background play ke liye)</button>'; }
-}
-function v4FrameUseOwn(){
-  const fr = v4$('v4-player'); fr.style.display = 'none'; fr.src = '';
-  v4$('v4-fbadge').style.display = '';
-  v4$('v4-fctrls').classList.remove('hide');
-  const gr = v4$('v4-fgear'); if(gr) gr.style.display = '';
-  const vd = v4$('v4-video');
-  vd.style.display = '';
+function v4FrameStartOwn(){
+  const vd = v4$('v4-video'); if(!vd) return;
   vd.poster = 'https://i.ytimg.com/vi/' + v4FrameId + '/hqdefault.jpg';
   v4FrameLoadQualities(v4FrameId);
-  const ar = v4$('v4-faltrow');
-  if(ar){ ar.style.display = ''; ar.innerHTML = '<button class=\"v4-iconbtn\" style=\"width:100%\" onclick=\"v4FrameFallback()\">▶ YouTube player par dekhein (sab se best HD)</button>'; }
   vd.src = '/api/stream/' + v4FrameId + (v4FrameQ ? ('?q=' + v4FrameQ) : '');
-  if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog);
-  v4FrameWatchdog = setTimeout(function(){ const v2 = v4$('v4-video'); if(v2 && v2.style.display !== 'none' && v2.readyState < 3) v4FrameFallback(); }, 9000);
+  v4FrameArmWatchdog();
   v4$('v4-fspin').style.display = 'block';
   v4$('v4-fbig').classList.remove('hide');
   v4$('v4-fplay').textContent = '▶';
   v4FrameShowCtrls();
   const p = vd.play(); if(p && p.catch) p.catch(function(){});
 }
-function v4FrameFallback(){ v4FrameUseYT(); }
+function v4FrameArmWatchdog(){
+  if(v4FrameWatchdog) clearTimeout(v4FrameWatchdog);
+  v4FrameWatchdog = setTimeout(function(){ const v2 = v4$('v4-video'); if(v2 && v2.style.display !== 'none' && v2.readyState < 3) v4FrameRetry(); }, 9000);
+}
+function v4FrameRetry(){
+  const vd = v4$('v4-video'); if(!vd || !v4FrameId) return;
+  v4FrameRetries = (v4FrameRetries || 0) + 1;
+  if(v4FrameRetries > 3){ v4$('v4-fspin').style.display = 'none'; v4Toast('Video abhi load nahi ho rahi — thodi der baad dobara try karein'); return; }
+  v4$('v4-fspin').style.display = 'block';
+  const sep = v4FrameQ ? '&' : '?';
+  vd.src = '/api/stream/' + v4FrameId + (v4FrameQ ? ('?q=' + v4FrameQ) : '') + sep + 'retry=' + v4FrameRetries;
+  v4FrameArmWatchdog();
+  const p = vd.play(); if(p && p.catch) p.catch(function(){});
+}
+function v4FrameFallback(){ v4FrameRetry(); }
 function v4FrameToggle(){
   const vd = v4$('v4-video');
   if(!vd || vd.style.display === 'none') return;
@@ -4143,7 +4231,7 @@ function v4FrameFull(){
   if(box && box.requestFullscreen) box.requestFullscreen();
 }
 /* ---------- Shorts: Reels style, Playza design (Update 65) ---------- */
-let v4ShortsPage = 0, v4ShortsLoading = false, v4ShortsDone = false, v4ShortsObs = null, v4ShortsMuted = true, v4ShortsSeq = 0;
+let v4ShortsPage = 0, v4ShortsLoading = false, v4ShortsDone = false, v4ShortsObs = null, v4ShortsMuted = false, v4ShortsSeq = 0, v4ShortsQuery = 'trending shorts';
 const v4ShortsItems = {};
 function v4FmtCount(n){ n = Number(n) || 0; if(n >= 1e6) return (n / 1e6).toFixed(1).replace('.0', '') + 'M'; if(n >= 1e3) return (n / 1e3).toFixed(1).replace('.0', '') + 'K'; return '' + n; }
 function v4ShortCard(it){
@@ -4160,27 +4248,19 @@ function v4ShortCard(it){
     '<div class="v4-short-meta"><div class="v4-short-chan"><span class="v4-short-ava">' + v4Esc(ava) + '</span>' + v4Esc(sn.channelTitle || '') + '</div>' +
     '<div class="v4-short-title">' + v4Esc(sn.title || '') + '</div></div></section>';
 }
-function v4ShortIframe(sec, vid){
-  const old = sec.querySelector('video'); if(old) old.remove();
-  if(sec.querySelector('iframe')) return;
-  const f = document.createElement('iframe');
-  f.src = 'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&mute=1&loop=1&playlist=' + vid + '&controls=0&playsinline=1&rel=0';
-  f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
-  sec.insertBefore(f, sec.children[1] || null);
-  const spin = sec.querySelector('.v4-short-spin'); if(spin) spin.style.display = 'none';
-  const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none';
-}
 function v4ShortActivate(sec){
   const vid = sec.getAttribute('data-vid');
-  if(sec.querySelector('video') || sec.querySelector('iframe')) return;
+  if(sec.querySelector('video')) return;
   const spin = sec.querySelector('.v4-short-spin'); if(spin) spin.style.display = 'flex';
   const v = document.createElement('video');
-  v.setAttribute('playsinline', ''); v.loop = true; v.muted = v4ShortsMuted;
+  v.setAttribute('playsinline', ''); v.loop = true; v.muted = false;
   v.poster = 'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg';
   v.src = '/api/stream/' + vid;
-  const wd = setTimeout(function(){ if(v.readyState < 3 && sec.contains(v)) v4ShortIframe(sec, vid); }, 7000);
+  let retried = 0;
+  const retry = function(){ if(retried >= 2 || !sec.contains(v)) return; retried++; if(spin) spin.style.display = 'flex'; v.src = '/api/stream/' + vid + '?retry=' + retried; const p2 = v.play(); if(p2 && p2.catch) p2.catch(function(){}); };
+  const wd = setTimeout(function(){ if(v.readyState < 3 && sec.contains(v)) retry(); }, 7000);
   v.addEventListener('playing', function(){ clearTimeout(wd); if(spin) spin.style.display = 'none'; const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none'; });
-  v.addEventListener('error', function(){ v4ShortIframe(sec, vid); });
+  v.addEventListener('error', function(){ retry(); });
   const prog = sec.querySelector('.v4-short-prog');
   v.addEventListener('timeupdate', function(){ if(v.duration) prog.style.width = (v.currentTime / v.duration * 100) + '%'; });
   sec.insertBefore(v, sec.children[1] || null);
@@ -4189,7 +4269,6 @@ function v4ShortActivate(sec){
 function v4ShortDeactivate(sec){
   const v = sec.querySelector('video');
   if(v){ try{ v.pause(); v.removeAttribute('src'); v.load(); }catch(e){} v.remove(); }
-  const f = sec.querySelector('iframe'); if(f) f.remove();
   const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = '';
   const prog = sec.querySelector('.v4-short-prog'); if(prog) prog.style.width = '0';
   const spin = sec.querySelector('.v4-short-spin'); if(spin) spin.style.display = 'none';
@@ -4197,7 +4276,7 @@ function v4ShortDeactivate(sec){
 function v4ShortsLoad(){
   if(v4ShortsLoading || v4ShortsDone) return;
   v4ShortsLoading = true;
-  fetch('/api/feed?q=trending shorts&type=shorts&page=' + v4ShortsPage + '&r=sh' + v4ShortsSeq)
+  fetch('/api/feed?q=' + encodeURIComponent(v4ShortsQuery) + '&type=shorts&page=' + v4ShortsPage + '&r=sh' + v4ShortsSeq)
     .then(function(x){ return x.json(); })
     .then(function(d){
       v4ShortsLoading = false;
@@ -4216,8 +4295,10 @@ function v4ShortsLoad(){
     })
     .catch(function(){ v4ShortsLoading = false; });
 }
-function v4OpenShorts(){
+function v4OpenShorts(query){
   const ov = v4$('v4-shorts'); ov.classList.add('open'); v4Lock(true);
+  const _q = (query && String(query).trim()) ? String(query).trim() : 'trending shorts';
+  if(_q !== v4ShortsQuery){ v4ShortsQuery = _q; v4ShortsPage = 0; v4ShortsDone = false; v4ShortsSeq = Date.now(); const _tr = v4$('v4-shorts-track'); if(_tr) _tr.innerHTML = ''; ov.removeAttribute('data-init'); }
   if(!v4ShortsObs){
     v4ShortsObs = new IntersectionObserver(function(es){
       es.forEach(function(en){
@@ -4247,10 +4328,10 @@ function v4OpenShorts(){
       }
       const v = sec.querySelector('video');
       if(v){
-        v4ShortsMuted = !v4ShortsMuted; v.muted = v4ShortsMuted;
         if(v.paused){ const p = v.play(); if(p && p.catch) p.catch(function(){}); }
-        if(!v4ShortsMuted){ const h = v4$('v4-shorts-hint'); if(h) h.style.display = 'none'; v4Toast('🔊 Awaz on'); }
-        else v4Toast('🔇 Awaz band');
+        else v.pause();
+      } else {
+        v4ShortActivate(sec);
       }
     });
   }
@@ -4275,7 +4356,6 @@ function v4OpenWatch(v){
   if(kw) v4LoadFeed('v4-related', kw);
 }
 function v4Back(){
-  v4$('v4-player').src = '';
   const vd = v4$('v4-video');
   if(vd){ try{ vd.pause(); vd.removeAttribute('src'); vd.load(); }catch(e){} }
   v4Show(v4PrevView || 'home');
@@ -4341,7 +4421,7 @@ async function v4StartDownload(params){
   const r = await v4Post('/api/start-download', body);
   if(r.ok && r.data && r.data.success){ v4CloseSheet(); if(r.data.guest_remaining != null){ const left = Math.max(0, r.data.guest_remaining - 1); v4Toast(left > 0 ? ('Download shuru — guest ke ab ' + left + ' free downloads baqi hain') : 'Download shuru — ye guest ka akhri free download hai, agli ke liye account banayein'); } else v4Toast('Download shuru ho gaya — Downloads me dekhein'); v4LoadDownloads(); return; }
   const d = r.data || {};
-  if(d.login_required){ v4Pending = {type:'start', params:params}; v4CloseSheet(); v4OpenAuth('signin'); return; }
+  if(d.login_required){ v4Pending = {type:'start', params:params}; v4CloseSheet(); v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); return; }
   if(d.premium_required){ v4CloseSheet(); v4Toast('HD quality ke liye Premium chahiye'); v4Show('premium'); return; }
   v4Toast(d.error || 'Download start nahi ho saka');
 }
@@ -4560,25 +4640,52 @@ function v4RenderAiChips(){
   const tip = v4$('v4-ai-tip');
   if(tip) tip.textContent = '💡 ' + V4_AI_TIPS[Math.floor(Math.random() * V4_AI_TIPS.length)];
 }
-function v4AiBubble(text, me){
+function v4AiStore(entry){
+  try{ const a = JSON.parse(localStorage.getItem('pt_ai_chat') || '[]'); a.push(entry); while(a.length > 200) a.shift(); localStorage.setItem('pt_ai_chat', JSON.stringify(a)); }catch(e){}
+}
+function v4AiBubble(text, me, store){
   const d = document.createElement('div');
   d.className = 'v4-bubble ' + (me ? 'me' : 'ai');
   d.textContent = text;
+  d.setAttribute('data-ts', String(Date.now()));
   v4$('v4-ai-msgs').appendChild(d);
   window.scrollTo(0, document.body.scrollHeight);
+  if(store) v4AiStore({t:Date.now(), kind:(me ? 'me' : 'ai'), text:text});
   return d;
+}
+function v4AiRestore(){
+  const box = v4$('v4-ai-msgs'); if(!box || box.getAttribute('data-restored')) return;
+  box.setAttribute('data-restored', '1');
+  v4AiPrune();
+  let a = [];
+  try{ a = JSON.parse(localStorage.getItem('pt_ai_chat') || '[]'); }catch(e){}
+  const cut = Date.now() - 7 * 24 * 3600 * 1000;
+  a.filter(function(en){ return en.t > cut; }).forEach(function(en){
+    if(en.kind === 'job'){
+      const b = v4AiBubble(en.text || '', false);
+      b.setAttribute('data-ts', String(en.t)); b.setAttribute('data-jid', en.job_id);
+      const holder = document.createElement('div'); holder.id = 'v4-job-' + en.job_id; b.appendChild(holder);
+      v4PollJob(en.job_id);
+    } else {
+      const b = v4AiBubble(en.text || '', en.kind === 'me');
+      b.setAttribute('data-ts', String(en.t));
+    }
+  });
+}
+function v4AiPrune(){
+  const cut = Date.now() - 7 * 24 * 3600 * 1000;
+  try{ const a = JSON.parse(localStorage.getItem('pt_ai_chat') || '[]'); const b = a.filter(function(en){ return en.t > cut; }); if(b.length !== a.length) localStorage.setItem('pt_ai_chat', JSON.stringify(b)); }catch(e){}
+  document.querySelectorAll('#v4-ai-msgs .v4-bubble').forEach(function(el){ const ts = Number(el.getAttribute('data-ts') || '0'); if(ts && ts < cut) el.remove(); });
 }
 async function v4AiSend(e){
   if(e) e.preventDefault();
   const inp = v4$('v4-ai-input'); const text = inp.value.trim(); if(!text) return;
-  /* Update 42: AI download bhi ek download hai — pehle account */
-  if(!v4State.user){ v4Pending = {type:'ai', text:text}; v4OpenAuth('signin'); return; }
   inp.value = '';
   v4AiCmdRecord(text);
-  v4AiBubble(text, true);
+  v4AiBubble(text, true, true);
   const r = await v4Post('/api/ai/command', {command:text});
   const d = r.data || {};
-  if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai', text:text}; v4OpenAuth('signin'); return; } v4AiBubble(d.error || 'Command nahi chali — dobara try karein'); return; }
+  if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai', text:text}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); return; } v4AiBubble(d.error || 'Command nahi chali — dobara try karein'); return; }
   if(d.intent === 'search'){
     const b = v4AiBubble(d.message || 'Results mil gaye:');
     (d.results || []).forEach(function(it){
@@ -4598,14 +4705,13 @@ async function v4AiSend(e){
     return;
   }
   const b = v4AiBubble(d.message || 'Job shuru ho gaya');
-  if(d.job_id){ const holder = document.createElement('div'); holder.id = 'v4-job-' + d.job_id; b.appendChild(holder); v4PollJob(d.job_id); }
+  if(d.job_id){ v4AiStore({t:Date.now(), kind:'job', text:(d.message || ''), job_id:d.job_id}); b.setAttribute('data-jid', d.job_id); const holder = document.createElement('div'); holder.id = 'v4-job-' + d.job_id; b.appendChild(holder); v4PollJob(d.job_id); }
 }
 /* Update 43: AI ko pic bhejo — parh kar khud download start */
 function v4AiImage(input){
   const file = input.files && input.files[0];
   input.value = '';
   if(!file) return;
-  if(!v4State.user){ v4Pending = {type:'ai'}; v4OpenAuth('signin'); v4Toast('Pic download ke liye pehle account banayein'); return; }
   const rd = new FileReader();
   rd.onload = function(){
     const img = new Image();
@@ -4621,9 +4727,9 @@ function v4AiImage(input){
       const b = v4AiBubble('🤖 Pic parh raha hoon...');
       v4Post('/api/ai/image', {image: dataUrl}).then(function(r){
         const d = r.data || {};
-        if(!r.ok || !d.success){ b.textContent = d.message || d.error || 'Pic se download nahi ho saka — naam likh kar try karein'; return; }
+        if(!r.ok || !d.success){ if(d.login_required){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); b.textContent = 'Limit khatam — pehle account banayein.'; return; } b.textContent = d.message || d.error || 'Pic se download nahi ho saka — naam likh kar try karein'; return; }
         b.textContent = d.message;
-        if(d.job_id){ const holder = document.createElement('div'); holder.id = 'v4-job-' + d.job_id; b.appendChild(holder); v4PollJob(d.job_id); }
+        if(d.job_id){ v4AiStore({t:Date.now(), kind:'job', text:(d.message || ''), job_id:d.job_id}); b.setAttribute('data-jid', d.job_id); const holder = document.createElement('div'); holder.id = 'v4-job-' + d.job_id; b.appendChild(holder); v4PollJob(d.job_id); }
       });
     };
     img.src = rd.result;
@@ -4707,7 +4813,7 @@ async function v4CompressGo(btn){
 function v4PollJob(jobId){
   const tick = async function(){
     const r = await v4Fetch('/api/ai/jobs/' + jobId);
-    if(!r.ok || !r.data || !r.data.job) return;
+    if(!r.ok || !r.data || !r.data.job){ if(r.status === 404){ const h = v4$('v4-job-' + jobId); if(h && h.parentNode) h.parentNode.style.display = 'none'; } return; }
     const job = r.data.job;
     v4RenderJob(jobId, job);
     if(['completed','partial','failed','interrupted'].indexOf(job.status) >= 0){ clearInterval(v4JobTimers[jobId]); delete v4JobTimers[jobId]; v4LoadDownloads(); }
@@ -4715,23 +4821,115 @@ function v4PollJob(jobId){
   tick();
   v4JobTimers[jobId] = setInterval(tick, 3000);
 }
+function v4AiStopItem(el){
+  const jid = el.getAttribute('data-job'); const idx = el.getAttribute('data-idx');
+  v4Post('/api/ai/jobs/' + jid + '/stop-item', {index:Number(idx)}).then(function(){ v4Fetch('/api/ai/jobs/' + jid).then(function(r){ if(r.ok && r.data && r.data.job) v4RenderJob(jid, r.data.job); }); });
+}
+function v4AiStopAll(el){
+  const jid = el.getAttribute('data-job');
+  v4Post('/api/ai/jobs/' + jid + '/stop-all', {}).then(function(){ v4Fetch('/api/ai/jobs/' + jid).then(function(r){ if(r.ok && r.data && r.data.job) v4RenderJob(jid, r.data.job); }); });
+}
 function v4RenderJob(jobId, job){
   const holder = v4$('v4-job-' + jobId); if(!holder) return;
-  const icon = function(s){ return s === 'completed' ? '✓' : (s === 'failed' ? '✗' : (s === 'downloading' ? '◌' : '•')); };
-  const stat = function(es){
-    if(es.status === 'completed') return 'Ho gaya — Downloads mein hai';
-    if(es.status === 'failed') return 'Fail: ' + (es.error || '');
-    if(es.status === 'downloading') return 'Download ho raha hai' + (es.percent != null ? ' • ' + es.percent + '%' : '');
-    if(es.status === 'searching') return 'Dhoondh raha hai...';
-    return 'Line mein hai';
-  };
-  let h = '<div style="margin-top:8px">';
-  (job.episodes_status || []).forEach(function(es, i){
-    const name = es.title || ('Episode ' + (es.episode != null ? es.episode : (i + 1)));
-    h += '<div class="v4-ep"><span>' + icon(es.status) + '</span><span style="flex:1;min-width:0">' + v4Esc(name) + '</span><span class="st">' + v4Esc(stat(es)) + '</span></div>';
+  const eps = job.episodes_status || [];
+  if(!eps.length){ holder.innerHTML = ''; return; }
+  const total = job.total_count || eps.length;
+  const done = job.completed_count || 0;
+  let h = '<div class="v4-ailist"><div class="v4-ailist-h"><span class="t">📥 ' + total + ' videos</span><span class="cnt">' + done + ' / ' + total + '</span><button class="v4-sabband" data-job="' + jobId + '" onclick="v4AiStopAll(this)">⏹ Sab band</button></div>';
+  eps.forEach(function(es, i){
+    const name = es.title || (es.episode != null ? ('Episode ' + es.episode) : ('Video ' + (i + 1)));
+    let icon, right = '', bar = '';
+    if(es.status === 'completed') icon = '<span class="v4-ai-ic ok">✓</span>';
+    else if(es.status === 'downloading'){ icon = '<span class="v4-ai-ic dl">⬇</span>'; right = '<span class="pct">' + (es.percent || 0) + '%</span><span class="v4-ai-stop">⏹</span>'; bar = '<div class="v4-ai-bar"><i style="width:' + (es.percent || 0) + '%"></i></div>'; }
+    else if(es.status === 'searching'){ icon = '<span class="v4-ai-ic dl">⬇</span>'; right = '<span class="pct">…</span>'; }
+    else if(es.status === 'failed') icon = '<span class="v4-ai-ic bad">✗</span>';
+    else if(es.status === 'stopped') icon = '<span class="v4-ai-ic stop">⏹</span>';
+    else icon = '<span class="v4-ai-ic">' + (i + 1) + '</span>';
+    const tap = (es.status === 'downloading' || es.status === 'searching') ? ' data-job="' + jobId + '" data-idx="' + i + '" onclick="v4AiStopItem(this)" style="cursor:pointer"' : '';
+    h += '<div class="v4-ai-row' + (es.status === 'downloading' ? ' act' : '') + '"' + tap + '><div class="v4-ai-r1">' + icon + '<span class="v4-ai-t">' + v4Esc(name) + '</span>' + right + '</div>' + bar + '</div>';
   });
-  h += '<div class="v4-muted" style="margin-top:6px">Halat: ' + v4Esc(job.status) + ' • ' + (job.completed_count || 0) + '/' + (job.total_count || (job.episodes_status || []).length) + ' ho gaye</div></div>';
-  holder.innerHTML = h;
+  holder.innerHTML = h + '</div>';
+}
+/* ---------- search screen (Update 79: SnapTube-style alag page) ---------- */
+let v4SearchState = {q:'', filter:'all', platform:'all'};
+let v4SuggTimer = null;
+const V4_HOT = ['new song', 'new drama', 'pakistani drama episode', 'motu patlu new episode', 'naat sharif 2026', 'punjabi song', 'hindi full movie', 'ertugrul urdu dubbed', 'funny shorts', 'coke studio season'];
+function v4RecentGet(){ try{ return JSON.parse(localStorage.getItem('pt_recent') || '[]'); }catch(e){ return []; } }
+function v4RecentAdd(q){ if(!q) return; let r = v4RecentGet().filter(function(x){ return x.toLowerCase() !== q.toLowerCase(); }); r.unshift(q); r = r.slice(0, 12); try{ localStorage.setItem('pt_recent', JSON.stringify(r)); }catch(e){} }
+function v4RecentRemove(q){ const r = v4RecentGet().filter(function(x){ return x !== q; }); try{ localStorage.setItem('pt_recent', JSON.stringify(r)); }catch(e){} v4SuggRender(); }
+function v4RecentClear(){ try{ localStorage.removeItem('pt_recent'); }catch(e){} v4SuggRender(); }
+function v4OpenSearch(){
+  const w = v4$('v4-searchwrap'); if(!w) return;
+  w.classList.add('open'); v4Lock(true);
+  const inp = v4$('v4-sq'); inp.value = '';
+  v4SuggRender();
+  setTimeout(function(){ inp.focus(); }, 80);
+}
+function v4CloseSearch(){ const w = v4$('v4-searchwrap'); if(w) w.classList.remove('open'); v4Lock(false); }
+function v4ClearSearchInput(){ const inp = v4$('v4-sq'); inp.value = ''; v4SuggRender(); inp.focus(); }
+function v4SuggHi(text, q){
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if(i < 0) return v4Esc(text);
+  return v4Esc(text.slice(0, i)) + '<b>' + v4Esc(text.slice(i, i + q.length)) + '</b>' + v4Esc(text.slice(i + q.length));
+}
+function v4SuggRender(){
+  const box = v4$('v4-sugg'); if(!box) return;
+  const q = v4$('v4-sq').value.trim();
+  if(!q){
+    let h = '';
+    const rec = v4RecentGet();
+    if(rec.length){
+      h += '<div style="display:flex;align-items:center;margin-top:16px"><span style="font-size:13px;font-weight:800;flex:1">Recent searches</span><span style="cursor:pointer" onclick="v4RecentClear()">🗑</span></div><div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px">' + rec.map(function(x){ return '<span class="v4-chip" style="cursor:pointer" data-q="' + v4Esc(x) + '" onclick="v4SuggPick(this)">' + v4Esc(x) + '</span>'; }).join('') + '</div>';
+    }
+    h += '<div style="font-size:13px;font-weight:800;margin-top:17px">Hot searches</div><div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px">' + V4_HOT.map(function(x){ return '<span class="v4-chip" style="cursor:pointer" data-q="' + v4Esc(x) + '" onclick="v4SuggPick(this)">' + v4Esc(x) + '</span>'; }).join('') + '</div>';
+    box.innerHTML = h;
+    return;
+  }
+  const rec = v4RecentGet().filter(function(x){ return x.toLowerCase().indexOf(q.toLowerCase()) >= 0; });
+  box.innerHTML = rec.map(function(x){ return '<div class="v4-sugrow" data-q="' + v4Esc(x) + '"><span class="ic">🕐</span><span style="flex:1" onclick="v4SuggPick(this.parentNode)">' + v4SuggHi(x, q) + '</span><span data-q="' + v4Esc(x) + '" onclick="v4RecentRemove(this.dataset.q)">✕</span></div>'; }).join('') + '<div id="v4-sugg-live"></div>';
+  clearTimeout(v4SuggTimer);
+  v4SuggTimer = setTimeout(async function(){
+    const r = await v4Fetch('/api/suggest?q=' + encodeURIComponent(q));
+    const live = v4$('v4-sugg-live'); if(!live) return;
+    const list = (r.data && r.data.suggestions) || [];
+    live.innerHTML = list.map(function(x){ return '<div class="v4-sugrow" data-q="' + v4Esc(x) + '" onclick="v4SuggPick(this)"><span class="ic">🔍</span><span style="flex:1">' + v4SuggHi(x, q) + '</span></div>'; }).join('');
+  }, 220);
+}
+function v4SuggPick(el){ const q = el.getAttribute('data-q'); if(q) v4RunSearch(q); }
+function v4RunSearch(q){
+  q = (q || '').trim(); if(!q) return;
+  v4RecentAdd(q);
+  v4CloseSearch();
+  v4Show('home');
+  v4SearchState = {q:q, filter:'all', platform:'all'};
+  v4RenderSearchBar();
+  v4$('v4-home-heading').textContent = 'Results: ' + q;
+  v4InterestAdd(q, 2);
+  v4LoadFeed('v4-home-feed', q, 'all');
+}
+function v4RenderSearchBar(){
+  const bar = v4$('v4-searchbar'); if(!bar) return;
+  if(!v4SearchState.q){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.style.display = '';
+  const pf = v4SearchState.platform, f = v4SearchState.filter;
+  const pb = function(id, label){ return '<button data-pf="' + id + '" class="' + (pf === id ? 'active' : '') + '" onclick="v4SearchPlatform(this)">' + label + '</button>'; };
+  const fb = function(id, label){ return '<button data-f="' + id + '" class="' + (f === id ? 'active' : '') + '" onclick="v4SearchFilter(this)">' + label + '</button>'; };
+  bar.innerHTML = '<div class="v4-sbar">' + pb('all', 'All') + pb('youtube', 'YouTube') + pb('instagram', 'Instagram') + pb('facebook', 'Facebook') + '</div>' +
+    '<div class="v4-sbar">' + fb('all', 'Sab') + fb('date', '🆕 Nayi') + fb('long', '⏱ Lambi') + fb('shorts', '⚡ Shorts') + '</div>';
+}
+function v4SearchPlatform(el){
+  const pf = el.getAttribute('data-pf'); v4SearchState.platform = pf; v4RenderSearchBar();
+  if(pf === 'all' || pf === 'youtube'){ v4LoadFeed('v4-home-feed', v4SearchState.q, 'all'); return; }
+  v4Show('social');
+  const inp = v4$('v4-social-url'); if(inp){ inp.placeholder = (pf === 'instagram' ? 'Instagram' : 'Facebook') + ' ka link yahan paste karein...'; inp.focus(); }
+}
+function v4SearchFilter(el){
+  const f = el.getAttribute('data-f'); v4SearchState.filter = f; v4RenderSearchBar();
+  const q = v4SearchState.q;
+  if(f === 'shorts'){ v4OpenShorts(q); return; }
+  if(f === 'date'){ v4LoadFeed('v4-home-feed', q, 'all', '', {sort:'date'}); return; }
+  if(f === 'long'){ v4LoadFeed('v4-home-feed', q, 'videos', '', {minDur:1200}); return; }
+  v4LoadFeed('v4-home-feed', q, 'all');
 }
 
 /* ---------- social / more ---------- */
@@ -4830,17 +5028,20 @@ async function v4SocialFetch(e){
   v4SocialInfo = {url:url, info:r.data.info};
   const inf = r.data.info;
   box.innerHTML = '<div class="v4-dlrow"><img src="' + v4Esc(inf.thumbnail || '') + '" onerror="this.style.opacity=0.25"><div class="tt"><div class="t1">' + v4Esc(inf.title || '') + '</div><div class="t2">' + v4Esc(inf.platform || '') + ' • ' + v4Esc(inf.uploader || '') + '</div></div></div>' +
-    '<div style="display:flex;gap:8px"><button class="v4-bigbtn" style="margin-top:4px" data-f="video" onclick="v4SocialDownload(this.dataset.f)">⬇ Video Download</button><button class="v4-bigbtn" style="margin-top:4px;background:var(--v4card);border:1px solid var(--v4border)" data-f="audio" onclick="v4SocialDownload(this.dataset.f)">🎵 Audio (MP3)</button></div>';
+    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="v4-bigbtn" style="margin-top:4px" data-f="video" onclick="v4SocialDownload(this.dataset.f)">⬇ Video Download</button><button class="v4-bigbtn" style="margin-top:4px;background:var(--v4card);border:1px solid var(--v4border)" data-f="audio" onclick="v4SocialDownload(this.dataset.f)">🎵 Audio (MP3)</button>' + ((inf.is_image || (inf.ext && ['jpg','jpeg','png','webp'].indexOf(String(inf.ext).toLowerCase()) >= 0)) ? '<button class="v4-bigbtn" style="margin-top:4px;background:var(--v4card);border:1px solid var(--v4border)" data-f="image" onclick="v4SocialDownload(this.dataset.f)">🖼 Picture</button>' : '') + '</div>';
 }
 async function v4SocialDownload(fmt){
   if(!v4SocialInfo) return;
-  if(!v4State.user){ v4Pending = {type:'social', url:v4SocialInfo.url, format:fmt}; v4OpenAuth('signin'); return; }
   const r = await v4Post('/api/download-social', {url:v4SocialInfo.url, format:fmt});
-  if(r.ok && r.data && r.data.success){ v4Toast('Download shuru ho gaya — Downloads me dekhein'); v4LoadDownloads(); }
-  else v4Toast((r.data && r.data.error) || 'Download start nahi ho saka');
+  if(r.ok && r.data && r.data.success){ v4Toast('Download shuru ho gaya — Downloads me dekhein'); v4LoadDownloads(); return; }
+  const d = r.data || {};
+  if(d.login_required){ v4Pending = {type:'social', url:v4SocialInfo.url, format:fmt}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); return; }
+  v4Toast(d.error || 'Download start nahi ho saka');
 }
 
 /* ---------- tools / settings ---------- */
+function v4DlPathLabel(){ const el = v4$('v4-set-dlpath'); if(el && window.PlayTubeApp && window.PlayTubeApp.getDownloadFolderLabel) el.textContent = window.PlayTubeApp.getDownloadFolderLabel(); }
+function v4PickFolder(){ if(window.PlayTubeApp && window.PlayTubeApp.pickFolder){ window.PlayTubeApp.pickFolder(); setTimeout(v4DlPathLabel, 1000); setTimeout(v4DlPathLabel, 2500); } }
 function v4ShareApp(){
   const url = window.location.origin + '/';
   if(navigator.share){ navigator.share({title:'Playza', text:'Playza — All in One Downloader', url:url}).catch(function(){}); }
@@ -5091,10 +5292,12 @@ function v4InstallPWA(){ if(typeof installPlayTubeApp === 'function') installPla
 function v4InstallPC(){ if(typeof installPlayTubeAppPC === 'function') installPlayTubeAppPC(); else if(typeof installPlayTubeApp === 'function') installPlayTubeApp(); else v4Toast('Chrome/Edge menu se "Install Playza" chunein'); }
 
 /* ---------- auth modal (Update 21/22) ---------- */
-function v4OpenAuth(tab, forgot){
+function v4OpenAuth(tab, forgot, reason){
   v4$('v4-authwrap').classList.add('open');
   v4Lock(true);
   v4AuthMsg('', '');
+  const pill = v4$('v4-auth-pill');
+  if(pill) pill.textContent = (reason === 'limit') ? 'Aap ke free downloads mukammal ho gaye hain. Aage download karne ke liye account banayein ya sign in karein.' : 'Video dekhne aur download karne ke liye pehle account banayein ya sign in karein.';
   if(forgot){ v4ShowForgot(); return; }
   v4AuthTab(tab || 'signin');
 }
@@ -5108,13 +5311,39 @@ function v4AuthTab(t){
   v4AuthForms(t === 'signup' ? 'v4-form-signup' : 'v4-form-signin');
   v4$('v4-tab-signin').classList.toggle('active', t !== 'signup');
   v4$('v4-tab-signup').classList.toggle('active', t === 'signup');
-  v4$('v4-auth-heading').textContent = (t === 'signup') ? 'Create Account' : 'Welcome to Playza';
+  v4$('v4-auth-heading').textContent = (t === 'signup') ? 'Create Account' : 'Sign In';
 }
 function v4ShowForgot(e){
   if(e) e.preventDefault();
   v4AuthForms('v4-form-forgot');
   v4$('v4-auth-heading').textContent = 'Password Reset';
 }
+let v4SignupBody = null, v4CodeTimer = null;
+function v4CodeBoxesVal(p){ let s = ''; for(let i = 0; i < 6; i++){ const b = v4$(p + i); s += b ? b.value.trim() : ''; } return s; }
+function v4CodeBoxesClear(p){ for(let i = 0; i < 6; i++){ const b = v4$(p + i); if(b) b.value = ''; } const f = v4$(p + '0'); if(f) setTimeout(function(){ f.focus(); }, 60); }
+function v4CodeBoxesWire(p){
+  for(let i = 0; i < 6; i++){
+    const b = v4$(p + i); if(!b || b.getAttribute('data-wired')) continue; b.setAttribute('data-wired', '1');
+    b.addEventListener('input', function(){ b.value = b.value.replace(/[^0-9]/g, '').slice(0, 1); if(b.value && i < 5){ const n = v4$(p + (i + 1)); if(n) n.focus(); } });
+    b.addEventListener('keydown', function(e){ if(e.key === 'Backspace' && !b.value && i > 0){ const pv = v4$(p + (i - 1)); if(pv){ pv.focus(); pv.value = ''; } } });
+    b.addEventListener('paste', function(e){ e.preventDefault(); let t = ''; try{ t = (e.clipboardData || window.clipboardData).getData('text') || ''; }catch(err){} t = t.replace(/[^0-9]/g, '').slice(0, 6); for(let k = 0; k < 6; k++){ const bb = v4$(p + k); if(bb) bb.value = t[k] || ''; } const nx = v4$(p + Math.min(5, t.length)); if(nx) nx.focus(); });
+  }
+}
+function v4CodeTimerStart(){
+  if(v4CodeTimer) clearInterval(v4CodeTimer);
+  let left = 600;
+  const el = v4$('v4-code-timer');
+  const show = function(){ if(el) el.textContent = 'Code khatam honay mein: ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0'); };
+  show();
+  v4CodeTimer = setInterval(function(){ left--; if(left <= 0){ clearInterval(v4CodeTimer); v4CodeTimer = null; if(el) el.textContent = 'Code ka time khatam — Dobara bhejein'; return; } show(); }, 1000);
+}
+async function v4ResendCode(){
+  if(!v4SignupBody){ v4AuthTab('signup'); return; }
+  const r = await v4Post('/api/signup-start', v4SignupBody);
+  if(r.ok && r.data && r.data.success){ v4AuthMsg('Naya code bhej diya gaya hai — Gmail check karein.', 'ok'); v4CodeBoxesClear('v4-cb'); v4CodeTimerStart(); }
+  else v4AuthMsg((r.data && r.data.error) || 'Code nahi bheja ja saka', 'err');
+}
+function v4BackToSignup(){ v4AuthTab('signup'); }
 async function v4SignIn(e){
   e.preventDefault();
   const r = await v4Post('/api/login', {email: v4$('v4-li-email').value.trim(), password: v4$('v4-li-pass').value});
@@ -5127,17 +5356,20 @@ async function v4SignUpStart(e){
   const r = await v4Post('/api/signup-start', body);
   if(r.ok && r.data && r.data.success){
     v4SignupEmail = body.email;
+    v4SignupBody = body;
     v4AuthForms('v4-form-verify');
     v4$('v4-auth-heading').textContent = 'Code Verify karein';
+    const _ve = v4$('v4-verify-email'); if(_ve) _ve.textContent = body.email;
+    v4CodeBoxesClear('v4-cb');
+    v4CodeTimerStart();
     if(r.data.mail_sent === false){
-      v4$('v4-verify-note').textContent = 'Note: Email abhi nahi bheja ja saka (mail setup pending hai). Agar code aap ko mila hai to darj karein, warna thodi der baad dobara try karein.';
       v4AuthMsg('Code tayyar hai, lekin email bhejna abhi setup nahi hai.', 'err');
     } else v4AuthMsg('Code bhej diya gaya hai — apni Gmail check karein.', 'ok');
   } else v4AuthMsg((r.data && r.data.error) || 'Account nahi ban saka', 'err');
 }
 async function v4SignUpVerify(e){
   e.preventDefault();
-  const r = await v4Post('/api/signup-verify', {email: v4SignupEmail, code: v4$('v4-su-code').value.trim()});
+  const r = await v4Post('/api/signup-verify', {email: v4SignupEmail, code: v4CodeBoxesVal('v4-cb')});
   if(r.ok && r.data && r.data.success){ v4State.user = r.data.user; v4CloseAuth(); v4Toast('Account ban gaya — Welcome, ' + (r.data.user.username || '')); v4AfterAuth(); }
   else v4AuthMsg((r.data && r.data.error) || 'Code ghalat hai', 'err');
 }
@@ -5148,12 +5380,13 @@ async function v4ForgotStart(e){
   if(r.ok && r.data && r.data.success){
     v4SignupEmail = email;
     v4AuthForms('v4-form-reset');
+    v4CodeBoxesClear('v4-rb');
     v4AuthMsg(r.data.mail_sent === false ? 'Code tayyar hai, lekin email bhejna abhi setup nahi hai.' : 'Reset code bhej diya gaya hai — Gmail check karein.', r.data.mail_sent === false ? 'err' : 'ok');
   } else v4AuthMsg((r.data && r.data.error) || 'Code nahi bheja ja saka', 'err');
 }
 async function v4ForgotReset(e){
   e.preventDefault();
-  const body = {email: v4SignupEmail, code: v4$('v4-fg-code').value.trim(), new_password: v4$('v4-fg-pass').value};
+  const body = {email: v4SignupEmail, code: v4CodeBoxesVal('v4-rb'), new_password: v4$('v4-fg-pass').value};
   const r = await v4Post('/api/forgot-password/reset', body);
   if(r.ok && r.data && r.data.success){
     v4AuthMsg('Password badal gaya hai — ab sign in karein.', 'ok');
@@ -5215,12 +5448,19 @@ async function v4LoadConfig(){
   const ann = (r.data.announcement || '').trim();
   const el = v4$('v4-announce');
   if(ann){ el.textContent = '📢 ' + ann; el.style.display = 'block'; } else el.style.display = 'none';
+  const _ver = v4$('v4-ver'); if(_ver && r.data.version) _ver.textContent = r.data.version;
   const t = r.data.toggles || {};
   v4RenderDeals(r.data.deals);
   if(t.social_enabled === false){ const b = v4$('v4-tt-social'); if(b) b.style.display = 'none'; }
   if(t.ai_enabled === false){ const b = v4$('v4-bn-ai'); if(b) b.style.display = 'none'; }
 }
 (function v4Init(){
+  v4CodeBoxesWire('v4-cb'); v4CodeBoxesWire('v4-rb');
+  const _sq = v4$('v4-sq'); if(_sq){ _sq.addEventListener('input', v4SuggRender); _sq.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); v4RunSearch(_sq.value); } }); }
+  ['v4-q-home','v4-q-youtube','v4-q-music'].forEach(function(id){ const _el = v4$(id); if(_el) _el.addEventListener('focus', function(){ v4OpenSearch(); }); });
+  v4AiRestore();
+  setInterval(v4AiPrune, 60000);
+  const _dpr = v4$('v4-set-dlpath-row'); if(_dpr && window.PlayTubeApp && window.PlayTubeApp.pickFolder){ _dpr.style.display = ''; v4DlPathLabel(); }
   v4LoadConfig();
   v4Fetch('/api/user-info').then(function(r){ v4State.user = (r.ok && r.data) ? r.data.user : null; });
   v4LoadFeed('v4-home-feed', 'trending');
@@ -5391,7 +5631,9 @@ def _feed_search_items(query, n=30):
                             }
                         },
                         'duration': entry.get('duration'),
-                        'view_count': entry.get('view_count')
+                        'view_count': entry.get('view_count'),
+                        'age_ts': (entry.get('timestamp')
+                                   or entry.get('release_timestamp'))
                     })
     except Exception:
         pass
@@ -5466,6 +5708,8 @@ def _shorts_search_items(query, n=20):
                     if _mm:
                         _mult = {'K': 1e3, 'M': 1e6, 'B': 1e9}.get(_mm.group(2), 1)
                         _vc = int(float(_mm.group(1)) * _mult)
+                _age = ((_vr.get('publishedTimeText', {}) or {})
+                        .get('simpleText') or '')
                 items.append({
                     'id': {'videoId': _vid},
                     'snippet': {
@@ -5480,6 +5724,7 @@ def _shorts_search_items(query, n=20):
                     },
                     'duration': _dur,
                     'view_count': _vc,
+                    'age_text': _age,
                 })
     except Exception:
         items = []
@@ -5654,6 +5899,139 @@ def api_playlist():
     return jsonify(data)
 
 
+def _age_minutes(text):
+    """'3 days ago' jaisi text ko takreeban minutes me badlo (freshness sort)."""
+    if not text:
+        return None
+    t = str(text).lower()
+    if 'just now' in t:
+        return 0
+    m = re.search(r'(\d+)\s*(second|minute|hour|day|week|month|year)', t)
+    if not m:
+        return None
+    if m.group(2) == 'second':
+        return 0
+    mult = {'minute': 1, 'hour': 60, 'day': 1440, 'week': 10080,
+            'month': 43200, 'year': 525600}
+    return int(m.group(1)) * mult[m.group(2)]
+
+
+def _dated_search_items(query, n=30):
+    """Aam YouTube search — published time ke sath, SAB SE NAYI pehle.
+    (Update 79: search freshness rule — nayi videos upar.)"""
+    cache_key = f"dated_{query}_{n}"
+    if cache_key in search_cache:
+        _cd, _ts = search_cache[cache_key]
+        if time.time() - _ts < 600:
+            return _cd
+    items = []
+    try:
+        import urllib.parse as _up
+        _url = ("https://www.youtube.com/results?search_query="
+                + _up.quote(query))
+        _headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                          'AppleWebKit/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+        _html = requests.get(_url, headers=_headers, timeout=10).text
+        _m = re.search(r'var ytInitialData = (\{.*?\});</script>',
+                       _html, re.S)
+        if _m:
+            _data = json.loads(_m.group(1))
+            _secs = (_data.get('contents', {})
+                     .get('twoColumnSearchResultsRenderer', {})
+                     .get('primaryContents', {})
+                     .get('sectionListRenderer', {})
+                     .get('contents', []))
+            _vrs = []
+            for _sec in _secs:
+                for _c in (_sec.get('itemSectionRenderer', {})
+                           .get('contents', [])):
+                    if 'videoRenderer' in _c:
+                        _vrs.append(_c['videoRenderer'])
+            for _vr in _vrs[:n]:
+                _vid = _vr.get('videoId')
+                if not _vid:
+                    continue
+                _title = ''.join(_r.get('text', '') for _r in
+                                 _vr.get('title', {}).get('runs', []))
+                _chan = ''
+                _runs = _vr.get('longBylineText', {}).get('runs', [])
+                if _runs:
+                    _chan = _runs[0].get('text', '')
+                _dur = None
+                _lt = (_vr.get('lengthText', {}) or {}).get('simpleText')
+                if _lt:
+                    try:
+                        _parts = [int(_p) for _p in _lt.split(':')]
+                        _dur = 0
+                        for _p in _parts:
+                            _dur = _dur * 60 + _p
+                    except Exception:
+                        _dur = None
+                _vc = None
+                _vct = (_vr.get('viewCountText', {}) or {}).get('simpleText', '')
+                if _vct:
+                    _mm = re.match(r'([\d.]+)\s*([KMB]?)', _vct.replace(',', ''))
+                    if _mm:
+                        _mult = {'K': 1e3, 'M': 1e6, 'B': 1e9}.get(_mm.group(2), 1)
+                        _vc = int(float(_mm.group(1)) * _mult)
+                _age = ((_vr.get('publishedTimeText', {}) or {})
+                        .get('simpleText') or '')
+                items.append({
+                    'id': {'videoId': _vid},
+                    'snippet': {
+                        'title': _title or f'Video {_vid}',
+                        'channelTitle': _chan or 'YouTube',
+                        'channelId': '',
+                        'thumbnails': {
+                            'high': {'url': f'https://i.ytimg.com/vi/{_vid}/hqdefault.jpg'},
+                            'medium': {'url': f'https://i.ytimg.com/vi/{_vid}/mqdefault.jpg'},
+                            'default': {'url': f'https://i.ytimg.com/vi/{_vid}/default.jpg'},
+                        },
+                    },
+                    'duration': _dur,
+                    'view_count': _vc,
+                    'age_text': _age,
+                    'age_min': _age_minutes(_age),
+                })
+    except Exception:
+        items = []
+    if items:
+        items.sort(key=lambda it: (it.get('age_min') is None,
+                                   it.get('age_min') or 0))
+        search_cache[cache_key] = (items, time.time())
+    return items
+
+
+@app.route('/api/suggest')
+def api_suggest():
+    """Search screen ke live suggestions (YouTube autocomplete)."""
+    q = (request.args.get('q', '') or '').strip()
+    if not q:
+        return jsonify({'suggestions': []})
+    out = []
+    try:
+        import urllib.parse as _up2
+        _u = ('https://suggestqueries.google.com/complete/search'
+              '?client=firefox&ds=yt&q=' + _up2.quote(q))
+        _r = requests.get(_u, headers={'User-Agent': 'Mozilla/5.0'},
+                          timeout=5)
+        _d = _r.json()
+        if isinstance(_d, list) and len(_d) > 1 and isinstance(_d[1], list):
+            out = [str(x) for x in _d[1]][:10]
+    except Exception:
+        out = []
+    if not out:
+        _base = ['new song', 'new drama', 'pakistani drama', 'motu patlu',
+                 'naat sharif', 'punjabi song', 'hindi movie', 'cartoon hindi',
+                 'ertugrul urdu', 'funny video', 'coke studio', 'qawwali',
+                 'new movie', 'kids cartoon', 'islamic bayan']
+        out = [b for b in _base if q.lower() in b][:8]
+    return jsonify({'suggestions': out})
+
+
 @app.route('/api/feed')
 def api_feed():
     q = (request.args.get('q', 'trending') or 'trending').strip()
@@ -5695,11 +6073,52 @@ def api_feed():
     if ftype not in ('all', 'videos', 'playlists', 'shorts', 'live', 'movies', 'mp3', 'naat', 'dramas', 'kids'):
         ftype = 'all'
     shorts_pool_mode = False
+    # Update 79: TikTok / reels / shorts — ek hi matlab, vertical shorts
+    _synq = ql.replace(' ', '')
+    if _synq in ('tiktok', 'reels', 'reel', 'shorts', 'short',
+                 'tiktokvideos', 'reelsvideos', 'shortsvideos',
+                 'tiktokshorts', 'tiktokreels', 'tiktokvideo',
+                 'instagramreels', 'ytshorts') and ftype in ('all', 'videos'):
+        ftype = 'shorts'
+        pool = list(FEED_SHORTS_POOL)
+        shorts_pool_mode = True
     if ftype == 'shorts' and ('trend' in ql or ql == 'shorts'):
         pool = list(FEED_SHORTS_POOL)
         shorts_pool_mode = True
     if ftype == 'naat':
         pool = list(FEED_NAAT_POOL)
+    # Update 79: seen-filter (session me dikh chuki dobara nahi),
+    # sort=date (nayi pehle), min_dur (lambi videos wala filter)
+    _seen_ids = set(x for x in (request.args.get('seen', '') or '')
+                    .split(',') if x)
+    _sort = (request.args.get('sort', '') or '').strip().lower()
+    try:
+        _min_dur = int(request.args.get('min_dur', 0))
+    except (TypeError, ValueError):
+        _min_dur = 0
+
+    def _R(_items, _hm, _sr=True):
+        if _seen_ids:
+            _items = [it for it in _items
+                      if (((it.get('id') or {}).get('videoId')
+                           or (it.get('id') or {}).get('playlistId')
+                           or '') not in _seen_ids)]
+        if _min_dur:
+            _items = [it for it in _items
+                      if (it.get('duration') or 0) >= _min_dur]
+        _resp = {'items': _items, 'page': page, 'has_more': _hm}
+        # Har feed/search ke sath usi type ki Shorts ki 1 line (page 0)
+        if _sr and page == 0 and ftype not in ('shorts', 'playlists') \
+                and _items:
+            try:
+                _srq = (q if len(pool) <= 1 else pool[0]) + ' shorts'
+                _srow = _shorts_feed_items(_srq, 10)
+                if _srow:
+                    _resp['shorts_row'] = _srow
+            except Exception:
+                pass
+        return jsonify(_resp)
+
     eff = page + offset
     seed = pool[eff % len(pool)]
     variant = FEED_VARIANTS[(eff // len(pool)) % len(FEED_VARIANTS)]
@@ -5707,13 +6126,11 @@ def api_feed():
     total_pages = len(pool) * len(FEED_VARIANTS)
     if ftype == 'playlists':
         items = search_playlists_web(seed_q, 12)
-        return jsonify({'items': items, 'page': page,
-                        'has_more': page < 6})
+        return _R(items, page < 6, False)
     if ftype == 'all' and page % 3 == 2:
         items = search_playlists_web(seed_q, 6)
         if items:
-            return jsonify({'items': items, 'page': page,
-                            'has_more': page < total_pages - 1})
+            return _R(items, page < total_pages - 1, False)
     if ftype == 'shorts':
         # Sirf ASAL shorts (duration <= 65s) — lambi "shorts" naam wali
         # compilations nahi. Kai seeds mila kar dhoondte hain.
@@ -5737,8 +6154,7 @@ def api_feed():
                 break
         items = [it for it in merged
                  if it.get('duration') is None or it['duration'] <= 65]
-        return jsonify({'items': items, 'page': page,
-                        'has_more': page < total_pages - 1})
+        return _R(items, page < total_pages - 1, False)
     if ftype == 'live':
         # Update 71: Live chip — 'live stream' talash, live-lagti
         # videos pehle (duration None/0 ya title mein live)
@@ -5762,8 +6178,7 @@ def api_feed():
 
         live_first = [it for it in merged if _is_live(it)]
         rest = [it for it in merged if not _is_live(it)]
-        return jsonify({'items': (live_first + rest)[:30], 'page': page,
-                        'has_more': page < total_pages - 1})
+        return _R((live_first + rest)[:30], page < total_pages - 1)
     if ftype == 'movies':
         # Update 71/77: Movies chip — 'full movie' talash, lambi videos
         # (40+ minute) pehle; andar sub-options (Indian/Pakistani/
@@ -5795,8 +6210,7 @@ def api_feed():
         longs = [it for it in merged if (it.get('duration') or 0) >= 2400]
         items = longs if len(longs) >= 6 else sorted(
             merged, key=lambda x: -(x.get('duration') or 0))
-        return jsonify({'items': items[:30], 'page': page,
-                        'has_more': page < total_pages - 1})
+        return _R(items[:30], page < total_pages - 1)
     if ftype == 'mp3':
         # Update 72: Music > MP3 — sirf audio songs ('official audio'
         # talash, kai seeds mila kar)
@@ -5812,8 +6226,7 @@ def api_feed():
                     merged.append(it)
             if len(merged) >= 24:
                 break
-        return jsonify({'items': merged[:30], 'page': page,
-                        'has_more': page < total_pages - 1})
+        return _R(merged[:30], page < total_pages - 1)
     if ftype in ('dramas', 'kids'):
         # Update 74: Dramas / Kids chips — generic feed par apna pool,
         # search par wohi lafz + category
@@ -5862,12 +6275,16 @@ def api_feed():
                     merged.append(it)
             if len(merged) >= 24:
                 break
-        return jsonify({'items': merged[:30], 'page': page,
-                        'has_more': page < total_pages - 1})
+        return _R(merged[:30], page < total_pages - 1)
     has_more = page < (total_pages - 1)
     if len(pool) <= 1:
-        items = _feed_search_items(seed_q, 30)
-        return jsonify({'items': items, 'page': page, 'has_more': has_more})
+        if _sort == 'date':
+            items = _dated_search_items(seed_q, 30)
+            if not items:
+                items = _feed_search_items(seed_q, 30)
+        else:
+            items = _feed_search_items(seed_q, 30)
+        return _R(items, has_more)
     # Update 64: MIXED feed — har page 3 alag seeds se round-robin mila
     # kar banta hai, taake ek hi topic ki videos na bharein. Ek channel
     # ki zyada se zyada 4 videos per page, duplicate bilkul nahi.
@@ -5898,7 +6315,7 @@ def api_feed():
         _idx += 1
         if not _progressed:
             break
-    return jsonify({'items': items, 'page': page, 'has_more': has_more})
+    return _R(items, has_more)
 
 
 @app.route('/api/fetch-social-info', methods=['POST'])
@@ -5929,6 +6346,7 @@ def fetch_social_info():
                         "uploader": info.get('uploader', info.get('channel', '')),
                         "platform": platform,
                         "ext": info.get('ext', 'mp4'),
+                        "is_image": str(info.get('ext', '')).lower() in ('jpg', 'jpeg', 'png', 'webp'),
                         "formats_available": len(info.get('formats', [])) if 'formats' in info else 0
                     }
                 })
@@ -5953,6 +6371,19 @@ def download_social_media():
         download_id = f"social_{int(time.time())}_{random.randint(1000, 9999)}"
 
     platform = detect_platform(url)
+
+    # Update 79: social download par bhi wohi shared guest limit
+    if not session.get('user_id'):
+        _gl2 = get_guest_limit()
+        if _gl2 <= 0:
+            return jsonify({'error': 'Login required to download!',
+                            'login_required': True}), 403
+        _soc_guest = _guest_device_id()
+        if _guest_count(_soc_guest) >= _gl2:
+            return jsonify({'error': f'Guest ke {_gl2} free downloads pure ho gaye — ab account banayein!',
+                            'login_required': True, 'guest_limit': True,
+                            'limit': _gl2}), 403
+        guest_pending[download_id] = _soc_guest
 
     download_progress[download_id] = {
         'status': 'starting', 'percent': 0, 'speed': '',
@@ -6021,6 +6452,15 @@ def download_social_in_background(url, format_type, platform, download_id):
                 'no_check_certificate': True, 'prefer_insecure': True,
                 'retries': 6, 'fragment_retries': 6,
             }
+        elif format_type == 'image':
+            ydl_opts = {
+                'format': 'best/best',
+                'outtmpl': os.path.join(SOCIAL_DIR, '%(title)s.%(ext)s'),
+                'quiet': True, 'no_warnings': True, 'noplaylist': True,
+                'progress_hooks': [progress_hook], 'ignoreerrors': True,
+                'no_check_certificate': True, 'prefer_insecure': True,
+                'retries': 3, 'fragment_retries': 3,
+            }
         else:
             ydl_opts = {
                 'format': 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
@@ -6035,6 +6475,7 @@ def download_social_in_background(url, format_type, platform, download_id):
             info = ydl.extract_info(url, download=True)
             if info:
                 title = sanitize_filename(info.get('title', 'video'))
+                _is_image = (format_type == 'image')
 
                 if format_type == 'audio':
                     file_path = os.path.join(SOCIAL_DIR, f"{title}.mp3")
@@ -6057,18 +6498,36 @@ def download_social_in_background(url, format_type, platform, download_id):
                             file_path = os.path.join(
                                 SOCIAL_DIR, video_files[0])
                             title = os.path.splitext(video_files[0])[0]
+                        if not os.path.exists(file_path):
+                            img_files = [f for f in os.listdir(SOCIAL_DIR)
+                                         if f.endswith(('.jpg', '.jpeg',
+                                                        '.png', '.webp'))]
+                            if img_files:
+                                img_files.sort(key=lambda x: os.path.getmtime(
+                                    os.path.join(SOCIAL_DIR, x)), reverse=True)
+                                file_path = os.path.join(
+                                    SOCIAL_DIR, img_files[0])
+                                title = os.path.splitext(img_files[0])[0]
+                                _is_image = True
 
                 if os.path.exists(file_path):
                     file_size = os.path.getsize(file_path)
-                    final_format = 'MP3' if format_type == 'audio' else 'MP4'
+                    final_format = 'MP3' if format_type == 'audio' else (
+                        'IMAGE' if _is_image else 'MP4')
 
                     downloaded_files[download_id] = {
                         'downloadId': download_id, 'videoId': download_id, 'title': title,
-                        'format': final_format, 'quality': 'Best', 'platform': platform,
+                        'format': final_format,
+                        'quality': 'Picture' if _is_image else 'Best',
+                        'platform': platform,
                         'file_path': file_path, 'file_size': file_size,
                         'status': 'completed', 'timestamp': datetime.now().isoformat()
                     }
                     save_downloads_db()
+
+                    _gd = guest_pending.pop(download_id, None)
+                    if _gd:
+                        _guest_inc(_gd)
 
                     download_progress[download_id] = {
                         'status': 'completed', 'percent': 100, 'speed': '',
@@ -6079,6 +6538,10 @@ def download_social_in_background(url, format_type, platform, download_id):
                     raise Exception("Download completed but file not found")
     except Exception as e:
         error_msg = re.sub(r'\x1b\[[0-9;]*m', '', str(e))
+    # Update 79 fix: kamyabi par neeche wala error block NA chale
+    if download_progress.get(download_id, {}).get('status') == 'completed':
+        return
+    guest_pending.pop(download_id, None)
     if 'Unsupported' in error_msg:
         error_msg = 'URL not supported'
     elif 'not found' in error_msg.lower():
@@ -7249,7 +7712,10 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
                                               'percent': _pp.get('percent', 0),
                                               'speed': '', 'error': None}
             return
-        if _is_bot_block(e) and _client_idx < len(_YT_CLIENTS) - 1:
+        if (_is_bot_block(e) or 'timed out' in str(e).lower()
+                or 'urlopen error' in str(e).lower()
+                or 'connection' in str(e).lower()) \
+                and _client_idx < len(_YT_CLIENTS) - 1:
             print(f"[Playza] Bot-block on download {download_id} - retry with client #{_client_idx + 1}")
             download_progress[download_id] = {'status': 'starting', 'percent': 0,
                                               'speed': '', 'error': None}
@@ -7274,12 +7740,13 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
 
     # Bot-block par saare clients fail ho jayein to ek akhri koshish:
     # thodi dair ruk kar pehle client se dobara (Update 41 — fail na ho)
-    if _retry_pass == 0 and ('bot-check' in error_msg or _is_bot_block(error_msg)):
+    if _retry_pass < 2 and ('bot-check' in error_msg or _is_bot_block(error_msg)):
         download_progress[download_id] = {'status': 'starting', 'percent': 0,
                                           'speed': '', 'error': None}
-        time.sleep(15)
+        time.sleep(15 if _retry_pass == 0 else 30)
         return download_in_background(video_id, format_type, quality, download_id,
-                                      user_id, clip_start, clip_end, 0, title_hint, 1)
+                                      user_id, clip_start, clip_end, 0, title_hint,
+                                      _retry_pass + 1)
 
     # Friendly errors
     if not error_msg:
@@ -8606,6 +9073,19 @@ def _load_ai_jobs():
         if _job.get('status') in ('running', 'queued'):
             _job['status'] = 'interrupted'
             _job['note'] = 'Server restart ke waqt ye job chal raha tha'
+    # Update 79: 7 din se purani jobs khud saaf (chat bhi 7 din me saaf hoti hai)
+    try:
+        _cut = time.time() - 7 * 24 * 3600
+        for _jid in list(ai_jobs.keys()):
+            try:
+                _ts = datetime.fromisoformat(
+                    ai_jobs[_jid].get('created_at') or '').timestamp()
+            except Exception:
+                _ts = 0
+            if _ts and _ts < _cut:
+                del ai_jobs[_jid]
+    except Exception:
+        pass
 
 
 _load_ai_jobs()
@@ -8947,6 +9427,8 @@ def _enrich_ai_job(job):
 def _ai_wait_download(download_id, timeout=1800):
     start = time.time()
     while time.time() - start < timeout:
+        if download_control.get(download_id, {}).get('cancel'):
+            return False, {'error': 'Stopped'}
         st = download_progress.get(download_id, {})
         if st.get('status') == 'completed':
             return True, st
@@ -8970,6 +9452,20 @@ def _ai_run_job(job_id):
         episodes = [None] * len(direct_items)
     done = 0
     for idx, ep in enumerate(episodes):
+        with ai_jobs_lock:
+            _stop_all = bool(job.get('stop_all'))
+            _gdev = job.get('guest_device')
+            if _stop_all:
+                job['episodes_status'][idx]['status'] = 'stopped'
+                _save_ai_jobs()
+        if _stop_all:
+            continue
+        if _gdev and _guest_count(_gdev) >= get_guest_limit():
+            with ai_jobs_lock:
+                job['episodes_status'][idx]['status'] = 'stopped'
+                job['episodes_status'][idx]['error'] = 'Guest limit khatam'
+                _save_ai_jobs()
+            continue
         if direct_items:
             query = direct_items[idx]['title']
         elif ep:
@@ -8982,6 +9478,7 @@ def _ai_run_job(job_id):
             _save_ai_jobs()
         ok = False
         last_err = ''
+        _stopped = False
         for attempt in range(1, 4):  # 1 try + up to 2 auto-retries
             if direct_items:
                 vid, vtitle = (direct_items[idx]['video_id'],
@@ -8999,6 +9496,8 @@ def _ai_run_job(job_id):
             dl_id = f"ai_{job_id}_{idx}_{attempt}_{int(time.time())}"
             download_progress[dl_id] = {'status': 'starting', 'percent': 0,
                                         'speed': '', 'error': None}
+            if job.get('guest_device'):
+                guest_pending[dl_id] = job['guest_device']
             th = threading.Thread(target=download_in_background,
                                   args=(vid, parsed['format'], parsed['quality'],
                                         dl_id, None),
@@ -9015,6 +9514,12 @@ def _ai_run_job(job_id):
                 ok = False
                 st = {'error': 'File registry me nahi mili'}
             with ai_jobs_lock:
+                if job['episodes_status'][idx].get('user_stopped') \
+                        or job.get('stop_all'):
+                    _stopped = True
+            if _stopped:
+                break
+            with ai_jobs_lock:
                 job['episodes_status'][idx].update(
                     {'attempts': attempt, 'video_id': vid,
                      'title': vtitle, 'status': 'downloading' if not ok else 'completed',
@@ -9024,9 +9529,13 @@ def _ai_run_job(job_id):
                 break
             last_err = st.get('error') or 'Failed'
         with ai_jobs_lock:
-            job['episodes_status'][idx]['status'] = 'completed' if ok else 'failed'
-            if not ok:
-                job['episodes_status'][idx]['error'] = last_err
+            if _stopped:
+                job['episodes_status'][idx]['status'] = 'stopped'
+                job['episodes_status'][idx].pop('error', None)
+            else:
+                job['episodes_status'][idx]['status'] = 'completed' if ok else 'failed'
+                if not ok:
+                    job['episodes_status'][idx]['error'] = last_err
             if ok:
                 done += 1
             job['completed_count'] = done
@@ -9087,11 +9596,20 @@ def api_ai_command():
                         'ai_disabled': True}), 403
     parsed = ai_parse_command(text)
 
-    # Update 42: play/search sab ke liye khula, lekin AI DOWNLOAD
-    # (jo asal me ek download hai) ke liye account lazmi hai
+    # Update 79: AI par bhi wohi shared guest limit jo har download par
+    # hai — limit baqi ho to bina account ke download hoga; limit khatam
+    # ho tab hi sign-in manga jayega. (Purana "AI = account lazmi" khatam)
+    _ai_guest_device = None
     if parsed['intent'] in ('download', 'playlist') and not session.get('user_id'):
-        return jsonify({'error': 'Download ke liye pehle account banayein / sign in karein',
-                        'login_required': True}), 403
+        _gl = get_guest_limit()
+        if _gl <= 0:
+            return jsonify({'error': 'Download ke liye pehle account banayein / sign in karein',
+                            'login_required': True}), 403
+        _ai_guest_device = _guest_device_id()
+        if _guest_count(_ai_guest_device) >= _gl:
+            return jsonify({'error': f'Guest ke {_gl} free downloads pure ho gaye — ab account banayein!',
+                            'login_required': True, 'guest_limit': True,
+                            'limit': _gl}), 403
 
     # Update 43: AI ko LINK do to search ghumaye baghair seedha download —
     # video link = wohi video, playlist link = poori playlist (pehli 50)
@@ -9123,6 +9641,7 @@ def api_ai_command():
                     'status': 'queued', 'run_at_epoch': time.time(),
                     'created_at': datetime.now().isoformat(),
                     'direct_items': _direct,
+                    'guest_device': _ai_guest_device,
                     'episodes_status': [{'episode': None, 'status': 'pending',
                                          'title': _it['title']} for _it in _direct],
                     'completed_count': 0, 'total_count': len(_direct)}
@@ -9202,6 +9721,7 @@ def api_ai_command():
         'status': 'scheduled' if run_at > time.time() + 5 else 'queued',
         'run_at_epoch': run_at, 'created_at': datetime.now().isoformat(),
         'episodes_status': [{'episode': ep, 'status': 'pending'} for ep in episodes],
+        'guest_device': _ai_guest_device,
         'completed_count': 0, 'total_count': len(episodes)
     }
     with ai_jobs_lock:
@@ -9257,9 +9777,17 @@ def _ocr_pick_title(ocr_text):
 @app.route('/api/ai/image', methods=['POST'])
 def api_ai_image():
     """Update 43: AI ko pic do — title parh kar khud download start."""
+    _img_guest_device = None
     if not session.get('user_id'):
-        return jsonify({'error': 'Download ke liye pehle account banayein / sign in karein',
-                        'login_required': True}), 403
+        _gl = get_guest_limit()
+        if _gl <= 0:
+            return jsonify({'error': 'Download ke liye pehle account banayein / sign in karein',
+                            'login_required': True}), 403
+        _img_guest_device = _guest_device_id()
+        if _guest_count(_img_guest_device) >= _gl:
+            return jsonify({'error': f'Guest ke {_gl} free downloads pure ho gaye — ab account banayein!',
+                            'login_required': True, 'guest_limit': True,
+                            'limit': _gl}), 403
     if not feature_enabled('ai_enabled'):
         return jsonify({'error': 'AI Assistant abhi band hai (admin ne off kiya hai)'}), 403
     data = request.json or {}
@@ -9305,6 +9833,7 @@ def api_ai_image():
            'status': 'queued', 'run_at_epoch': time.time(),
            'created_at': datetime.now().isoformat(),
            'direct_items': [{'video_id': vid, 'title': vtitle}],
+           'guest_device': _img_guest_device,
            'episodes_status': [{'episode': None, 'status': 'pending', 'title': vtitle}],
            'completed_count': 0, 'total_count': 1}
     with ai_jobs_lock:
@@ -9317,6 +9846,56 @@ def api_ai_image():
                     'read_text': cand,
                     'message': (f"🖼 Pic parh li! '{cand}' — video mil gayi: '{vtitle}'. "
                                 f"Download start kar di hai. Job ID: {jid}")})
+
+
+@app.route('/api/ai/jobs/<job_id>/stop-item', methods=['POST'])
+def api_ai_stop_item(job_id):
+    """Update 79: AI list me ek video par tap = sirf wohi ruk jaye."""
+    data = request.json or {}
+    try:
+        idx = int(data.get('index'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'index missing'}), 400
+    dl = None
+    with ai_jobs_lock:
+        job = ai_jobs.get(job_id)
+        if not job:
+            return jsonify({'error': 'Job nahi mila'}), 404
+        eps = job.get('episodes_status') or []
+        if idx < 0 or idx >= len(eps):
+            return jsonify({'error': 'index ghalat'}), 400
+        eps[idx]['user_stopped'] = True
+        if eps[idx].get('status') in ('downloading', 'searching',
+                                      'starting', 'pending'):
+            eps[idx]['status'] = 'stopped'
+        dl = eps[idx].get('download_id')
+        _save_ai_jobs()
+    if dl:
+        download_control[dl] = {'cancel': True}
+    return jsonify({'success': True})
+
+
+@app.route('/api/ai/jobs/<job_id>/stop-all', methods=['POST'])
+def api_ai_stop_all(job_id):
+    """Update 79: 'Sab band' — poori list ki downloads ek sath ruk jayen."""
+    dls = []
+    with ai_jobs_lock:
+        job = ai_jobs.get(job_id)
+        if not job:
+            return jsonify({'error': 'Job nahi mila'}), 404
+        job['stop_all'] = True
+        for es in job.get('episodes_status') or []:
+            if es.get('status') in ('downloading', 'searching', 'starting'):
+                es['user_stopped'] = True
+                es['status'] = 'stopped'
+                if es.get('download_id'):
+                    dls.append(es['download_id'])
+            elif es.get('status') == 'pending':
+                es['status'] = 'stopped'
+        _save_ai_jobs()
+    for dl in dls:
+        download_control[dl] = {'cancel': True}
+    return jsonify({'success': True})
 
 
 @app.route('/api/ai/jobs')
@@ -9355,6 +9934,7 @@ def api_site_config():
         'apk_available': os.path.exists(_apk_file_path()),
         'deals': get_deals(),
         'guest_limit': get_guest_limit(),
+        'version': APP_VERSION,
         'guest_used': (None if session.get('user_id')
                        else _guest_count(_guest_device_id())),
     })
