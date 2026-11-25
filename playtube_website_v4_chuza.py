@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 10  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 11  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1457,7 +1457,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">10</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">11</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -3940,6 +3940,9 @@ def api_feed():
     if ftype == 'shorts' and ('trend' in ql or ql == 'shorts'):
         pool = list(FEED_SHORTS_POOL)
         shorts_pool_mode = True
+    if shorts_pool_mode and interests:
+        # v11: Shorts bhi user ki pasand se — interest topics pehle
+        pool = [i + ' shorts' for i in interests[:3]] + pool
     if ftype == 'naat':
         pool = list(FEED_NAAT_POOL)
     # Update 79: seen-filter (session me dikh chuki dobara nahi),
@@ -4174,6 +4177,17 @@ def api_feed():
                 items = _feed_search_items(seed_q, 30)
         else:
             items = _feed_search_items(seed_q, 30)
+        if _sort != 'date' and q:
+            _ql2 = q.lower()
+            _w2 = [w for w in _ql2.split() if len(w) > 2]
+            def _exact_rank(it):
+                _t = (((it.get('snippet') or {}).get('title') or '').lower())
+                if _ql2 in _t:
+                    return 0
+                if _w2 and all(w in _t for w in _w2):
+                    return 1
+                return 2
+            items = sorted(items, key=_exact_rank)
         return _R(items, has_more)
     # Update 64: MIXED feed — har page 3 alag seeds se round-robin mila
     # kar banta hai, taake ek hi topic ki videos na bharein. Ek channel
@@ -5208,6 +5222,31 @@ def verify_payment(payment_id):
 # YouTube Download routes
 
 
+def _find_duplicate(video_id, format_type, quality):
+    """Wohi video + format (+ quality) pehle se complete ho to entry."""
+    if not video_id:
+        return None
+    _f = (format_type or 'mp4').upper()
+    _q = str(quality or '').lower()
+    for _e in downloaded_files.values():
+        if _e.get('status') != 'completed' or _e.get('videoId') != video_id:
+            continue
+        if (_e.get('format') or '').upper() != _f:
+            continue
+        _eq = str(_e.get('quality') or '').lower()
+        if _f == 'MP4':
+            if _q and _eq and _q != _eq and _q != 'best' and _eq != 'best':
+                continue
+        elif _f in ('MP3', 'M4A'):
+            _d1 = ''.join(c for c in _q if c.isdigit())
+            _d2 = ''.join(c for c in _eq if c.isdigit())
+            if _d1 and _d2 and _d1 != _d2:
+                continue
+        if _e.get('file_path') and os.path.exists(_e['file_path']):
+            return _e
+    return None
+
+
 @app.route('/api/start-download', methods=['POST'])
 def start_download():
     data = request.json or {}
@@ -5231,6 +5270,13 @@ def start_download():
 
     if not video_id:
         return jsonify({"error": "Video ID missing"}), 400
+
+    _dup = _find_duplicate(video_id, format_type, quality)
+    if _dup:
+        return jsonify({'success': True, 'already': True,
+                        'download_id': _dup.get('downloadId'),
+                        'message': 'Ye video is quality mein pehle se '
+                                   'Downloads mein hai'})
 
     # Update 44: bina account ke guest ko admin ki set ki hui tadad
     # (default 10) tak free downloads; ginti sirf COMPLETE hone par
@@ -5566,6 +5612,15 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
                     except Exception:
                         pass
 
+                if file_path and os.path.exists(file_path) \
+                        and os.path.getsize(file_path) <= 0:
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        pass
+                    file_path = None
+                    _dl_error_hint = ('Khali file aayi (0 byte) - '
+                                      'dobara try karein')
                 if file_path and os.path.exists(file_path):
                     file_size = os.path.getsize(file_path)
                     elapsed = max(time.time() - started_at, 0.01)
@@ -5595,7 +5650,8 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
                         'avg_speed_mbps': round(avg_mbps, 2)
                     }
                     return
-                error_msg = 'Download failed - no file produced'
+                error_msg = (_dl_error_hint if '_dl_error_hint' in locals()
+                             else 'Download failed - no file produced')
     except Exception as e:
         if download_control.get(download_id, {}).get('deleted'):
             download_progress.pop(download_id, None)
@@ -7089,9 +7145,9 @@ def ai_parse_command(text):
             parsed['quality'] = '192'
 
     # ---- count (v9): '10 songs / 5 gaane / 3 movies' = utni videos ki list ----
-    cntm = re.search(r'(\d+)\s+(?:(?:new|latest|top|best|mix|mixed|indian|pakistani|hindi|urdu|punjabi|bollywood|old|fresh)\s+){0,3}(songs?|gana|gaane|geet|movies?|films?|videos?|naats?|dramas?|cartoons?)\b', t)
+    cntm = re.search(r'(\d+)\s+(?:(?:new|latest|top|best|mix|mixed|indian|pakistani|hindi|urdu|punjabi|bollywood|old|fresh)\s+){0,3}(songs?|gana|gaane|geet|movies?|films?|videos?|naats?|dramas?|cartoons?|shorts?|reels?|tiktoks?)\b', t)
     if not cntm:
-        cntm = re.search(r'(songs?|movies?|naats?|dramas?|cartoons?)\s+(\d+)\b', t)
+        cntm = re.search(r'(songs?|movies?|naats?|dramas?|cartoons?|shorts?|reels?|tiktoks?)\s+(\d+)\b', t)
         if cntm:
             cntm = (cntm.group(2), cntm.group(1))
     else:
@@ -7103,7 +7159,9 @@ def ai_parse_command(text):
                      'movies': 'movie', 'film': 'movie', 'films': 'movie',
                      'naat': 'naat', 'naats': 'naat', 'drama': 'drama',
                      'dramas': 'drama', 'cartoon': 'cartoon',
-                     'cartoons': 'cartoon'}
+                     'cartoons': 'cartoon', 'short': 'shorts',
+                     'shorts': 'shorts', 'reel': 'shorts', 'reels': 'shorts',
+                     'tiktok': 'shorts', 'tiktoks': 'shorts'}
         if not parsed.get('category'):
             parsed['category'] = _noun2cat.get(cntm[1])
         t = re.sub(r'\b' + re.escape(str(parsed['count'])) + r'\s+(?:new\s+|latest\s+)?' + cntm[1] + r'\b', ' ', t, count=1)
@@ -7146,7 +7204,9 @@ def ai_parse_command(text):
 
     # ---- category / type (Update 40): movie manga to movie hi mile,
     # gana manga to gana — type title se alag pehchano ----
-    if 'naat' in t:
+    if 'tiktok' in t or 'reel' in t or 'shorts' in t:
+        parsed['category'] = 'shorts'
+    elif 'naat' in t:
         parsed['category'] = 'naat'
     elif 'cartoon' in t:
         parsed['category'] = 'cartoon'
@@ -7176,7 +7236,9 @@ def ai_parse_command(text):
     # v9: generic lafz (new/latest/top...) aur akeli language (hindi/urdu)
     # title NAHI bante — ye category/intent hain, naam nahi.
     _GEN = {'new', 'latest', 'top', 'best', 'superhit', 'hit', 'fresh',
-            'naya', 'nayi', 'naye', 'purana', 'purani', 'viral'}
+            'naya', 'nayi', 'naye', 'purana', 'purani', 'viral',
+            'kro', 'karo', 'please', 'chahiye', 'video', 'videos',
+            'aur', 'or'}
     _LANG = {'hindi', 'urdu', 'english', 'punjabi', 'bengali', 'tamil',
              'telugu', 'dubbed'}
     _toks = (parsed.get('title') or '').lower().split()
@@ -7190,6 +7252,8 @@ def ai_parse_command(text):
             _keep.append(_w)
         if len(_keep) < len(_toks):
             parsed['title'] = ' '.join(_keep).title()
+        if _keep and all(_w.isdigit() for _w in _keep):
+            parsed['title'] = ''
     if parsed.get('title') and parsed.get('category'):
         _lt = parsed['title'].lower().split()
         if _lt and all(_w in _LANG for _w in _lt):
@@ -7227,10 +7291,20 @@ def _ai_pick_entry(parsed):
     cat = parsed.get('category')
     cat_word = {'movie': 'movie', 'song': 'song', 'naat': 'naat',
                 'drama': 'drama', 'cartoon': 'cartoon',
-                'bayan': 'bayan'}.get(cat or '', '')
+                'bayan': 'bayan', 'shorts': 'shorts'}.get(cat or '', '')
     query = title
     if cat_word and cat_word not in title.lower():
         query = (title + ' ' + cat_word).strip()
+    if (parsed.get('category') or '') == 'shorts':
+        for _it in _shorts_feed_items(query, 12):
+            _vid = (_it.get('id') or {}).get('videoId')
+            if _vid:
+                _sn = _it.get('snippet') or {}
+                return _vid, (_sn.get('title') or ''), {
+                    'channel': _sn.get('channelTitle') or '',
+                    'duration': _it.get('duration'),
+                    'view_count': _it.get('view_count')}
+        return None, None, None
     try:
         info = _extract_with_clients(
             f"ytsearch12:{query}",
@@ -7483,6 +7557,18 @@ def _ai_run_job(job_id, only_idx=None):
             if not vid:
                 last_err = 'Search me sahi video nahi mili — naam thoda aur saaf likh kar try karein'
                 continue
+            _dup = _find_duplicate(vid, parsed['format'],
+                                   parsed.get('quality'))
+            if _dup:
+                with ai_jobs_lock:
+                    job['episodes_status'][idx].update(
+                        {'video_id': vid, 'title': vtitle,
+                         'status': 'completed',
+                         'file_path': _dup.get('file_path'),
+                         'note': 'Pehle se downloaded tha'})
+                    _save_ai_jobs()
+                ok = True
+                break
             dl_id = f"ai_{job_id}_{idx}_{attempt}_{int(time.time())}"
             download_progress[dl_id] = {'status': 'starting', 'percent': 0,
                                         'speed': '', 'error': None}
@@ -7573,6 +7659,31 @@ def _ai_start_scheduler():
 
 
 _ai_start_scheduler()
+
+
+_AI_CTX_FILE = os.path.join(DATA_DIR, 'ai_context.json')
+
+
+def _ai_ctx_get(key):
+    try:
+        with open(_AI_CTX_FILE, encoding='utf-8') as _f:
+            return (json.load(_f) or {}).get(key) or {}
+    except Exception:
+        return {}
+
+
+def _ai_ctx_set(key, ctx):
+    try:
+        try:
+            with open(_AI_CTX_FILE, encoding='utf-8') as _f:
+                _all = json.load(_f) or {}
+        except Exception:
+            _all = {}
+        _all[key] = ctx
+        with open(_AI_CTX_FILE, 'w', encoding='utf-8') as _f:
+            json.dump(_all, _f)
+    except Exception:
+        pass
 
 
 @app.route('/api/ai/command', methods=['POST'])
@@ -7710,31 +7821,75 @@ def api_ai_command():
         parsed['intent'] = 'download'
 
 
+    # v11: follow-up context — "50 kro", "aur 20", "720p mein karo"
+    # pichle topic par hi lagein, nayi search na bane.
+    _ai_key = (f"u{session.get('user_id')}" if session.get('user_id')
+               else _guest_device_id())
+    _ctx = _ai_ctx_get(_ai_key)
+    if _ctx and parsed.get('intent') == 'download' \
+            and not parsed.get('episodes') and not parsed.get('schedule') \
+            and not _urlm:
+        _fill = {'kro', 'karo', 'kar', 'do', 'download', 'aur', 'or',
+                 'please', 'ab', 'phir', 'mein', 'me', 'bhi', 'toh',
+                 'song', 'songs', 'gana', 'gaane', 'geet', 'movie',
+                 'movies', 'film', 'films', 'video', 'videos', 'naat',
+                 'naats', 'drama', 'dramas', 'cartoon', 'cartoons',
+                 'short', 'shorts', 'reel', 'reels', 'tiktok', 'tiktoks',
+                 'mp3', 'mp4', '3gp'}
+        _toks = re.findall(r'[a-z0-9]+', text.lower())
+        _rest = [w for w in _toks if w not in _fill and not w.isdigit()
+                 and not re.fullmatch(r'\d{3,4}p', w)]
+        if not _rest and len(_toks) <= 6:
+            _nums = [w for w in _toks if w.isdigit()]
+            if _nums:
+                parsed['count'] = max(1, min(100, int(_nums[0])))
+            elif not parsed.get('count'):
+                parsed['count'] = _ctx.get('count')
+            if not parsed.get('title') or parsed.get('title') == 'Video':
+                parsed['title'] = _ctx.get('title') or parsed.get('title')
+            if not parsed.get('category'):
+                parsed['category'] = _ctx.get('category')
+            if _ctx.get('quality') and not re.search(
+                    r'\d{3,4}p|3gp', text.lower()):
+                parsed['quality'] = _ctx['quality']
+            if _ctx.get('format'):
+                parsed['format'] = _ctx['format']
+
     # v9: count / category-only requests — seedhi list (direct items).
     if parsed['intent'] == 'download' and parsed.get('category') \
             and (parsed.get('count') or not parsed.get('title')):
         _catw = {'movie': 'full movie', 'song': 'song', 'naat': 'naat',
                  'drama': 'drama episode', 'cartoon': 'cartoon episode',
-                 'bayan': 'bayan'}.get(parsed['category'], 'video')
+                 'bayan': 'bayan', 'shorts': 'shorts'}.get(parsed['category'], 'video')
         _q = ' '.join(x for x in [parsed.get('lang') or '',
                                   parsed.get('title') or '', _catw,
                                   'new latest'] if x).strip()
         _want = parsed.get('count') or 10
         _items = []
-        try:
-            _info = _extract_with_clients(
-                f"ytsearch{max(_want, 10)}:{_q}",
-                {'quiet': True, 'no_warnings': True,
-                 'no_check_certificate': True, 'extract_flat': True,
-                 'skip_download': True, 'ignoreerrors': True})
-            for _e in (_info or {}).get('entries') or []:
-                if _e and _e.get('id'):
-                    _items.append({'video_id': _e['id'],
-                                   'title': _e.get('title', _q)})
+        if parsed.get('category') == 'shorts':
+            for _e in _shorts_feed_items(_q, _want):
+                _vid = (_e.get('id') or {}).get('videoId')
+                if _vid:
+                    _items.append({'video_id': _vid,
+                                   'title': ((_e.get('snippet') or {})
+                                             .get('title') or _q)})
                 if len(_items) >= _want:
                     break
-        except Exception:
-            _items = []
+        else:
+            try:
+                _info = _extract_with_clients(
+                    f"ytsearch{max(_want, 10)}:{_q}",
+                    {'quiet': True, 'no_warnings': True,
+                     'no_check_certificate': True, 'extract_flat': True,
+                     'skip_download': True, 'ignoreerrors': True})
+                for _e in (_info or {}).get('entries') or []:
+                    if _e and _e.get('id'):
+                        _items.append({'video_id': _e['id'],
+                                       'title': _e.get('title', _q)})
+                    if len(_items) >= _want:
+                        break
+            except Exception:
+                _items = []
         if _items:
             _dd = set()
             _items = [x for x in _items
@@ -7757,6 +7912,7 @@ def api_ai_command():
         _th = threading.Thread(target=_ai_run_job, args=(_jid,))
         _th.daemon = True
         _th.start()
+        _ai_ctx_set(_ai_key, {'title': parsed.get('title') or '', 'category': parsed.get('category'), 'quality': parsed.get('quality'), 'format': parsed.get('format'), 'count': parsed.get('count')})
         return jsonify({'success': True, 'intent': 'download',
                         'job_id': _jid, 'parsed': parsed,
                         'message': (f"🎵 '{_q}' ki {len(_items)} videos download start kar di hain. "
@@ -7786,6 +7942,7 @@ def api_ai_command():
             _th = threading.Thread(target=_ai_run_job, args=(_jid,))
             _th.daemon = True
             _th.start()
+            _ai_ctx_set(_ai_key, {'title': parsed.get('title') or '', 'category': parsed.get('category'), 'quality': parsed.get('quality'), 'format': parsed.get('format'), 'count': parsed.get('count')})
             _entry = _entry or {}
             _ch = _entry.get('channel') or _entry.get('uploader') or ''
             _dur = int(_entry.get('duration') or 0)
@@ -7845,6 +8002,7 @@ def api_ai_command():
     msg = (f"🤖 Samajh gaya! '{parsed['title']}' ki {ep_text} "
            f"{q_text} me download {'schedule kar di hai (' + when_text + ')' if job['status'] == 'scheduled' else 'start kar di hai'}. "
            f"Background me one by one chalti rahe gi. Job ID: {job_id}")
+    _ai_ctx_set(_ai_key, {'title': parsed.get('title') or '', 'category': parsed.get('category'), 'quality': parsed.get('quality'), 'format': parsed.get('format'), 'count': parsed.get('count')})
     return jsonify({'success': True, 'intent': 'download', 'job_id': job_id,
                     'parsed': parsed, 'message': msg})
 
