@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 21  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 22  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1105,10 +1105,10 @@ HTML = '''
   }
   .v4-announce{background:linear-gradient(135deg,rgba(124,92,255,.25),rgba(20,184,166,.18));border:1px solid var(--v4violet);border-radius:12px;padding:10px 12px;font-size:13px;margin-bottom:12px;display:none}
   /* sheet + modal */
-  .v4-wrap{position:fixed;inset:0;z-index:200;display:none}
+  .v4-wrap{position:fixed;inset:0;z-index:200;display:none;background:rgba(3,2,8,.9)}
   .v4-wrap.open{display:block}
   .v4-overlay{position:absolute;inset:0;background:rgba(4,2,16,.86)}
-  .v4-sheet{position:absolute;left:0;right:0;bottom:0;max-height:84vh;overflow-y:auto;overscroll-behavior:contain;background:#0b0916;border-radius:18px 18px 0 0;padding:14px 16px 18px;max-width:560px;margin:0 auto;border:1px solid var(--v4border)}
+  .v4-sheet{position:absolute;left:0;right:0;bottom:0;min-height:44vh;max-height:84vh;overflow-y:auto;overscroll-behavior:contain;background:#0b0916;border-radius:18px 18px 0 0;padding:14px 16px 18px;max-width:560px;margin:0 auto;border:1px solid var(--v4border)}
   .v4-modalpanel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:92%;max-width:420px;max-height:88vh;overflow-y:auto;background:var(--v4bg);border:1px solid var(--v4border);border-radius:16px;padding:18px 16px}
   .v4-fmtrow{display:flex;align-items:center;gap:11px;padding:11px 10px;cursor:pointer;border-radius:12px;border-left:4px solid transparent;margin:2px 0}
   .v4-fmtrow.sel{background:linear-gradient(90deg,rgba(124,92,255,.30),rgba(20,184,166,.20));border-left:4px solid var(--v4teal)}
@@ -1457,7 +1457,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">21</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">22</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -1470,14 +1470,14 @@ HTML = '''
     <section id="v4-view-watch" class="v4-view">
       <button class="v4-btn2" onclick="v4Back()">← Back</button>
       <div class="v4-frame" id="v4-frame"><div class="v4-framein">
-        <video id="v4-frame-video" controls playsinline style="position:absolute;inset:0;width:100%;height:100%;background:#000"></video>
-        <div id="v4-frame-fail" style="display:none;position:absolute;inset:0;background:rgba(5,4,12,.9);color:#fff;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px;z-index:3"><div style="font-size:15px;font-weight:700">Video nahi chal saki 😕</div><div style="color:#a49ec4;font-size:12.5px">Net slow ho sakta hai, ya server is waqt busy hai — dobara try karein.</div><button class="v4-btn2" onclick="v4FrameRetry()">↻ Dobara try karein</button><a id="v4-frame-yt2" href="#" target="_blank" rel="noopener" style="color:var(--v4teal);font-size:12.5px">YouTube par kholein ↗</a></div>
+        <iframe id="v4-player" src="about:blank" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>
         <div class="v4-fbadge">▶ Playza</div>
         <div class="v4-fbadge" style="left:auto;right:10px">HD</div>
       </div></div>
       <div class="v4-h" id="v4-watch-title" style="margin-top:12px"></div>
       <p class="v4-muted" id="v4-watch-channel"></p>
       <div style="display:flex;gap:8px;align-items:stretch;margin-top:10px"><button class="v4-bigbtn" style="flex:1;margin:0" onclick="v4WatchDownload()">⬇ Download</button><button class="v4-iconbtn" id="v4-watch-fav" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchFav()">♡</button><button class="v4-iconbtn" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchShare()">↗</button></div>
+      <div id="v4-frame-note" class="v4-muted" style="display:none;margin-top:10px">Agar video 15 second mein na chale to net slow hai, ya is video ko bahir chalana band hai. <a id="v4-frame-yt" href="#" target="_blank" rel="noopener" style="color:var(--v4teal)">YouTube par kholein ↗</a> <button id="v4-frame-native" class="v4-btn2" style="display:none;margin-left:8px" onclick="v4NativePlay()">📱 Phone se play karein</button></div>
       <div class="v4-h" style="margin-top:18px">Related Videos</div>
       <div id="v4-related" class="v4-feedgrid"></div>
     </section>
@@ -1495,6 +1495,7 @@ HTML = '''
         <button class="v4-searchbtn" type="button"><i class="fa-solid fa-magnifying-glass"></i></button>
       </div>
       <div id="v4-dl-stats" class="v4-dlstats" style="display:none"></div>
+      <div id="v4-phone-dl"></div>
       <div class="v4-sect">DOWNLOADING <span id="v4-dl-actcount"></span></div>
       <div id="v4-dl-active"><p class="v4-muted">Koi download nahi chal raha</p></div>
       <div class="v4-sect">DOWNLOADED</div>
@@ -1826,7 +1827,7 @@ function v4Show(view){
   document.querySelectorAll('#v4-toptabs button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tt') === (V4_TTMAP[view] || '')); });
   document.querySelectorAll('#v4-bottomnav button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-bn') === (V4_BNMAP[view] || '')); });
   window.scrollTo(0, 0);
-  if(view === 'downloads') v4LoadDownloads();
+  if(view === 'downloads'){ v4LoadDownloads(); try{ v4PhoneDlRender(); v4PhonePollStart(); }catch(e){} } else v4PhonePollStop();
   if(view === 'ai') v4RenderAiChips();
   if(view === 'private') v4RenderPrivate();
   if(view === 'compress') v4RenderCompress();
@@ -2048,73 +2049,29 @@ function v4WatchClick(id){
 let v4FrameId = '';
 function v4FrameSetup(id){
   v4FrameId = id;
-  window._v4fTry = 0;
-  const lk = v4$('v4-frame-yt2');
-  if(lk) lk.href = 'https://www.youtube.com/watch?v=' + id;
-  v4FrameUseOwn();
+  const fr = v4$('v4-player');
+  if(fr) fr.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1&modestbranding=1&enablejsapi=1';
+  const note = v4$('v4-frame-note');
+  if(note){ note.style.display = 'none'; const lk = v4$('v4-frame-yt'); if(lk) lk.href = 'https://www.youtube.com/watch?v=' + id; const nb = v4$('v4-frame-native'); if(nb) nb.style.display = v4NativeMode() ? '' : 'none'; }
+  if(window._v4ft) clearTimeout(window._v4ft);
+  if(fr) fr.onload = function(){ if(window._v4ft){ clearTimeout(window._v4ft); window._v4ft = null; } };
+  window._v4ft = setTimeout(function(){ const n2 = v4$('v4-frame-note'); if(n2 && v4FrameId === id) n2.style.display = ''; }, 15000);
   const fb = v4$('v4-watch-fav');
   if(fb){ let favs = []; try{ favs = JSON.parse(localStorage.getItem('pt_favs') || '[]'); }catch(e){} fb.textContent = favs.some(function(f){ return f.id === id; }) ? '♥' : '♡'; }
 }
-function v4FrameHideFail(){ const f = v4$('v4-frame-fail'); if(f) f.style.display = 'none'; }
-function v4FrameUseOwn(){
-  if(!v4FrameId) return;
-  v4FrameHideFail();
-  const vid = v4$('v4-frame-video'); if(!vid) return;
-  vid.onerror = function(){ if(v4FrameId) v4FrameOwnFail(); };
-  vid.onplaying = function(){ v4FrameHideFail(); if(window._v4fwd) clearTimeout(window._v4fwd); };
-  if(v4NativeMode() && window.PlayTubeApp && PlayTubeApp.nativePlay){
-    window._v4npWait = true; window._v4npTarget = 'frame';
-    try{ PlayTubeApp.nativePlay(v4FrameId); }catch(e){ window._v4npWait = false; v4FrameOwnFail(); return; }
-    setTimeout(function(){ if(window._v4npWait && window._v4npTarget === 'frame'){ window._v4npWait = false; v4FrameOwnFail(); } }, 45000);
-  } else {
-    vid.src = '/api/stream/' + v4FrameId;
-    const p = vid.play(); if(p && p.catch) p.catch(function(){});
-    v4FrameWatchdog();
-  }
-}
-function v4FrameWatchdog(){
-  if(window._v4fwd) clearTimeout(window._v4fwd);
-  window._v4fwd = setTimeout(function(){
-    const vid = v4$('v4-frame-video');
-    if(v4FrameId && vid && vid.readyState < 2) v4FrameOwnFail();
-  }, 15000);
-}
-function v4FrameOwnFail(){
-  if(!v4FrameId) return;
-  window._v4fTry = (window._v4fTry || 0) + 1;
-  if(window._v4fTry <= 3){
-    const _id = v4FrameId;
-    setTimeout(function(){ if(v4FrameId === _id) v4FrameUseOwn(); }, 900);
-    return;
-  }
-  const vid = v4$('v4-frame-video');
-  if(vid){ try{ vid.pause(); }catch(e){} }
-  const f = v4$('v4-frame-fail'); if(f) f.style.display = 'flex';
-}
-function v4FrameRetry(){ window._v4fTry = 0; v4FrameUseOwn(); }
 function v4FrameStop(){
-  v4FrameId = '';
-  const vid = v4$('v4-frame-video');
-  if(vid){ try{ vid.pause(); vid.removeAttribute('src'); vid.load(); }catch(e){} }
-  if(window._v4fwd) clearTimeout(window._v4fwd);
-  window._v4npTarget = '';
-  v4FrameHideFail();
+  const fr = v4$('v4-player');
+  if(fr && v4FrameId){ fr.src = 'about:blank'; v4FrameId = ''; }
 }
 function v4NativePlay(){
-  if(v4FrameId) v4FrameUseOwn();
+  if(!v4FrameId || !v4NativeMode() || !PlayTubeApp.nativePlay){ v4Toast('Ye option sirf naye APK (v2.1+) mein hai'); return; }
+  v4Toast('Phone se video load ho rahi hai...');
+  window._v4npWait = true;
+  try{ PlayTubeApp.nativePlay(v4FrameId); }catch(e){ window._v4npWait = false; v4Toast('Phone se play nahi ho saka'); return; }
+  setTimeout(function(){ if(window._v4npWait){ window._v4npWait = false; v4Toast('Phone se stream nahi mili — net check karke dobara try karein'); } }, 45000);
 }
 function v4NativePlayResult(url){
   window._v4npWait = false;
-  if(window._v4npTarget === 'frame'){
-    window._v4npTarget = '';
-    if(!url){ v4FrameOwnFail(); return; }
-    const fv = v4$('v4-frame-video'); if(!fv) return;
-    fv.style.display = '';
-    fv.src = url;
-    const fp = fv.play(); if(fp && fp.catch) fp.catch(function(){});
-    v4FrameWatchdog();
-    return;
-  }
   if(!url){ v4Toast('Phone se stream nahi mili'); return; }
   const vid = v4$('v4-filevideo'); if(!vid) return;
   v4$('v4-player-title').textContent = (v4Current && v4Current.title) || '';
@@ -2360,6 +2317,35 @@ async function v4StartDownload(params){
 }
 
 /* ---------- downloads view (unified registry — Bug #3/#9) ---------- */
+function v4PhonePollStart(){ v4PhonePollStop(); window._v4phPoll = setInterval(function(){ try{ v4PhoneDlRender(); }catch(e){} }, 2500); }
+function v4PhonePollStop(){ if(window._v4phPoll){ clearInterval(window._v4phPoll); window._v4phPoll = null; } }
+function v4PhoneDlRender(){
+  const box = v4$('v4-phone-dl'); if(!box) return;
+  let live = [];
+  if(v4NativeMode() && window.PlayTubeApp && PlayTubeApp.phoneDlState){
+    try{ live = JSON.parse(PlayTubeApp.phoneDlState() || '[]'); }catch(e){}
+  }
+  let stored = []; try{ stored = JSON.parse(localStorage.getItem('pt_phone_dl') || '[]'); }catch(e){}
+  let changed = false;
+  live.forEach(function(p){
+    if(p.status === 'done'){
+      const k = (p.title || '') + '|' + (p.quality || '');
+      if(!stored.some(function(s){ return ((s.title || '') + '|' + (s.quality || '')) === k; })){ stored.unshift({title: p.title || '', quality: p.quality || '', ts: Date.now()}); changed = true; }
+    }
+  });
+  if(changed){ try{ localStorage.setItem('pt_phone_dl', JSON.stringify(stored.slice(0, 50))); }catch(e){} }
+  const liveKeys = {}; live.forEach(function(p){ liveKeys[(p.title || '') + '|' + (p.quality || '')] = 1; });
+  const running = live.filter(function(p){ return p.status === 'running'; });
+  const failed = live.filter(function(p){ return p.status === 'failed'; });
+  let html = '';
+  if(running.length || failed.length || stored.length){
+    html += '<div class="v4-sect">📱 PHONE PAR DOWNLOADS</div>';
+    running.forEach(function(p){ html += '<div class="v4-dlrow"><span style="width:64px;text-align:center;font-size:22px">📱</span><div class="tt"><div class="t1">' + v4Esc(p.title || '') + '</div><div class="v4-bar"><i style="width:' + (p.percent || 0) + '%"></i></div><div class="t2">Phone par download ho raha hai — ' + (p.percent || 0) + '%' + (p.quality ? ' • ' + v4Esc(p.quality) : '') + '</div></div></div>'; });
+    failed.forEach(function(p){ html += '<div class="v4-dlrow"><span style="width:64px;text-align:center;font-size:22px">📱</span><div class="tt"><div class="t1">' + v4Esc(p.title || '') + '</div><div class="t2" style="color:var(--v4danger)">Phone download fail ho gaya — sheet se dobara try karein</div></div></div>'; });
+    stored.forEach(function(s){ if(liveKeys[(s.title || '') + '|' + (s.quality || '')]) return; html += '<div class="v4-dlrow"><span style="width:64px;text-align:center;font-size:22px">📱</span><div class="tt"><div class="t1">' + v4Esc(s.title || '') + '</div><div class="t2">✓ Phone ke Playza folder mein hai' + (s.quality ? ' • ' + v4Esc(s.quality) : '') + '</div></div></div>'; });
+  }
+  box.innerHTML = html;
+}
 async function v4LoadDownloads(){
   try{
     const res = await Promise.all([v4Fetch('/api/download-progress'), v4Fetch('/api/downloads-list')]);
