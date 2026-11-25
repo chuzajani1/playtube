@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 12  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 13  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1457,7 +1457,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">12</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">13</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -1477,6 +1477,7 @@ HTML = '''
       <div class="v4-h" id="v4-watch-title" style="margin-top:12px"></div>
       <p class="v4-muted" id="v4-watch-channel"></p>
       <div style="display:flex;gap:8px;align-items:stretch;margin-top:10px"><button class="v4-bigbtn" style="flex:1;margin:0" onclick="v4WatchDownload()">⬇ Download</button><button class="v4-iconbtn" id="v4-watch-fav" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchFav()">♡</button><button class="v4-iconbtn" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchShare()">↗</button></div>
+      <div id="v4-frame-note" class="v4-muted" style="display:none;margin-top:10px">Agar video 15 second mein na chale to net slow hai, ya is video ko bahir chalana band hai. <a id="v4-frame-yt" href="#" target="_blank" rel="noopener" style="color:var(--v4teal)">YouTube par kholein ↗</a></div>
       <div class="v4-h" style="margin-top:18px">Related Videos</div>
       <div id="v4-related" class="v4-feedgrid"></div>
     </section>
@@ -1881,10 +1882,35 @@ function v4CardHTML(v){
     '<div class=\"v4-vrow\"><div class=\"v4-vtexts\" data-id=\"' + v.videoId + '\" onclick=\"' + tap + '(this.dataset.id)\"><div class=\"v4-vtitle\">' + v4Esc(v.title) + '</div>' + (meta ? '<div class=\"v4-vmeta\">' + meta + '</div>' : '') + '</div>' +
     '<button class=\"v4-dlbtn\" title=\"Download\" data-id=\"' + v.videoId + '\" onclick=\"' + (v4AudioCards ? 'v4SheetAudio' : 'v4DlClick') + '(event, this.dataset.id)\">' + (v4AudioCards ? '🎵' : '↓') + '</button></div></div>';
 }
+const v4StripRaw = {};
+let v4ShortsSeedItems = null, v4ShortsSeedStart = '';
+function v4OpenShortFromStrip(el){
+  const id = el.getAttribute('data-id'); if(!id) return;
+  const track0 = el.closest('.v4-srow-track');
+  const items = [];
+  if(track0){ track0.querySelectorAll('.v4-scard').forEach(function(c){ const cid = c.getAttribute('data-id'); if(cid && v4StripRaw[cid]) items.push(v4StripRaw[cid]); }); }
+  if(!items.length && v4StripRaw[id]) items.push(v4StripRaw[id]);
+  v4ShortsSeedItems = items; v4ShortsSeedStart = id;
+  v4OpenShorts(v4SearchState.q || '');
+  const track = v4$('v4-shorts-track');
+  if(track && v4ShortsSeedItems){
+    v4ShortsSeedItems.forEach(function(it){
+      if(!it.id || !it.id.videoId) return;
+      v4ShortsItems[it.id.videoId] = it;
+      if(track.querySelector('[data-vid="' + it.id.videoId + '"]')) return;
+      const div = document.createElement('div'); div.innerHTML = v4ShortCard(it);
+      const sec = div.firstChild; track.appendChild(sec);
+      if(v4ShortsObs) v4ShortsObs.observe(sec);
+    });
+    const sec0 = track.querySelector('[data-vid="' + v4ShortsSeedStart + '"]');
+    if(sec0){ track.scrollTop = sec0.offsetTop; v4ShortActivate(sec0); }
+  }
+  v4ShortsSeedItems = null;
+}
 function v4ShortStripHTML(items){
   if(!items || !items.length) return '';
   let h = '<div class="v4-srow"><div class="v4-srow-h">⚡ Shorts</div><div class="v4-srow-track">';
-  items.forEach(function(it){ const v = v4Norm(it); if(!v.videoId) return; v4Videos[v.videoId] = v; h += '<div class="v4-scard" data-id="' + v.videoId + '" onclick="v4OpenShorts()"><div class="im"><img loading="lazy" src="https://i.ytimg.com/vi/' + v.videoId + '/hqdefault.jpg" alt="">' + (v.duration ? '<span class="du">' + v4Dur(v.duration) + '</span>' : '') + '</div><div class="ti">' + v4Esc(v.title) + '</div><div class="vw">' + v4Views(v.views) + '</div></div>'; });
+  items.forEach(function(it){ const v = v4Norm(it); if(!v.videoId) return; v4Videos[v.videoId] = v; v4StripRaw[v.videoId] = it; h += '<div class="v4-scard" data-id="' + v.videoId + '" onclick="v4OpenShortFromStrip(this)"><div class="im"><img loading="lazy" src="https://i.ytimg.com/vi/' + v.videoId + '/hqdefault.jpg" alt="">' + (v.duration ? '<span class="du">' + v4Dur(v.duration) + '</span>' : '') + '</div><div class="ti">' + v4Esc(v.title) + '</div><div class="vw">' + v4Views(v.views) + '</div></div>'; });
   return h + '</div></div>';
 }
 function v4RenderCards(elId, items){
@@ -2001,6 +2027,11 @@ function v4FrameSetup(id){
   v4FrameId = id;
   const fr = v4$('v4-player');
   if(fr) fr.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1&modestbranding=1&enablejsapi=1';
+  const note = v4$('v4-frame-note');
+  if(note){ note.style.display = 'none'; const lk = v4$('v4-frame-yt'); if(lk) lk.href = 'https://www.youtube.com/watch?v=' + id; }
+  if(window._v4ft) clearTimeout(window._v4ft);
+  if(fr) fr.onload = function(){ if(window._v4ft){ clearTimeout(window._v4ft); window._v4ft = null; } };
+  window._v4ft = setTimeout(function(){ const n2 = v4$('v4-frame-note'); if(n2 && v4FrameId === id) n2.style.display = ''; }, 15000);
   const fb = v4$('v4-watch-fav');
   if(fb){ let favs = []; try{ favs = JSON.parse(localStorage.getItem('pt_favs') || '[]'); }catch(e){} fb.textContent = favs.some(function(f){ return f.id === id; }) ? '♥' : '♡'; }
 }
@@ -2049,13 +2080,13 @@ function v4ShortActivate(sec){
   if(vid) v4SeenAdd([vid]);
   const _sit = v4ShortsItems[vid]; if(_sit && _sit.snippet && _sit.snippet.title) v4InterestAdd(_sit.snippet.title.replace(/[^a-zA-Z0-9 ]/g, ' ').split(/\s+/).filter(function(w){ return w.length > 2; }).slice(0, 3).join(' '), 1);
   if(sec.querySelector('video')) return;
-  const spin = sec.querySelector('.v4-short-spin'); if(spin) spin.style.display = 'flex';
+  const spin = sec.querySelector('.v4-short-spin'); if(spin){ if(spin.dataset.fail){ spin.innerHTML = ''; delete spin.dataset.fail; } spin.style.display = 'flex'; }
   const v = document.createElement('video');
   v.setAttribute('playsinline', ''); v.loop = true; v.muted = v4ShortsMuted;
   v.poster = 'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg';
   v.src = '/api/stream/' + vid;
   let retried = 0;
-  const retry = function(){ if(retried >= 2 || !sec.contains(v)) return; retried++; if(spin) spin.style.display = 'flex'; v.src = '/api/stream/' + vid + '?retry=' + retried; const p2 = v.play(); if(p2 && p2.catch) p2.catch(function(){}); };
+  const retry = function(){ if(!sec.contains(v)) return; if(retried >= 2){ if(spin && !spin.dataset.fail){ spin.dataset.fail = '1'; spin.innerHTML = '<span style="color:#fff;font-size:13px;text-align:center;padding:0 22px;line-height:1.6;display:block">⚠ Ye short abhi load nahi ho raha<br>agla short dekhein</span>'; spin.style.display = 'flex'; } return; } retried++; if(spin) spin.style.display = 'flex'; v.src = '/api/stream/' + vid + '?retry=' + retried; const p2 = v.play(); if(p2 && p2.catch) p2.catch(function(){}); };
   const wd = setTimeout(function(){ if(v.readyState < 3 && sec.contains(v)) retry(); }, 7000);
   v.addEventListener('playing', function(){ clearTimeout(wd); if(spin) spin.style.display = 'none'; const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none'; });
   v.addEventListener('error', function(){ retry(); });
@@ -2176,6 +2207,7 @@ function v4FmtHint(f){
   const h = {'3GP':'Sab se chhoti file, sab se tez','144p':'Bohat halki quality','240p':'Halki file, jaldi download','360p':'Normal saaf quality','480p':'Achi quality, darmiyani size','720p HD':'Bilkul saaf HD quality','1080p HD':'Full HD, bari screen ke liye','1440p (2K)':'2K, bohat saaf','2160p (4K)':'4K, sab se best quality','4320p (8K)':'8K, sab se best quality'};
   return h[f.label] || '';
 }
+function v4FriendlyErr(e){ const s = String(e || ''); if(/sign in to confirm|not a bot|bot-check/i.test(s)) return 'YouTube ne server ko kuch der ke liye roka hai — ye rukawat khud khatam ho jati hai, 10-15 minute baad dobara try karein'; if(/timed out|timeout|network|failed to fetch/i.test(s)) return 'Network masla — net check karke dobara try karein'; return s; }
 async function v4OpenSheet(id, audioOnly){
   const v = v4Videos[id] || {videoId:id, title:'', channel:''};
   v4Sheet = {id:id, sel:null, audioOnly: !!audioOnly};
@@ -2194,7 +2226,7 @@ async function v4OpenSheet(id, audioOnly){
   else { btn.disabled = false; btn.textContent = 'Download'; }
   const r = await v4Fetch('/api/formats/' + id);
   const list = v4$('v4-sheet-list');
-  if(!r.ok || !r.data || r.data.error){ list.innerHTML = '<p class="v4-muted">Formats nahi mil sake: ' + v4Esc((r.data && r.data.error) || 'error') + '</p>'; return; }
+  if(!r.ok || !r.data || r.data.error){ list.innerHTML = '<p class="v4-muted">Formats nahi mil sake: ' + v4Esc(v4FriendlyErr((r.data && r.data.error) || 'error')) + '</p>'; return; }
   const d = r.data;
   if(d.title) v4$('v4-sheet-title').textContent = d.title;
   if(d.channel) v4$('v4-sheet-channel').textContent = d.channel;
@@ -2226,7 +2258,7 @@ async function v4StartDownload(params){
   const d = r.data || {};
   if(d.login_required){ v4Pending = {type:'start', params:params}; v4CloseSheet(); v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); return; }
   if(d.premium_required){ v4CloseSheet(); v4Toast('HD quality ke liye Premium chahiye'); v4Show('premium'); return; }
-  v4Toast(d.error || 'Download start nahi ho saka');
+  v4Toast(v4FriendlyErr(d.error) || 'Download start nahi ho saka');
 }
 
 /* ---------- downloads view (unified registry — Bug #3/#9) ---------- */
@@ -2662,14 +2694,23 @@ function v4AiRetryItem(el){
     else v4Toast((r.data && r.data.error) || 'Retry nahi ho saka');
   });
 }
+function v4AiDeleteItem(el){
+  const jid = el.getAttribute('data-job'); const idx = el.getAttribute('data-idx');
+  v4Post('/api/ai/jobs/' + jid + '/delete-item', {index:Number(idx)}).then(function(r){
+    if(r.ok && r.data && r.data.success){ v4Toast('Delete ho gaya'); v4Fetch('/api/ai/jobs/' + jid).then(function(rr){ if(rr.ok && rr.data && rr.data.job) v4RenderJob(jid, rr.data.job); }); v4LoadDownloads(); }
+    else v4Toast((r.data && r.data.error) || 'Delete nahi ho saka');
+  });
+}
 function v4RenderJob(jobId, job){
   const holder = v4$('v4-job-' + jobId); if(!holder) return;
   const eps = job.episodes_status || [];
-  if(!eps.length){ holder.innerHTML = ''; return; }
-  const total = job.total_count || eps.length;
-  const done = job.completed_count || 0;
+  const vis = eps.filter(function(e){ return e.status !== 'deleted'; });
+  if(!vis.length){ holder.innerHTML = ''; return; }
+  const total = vis.length;
+  const done = vis.filter(function(e){ return e.status === 'completed'; }).length;
   let h = '<div class="v4-ailist"><div class="v4-ailist-h"><span class="t">📥 ' + total + ' videos</span><span class="cnt">' + done + ' / ' + total + '</span><button class="v4-sabband" data-job="' + jobId + '" onclick="v4AiStopAll(this)">⏹ Sab band</button></div>';
   eps.forEach(function(es, i){
+    if(es.status === 'deleted') return;
     const name = es.title || (es.episode != null ? ('Episode ' + es.episode) : ('Video ' + (i + 1)));
     let icon, right = '', bar = '';
     if(es.status === 'completed') icon = '<span class="v4-ai-ic ok">✓</span>';
@@ -2679,6 +2720,7 @@ function v4RenderJob(jobId, job){
     else if(es.status === 'stopped'){ icon = '<span class="v4-ai-ic stop">⏹</span>'; right = '<span class="v4-ai-stop" style="background:rgba(20,184,166,.13);border-color:rgba(20,184,166,.55);color:#5eead4;cursor:pointer" data-job="' + jobId + '" data-idx="' + i + '" onclick="event.stopPropagation();v4AiRetryItem(this)">↻</span>'; }
     else icon = '<span class="v4-ai-ic">' + (i + 1) + '</span>';
     const tap = (es.status === 'downloading' || es.status === 'searching') ? ' data-job="' + jobId + '" data-idx="' + i + '" onclick="v4AiStopItem(this)" style="cursor:pointer"' : '';
+    right += '<span class="v4-ai-stop" data-job="' + jobId + '" data-idx="' + i + '" onclick="event.stopPropagation();v4AiDeleteItem(this)" title="Delete">🗑</span>';
     h += '<div class="v4-ai-row' + (es.status === 'downloading' ? ' act' : '') + '"' + tap + '><div class="v4-ai-r1">' + icon + '<span class="v4-ai-t">' + v4Esc(name) + '</span>' + right + '</div>' + bar + '</div>';
   });
   holder.innerHTML = h + '</div>';
@@ -2871,7 +2913,7 @@ async function v4SocialDownload(fmt){
   if(r.ok && r.data && r.data.success){ v4Toast('Download shuru ho gaya — Downloads me dekhein'); v4LoadDownloads(); return; }
   const d = r.data || {};
   if(d.login_required){ v4Pending = {type:'social', url:v4SocialInfo.url, format:fmt}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); return; }
-  v4Toast(d.error || 'Download start nahi ho saka');
+  v4Toast(v4FriendlyErr(d.error) || 'Download start nahi ho saka');
 }
 
 /* ---------- tools / settings ---------- */
@@ -3007,6 +3049,7 @@ async function v4RenderAdmin(){
   let h = '<div class="v4-stats"><div class="v4-stat"><b>' + (ss.total_users || 0) + '</b><span>Total Users</span></div><div class="v4-stat"><b>' + (ss.downloads_today || 0) + '</b><span>Aaj ke Downloads</span></div><div class="v4-stat"><b>' + (ss.pending_premium_requests || 0) + '</b><span>Premium Requests</span></div></div>';
   h += '<div class="v4-stats"><div class="v4-stat"><b>' + (ss.total_visits || 0) + '</b><span>Total Visits</span></div><div class="v4-stat"><b>' + (ss.today_visits || 0) + '</b><span>Aaj ke Visits</span></div><div class="v4-stat"><b>' + (ss.today_unique || 0) + '</b><span>Aaj ke Visitors (alag log)</span></div></div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">💾 STORAGE (SERVER)</div><div id="v4-storage-box" class="v4-muted">Loading...</div></div>';
+  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">🍪 YOUTUBE COOKIES</div><div id="v4-cookies-box" class="v4-muted">Loading...</div></div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">WEBSITE ON / OFF</div>';
   h += tog('ai_enabled', 'AI Assistant') + tog('downloads_enabled', 'Downloads') + tog('premium_enabled', 'Premium System') + tog('social_enabled', 'Social Tab') + tog('signup_enabled', 'Naya Signup (registration)') + tog('floating_enabled', 'Floating Button (APK)') + tog('maintenance_mode', 'Maintenance (site band)') + '</div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">ELAAN (ANNOUNCEMENT)</div><input class="v4-input" id="v4-adm-ann" placeholder="Home par sab ko dikhne wala message" value="' + v4Esc(cfg.announcement || '') + '"><button class="v4-btn2" onclick="v4AdminSaveAnn()">Save Elaan</button></div>';
@@ -3056,9 +3099,11 @@ async function v4RenderAdmin(){
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">PRIVATE FOLDER</div><div class="v4-row"><div class="grow">PIN ki halat<div class="v4-muted">' + (cfg.pin_set ? 'PIN set hai' : 'Abhi PIN set nahi hai') + '</div></div>' + (cfg.pin_set ? '<button class="v4-btn2" onclick="v4AdminResetPin()">PIN Reset karein</button>' : '') + '</div><div class="v4-muted">PIN bhool jayein to yahan se reset karein — phir naya PIN banana pare ga.</div></div>';
   h += '<button class="v4-bigbtn" style="background:var(--v4card);border:1px solid var(--v4border)" onclick="v4AdminLogout()">Admin Logout</button>';
   body.innerHTML = h;
-  v4LoadStorage();
+  v4LoadStorage(); v4LoadCookies();
 }
 async function v4LoadStorage(){ const box = v4$('v4-storage-box'); if(!box) return; const r = await v4Fetch('/api/admin/storage'); if(!r.ok || !r.data){ box.textContent = 'Storage ki maloomat nahi mil sakin'; return; } const d = r.data; const pct = Math.min(100, d.used_pct || 0); const col = pct >= 80 ? '#f87171' : (pct >= 60 ? '#fbbf24' : '#14b8a6'); let h = '<div class="v4-row"><div class="grow">Istemaal shuda jagah</div><b>' + d.used_mb + ' / ' + d.total_mb + ' MB (' + pct + '%)</b></div>'; h += '<div style="height:10px;border-radius:99px;background:var(--v4border);overflow:hidden;margin:6px 0"><div style="height:100%;width:' + pct + '%;background:' + col + '"></div></div>'; h += '<div class="v4-muted">Khaali jagah: ' + d.free_mb + ' MB - Downloads: ' + d.downloads_count + ' files (' + d.downloads_mb + ' MB)</div>'; h += '<div class="v4-muted" style="margin-top:4px">Auto rule: jagah 80% bharne par sab se purani downloads khud delete ho jati hain (Private folder wali kabhi nahi).</div>'; h += '<button class="v4-btn2" style="margin-top:8px" onclick="v4AdminCleanup()">Abhi safai karein</button>'; box.innerHTML = h; }
+async function v4LoadCookies(){ const box = v4$('v4-cookies-box'); if(!box) return; const r = await v4Fetch('/api/admin/cookies-status'); const on = r.ok && r.data && r.data.active; box.innerHTML = '<div class="v4-muted">' + (on ? '✅ Cookies lagi hui hain — downloads mazboot hain.' : '⚠ Cookies nahi lagin — YouTube kabhi kabhi server ko rok deta hai (bot-check), tab downloads fail hoti hain. Spare Google account ki cookies.txt yahan lagayein to ye rukawat khatam ho jayegi.') + '</div><label class="v4-btn2" style="display:inline-block;margin-top:8px;cursor:pointer">🍪 Cookies file chunein<input type="file" accept=".txt" style="display:none" onchange="v4AdminCookiesUpload(this)"></label>'; }
+async function v4AdminCookiesUpload(inp){ const f = inp.files && inp.files[0]; if(!f) return; const fd = new FormData(); fd.append('file', f); v4Toast('Cookies lag rahi hain...'); try{ const r = await fetch('/api/admin/cookies', {method:'POST', body:fd}); const d = await r.json(); if(d && d.success){ v4Toast('✅ Cookies lag gayin'); v4LoadCookies(); } else v4Toast((d && d.error) || 'Cookies nahi lag sakin'); }catch(e){ v4Toast('Upload fail ho gaya'); } }
 async function v4AdminCleanup(){ const r = await v4Post('/api/admin/storage-cleanup', {}); if(r.ok && r.data){ if(r.data.removed) v4Toast(r.data.removed + ' purani downloads delete - ' + r.data.freed_mb + ' MB khaali'); else v4Toast('Safai ki zaroorat nahi - jagah 80% se kam bhari hai'); v4LoadStorage(); } else v4Toast('Safai nahi ho saki'); }
 function v4DealRowDel(btn){ const r = btn.closest('.v4-dealrow'); if(r) r.remove(); }
 function v4DealRow(d){
@@ -5377,10 +5422,18 @@ def _is_bot_block(err):
             'use --cookies' in _s or 'http error 403' in _s)
 
 
+def _yt_cookies_path():
+    _p = os.environ.get('YT_COOKIES_PATH', '')
+    if _p and os.path.exists(_p):
+        return _p
+    _d = os.path.join(DATA_DIR, 'yt_cookies.txt')
+    return _d if os.path.exists(_d) else ''
+
+
 def _ydl_opts_with_client(base_opts, client):
     opts = dict(base_opts or {})
-    _ck = os.environ.get('YT_COOKIES_PATH', '')
-    if _ck and os.path.exists(_ck):
+    _ck = _yt_cookies_path()
+    if _ck:
         opts['cookiefile'] = _ck
     if client:
         _ea = dict(opts.get('extractor_args') or {})
@@ -5524,8 +5577,8 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
             'no_check_certificate': True, 'prefer_insecure': True,
         }
         ydl_opts.update(_speed_opts())
-        _ck = os.environ.get('YT_COOKIES_PATH', '')
-        if _ck and os.path.exists(_ck):
+        _ck = _yt_cookies_path()
+        if _ck:
             ydl_opts['cookiefile'] = _ck
         if 0 < _client_idx < len(_YT_CLIENTS):
             ydl_opts['extractor_args'] = {'youtube': {'player_client': [_YT_CLIENTS[_client_idx]]}}
@@ -6967,7 +7020,11 @@ def api_formats(video_id):
         info = _extract_formats_info(
             f"https://www.youtube.com/watch?v={video_id}")
     except Exception as e:
-        return jsonify({'error': re.sub(r'\x1b\[[0-9;]*m', '', str(e))[:150]}), 400
+        _em = re.sub(r'\x1b\[[0-9;]*m', '', str(e))
+        if 'Sign in to confirm' in _em or 'not a bot' in _em:
+            _em = ('YouTube ne server ko kuch der ke liye roka hai — '
+                   '10-15 minute baad dobara try karein')
+        return jsonify({'error': _em[:150]}), 400
     if not info:
         return jsonify({'error': 'Video info nahi mili'}), 400
 
@@ -7620,20 +7677,23 @@ def _ai_run_job(job_id, only_idx=None):
             if _stopped:
                 break
             with ai_jobs_lock:
-                job['episodes_status'][idx].update(
-                    {'attempts': attempt, 'video_id': vid,
-                     'title': vtitle, 'status': 'downloading' if not ok else 'completed',
-                     'file_path': st.get('file_path'), 'error': st.get('error')})
+                if job['episodes_status'][idx].get('status') != 'deleted':
+                    job['episodes_status'][idx].update(
+                        {'attempts': attempt, 'video_id': vid,
+                         'title': vtitle, 'status': 'downloading' if not ok else 'completed',
+                         'file_path': st.get('file_path'), 'error': st.get('error')})
                 _save_ai_jobs()
             if ok:
                 break
             last_err = st.get('error') or 'Failed'
         with ai_jobs_lock:
             if _stopped:
-                job['episodes_status'][idx]['status'] = 'stopped'
+                if job['episodes_status'][idx].get('status') != 'deleted':
+                    job['episodes_status'][idx]['status'] = 'stopped'
                 job['episodes_status'][idx].pop('error', None)
             else:
-                job['episodes_status'][idx]['status'] = 'completed' if ok else 'failed'
+                if job['episodes_status'][idx].get('status') != 'deleted':
+                    job['episodes_status'][idx]['status'] = 'completed' if ok else 'failed'
                 if not ok:
                     job['episodes_status'][idx]['error'] = last_err
             if ok:
@@ -8218,6 +8278,42 @@ def api_ai_retry_item(job_id):
     return jsonify({'success': True})
 
 
+@app.route('/api/ai/jobs/<job_id>/delete-item', methods=['POST'])
+def api_ai_delete_item(job_id):
+    data = request.json or {}
+    try:
+        idx = int(data.get('index'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Bad index'}), 400
+    with ai_jobs_lock:
+        job = ai_jobs.get(job_id)
+        if not job:
+            return jsonify({'success': False, 'error': 'Job nahi mila'}), 404
+        eps = job.get('episodes_status') or []
+        if idx < 0 or idx >= len(eps):
+            return jsonify({'success': False, 'error': 'Bad index'}), 400
+        _it = eps[idx]
+        if _it.get('status') == 'deleted':
+            return jsonify({'success': True})
+        _dl = _it.get('download_id')
+        _was_done = _it.get('status') == 'completed'
+        _it['status'] = 'deleted'
+        _it['user_stopped'] = True
+        _it.pop('error', None)
+        if _was_done:
+            job['completed_count'] = max(
+                0, (job.get('completed_count') or 0) - 1)
+        job['total_count'] = max(
+            0, (job.get('total_count') or len(eps)) - 1)
+        _save_ai_jobs()
+    if _dl:
+        try:
+            delete_download(_dl)
+        except Exception:
+            pass
+    return jsonify({'success': True})
+
+
 @app.route('/api/ai/jobs')
 def api_ai_jobs():
     with ai_jobs_lock:
@@ -8395,6 +8491,32 @@ def api_admin_v4_stats():
                     'total_visits': visits['total'],
                     'today_visits': visits['today_opens'],
                     'today_unique': visits['today_uniq']})
+
+
+@app.route('/api/admin/cookies', methods=['POST'])
+def api_admin_cookies_upload():
+    _g = _v4_admin_guard()
+    if _g:
+        return _g
+    f = request.files.get('file')
+    if not f:
+        return jsonify({'success': False, 'error': 'File nahi mili'}), 400
+    _data = f.read()
+    if len(_data) < 50 or b'youtube.com' not in _data:
+        return jsonify({'success': False,
+                        'error': 'Ye YouTube cookies wali file nahi lagti'}), 400
+    with open(os.path.join(DATA_DIR, 'yt_cookies.txt'), 'wb') as _f:
+        _f.write(_data)
+    return jsonify({'success': True,
+                    'message': 'Cookies lag gayi hain — ab downloads dobara try karein'})
+
+
+@app.route('/api/admin/cookies-status')
+def api_admin_cookies_status():
+    _g = _v4_admin_guard()
+    if _g:
+        return _g
+    return jsonify({'active': bool(_yt_cookies_path())})
 
 
 @app.route('/api/admin/storage')
