@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 15  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 16  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1164,9 +1164,9 @@ HTML = '''
   .v4-menurow{display:flex;align-items:center;gap:12px;width:100%;padding:13px 4px;background:none;border:none;border-bottom:1px solid var(--v4border);color:var(--v4text);font-size:14px;cursor:pointer;text-align:left;text-decoration:none;box-sizing:border-box}
   /* Playza ka apna player frame (Update 59) */
   /* Shorts — Reels style, Playza design (Update 65) */
-#v4-shorts{position:fixed;top:0;left:0;right:0;bottom:62px;background:#000;z-index:1200;display:none}
+#v4-shorts{position:fixed;top:0;left:0;right:0;bottom:62px;background:#000;z-index:1200;display:none;overscroll-behavior:contain}
 #v4-shorts.open{display:block}
-#v4-shorts-track{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#v4-shorts-track{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior:contain;touch-action:pan-y}
 #v4-shorts-track::-webkit-scrollbar{display:none}
 .v4-short{position:relative;height:100%;max-width:430px;margin:0 auto;scroll-snap-align:start;scroll-snap-stop:always;background:#000;overflow:hidden}
 .v4-short img.bg,.v4-short video,.v4-short iframe{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border:0}
@@ -1457,7 +1457,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">15</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">16</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -1477,7 +1477,7 @@ HTML = '''
       <div class="v4-h" id="v4-watch-title" style="margin-top:12px"></div>
       <p class="v4-muted" id="v4-watch-channel"></p>
       <div style="display:flex;gap:8px;align-items:stretch;margin-top:10px"><button class="v4-bigbtn" style="flex:1;margin:0" onclick="v4WatchDownload()">⬇ Download</button><button class="v4-iconbtn" id="v4-watch-fav" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchFav()">♡</button><button class="v4-iconbtn" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchShare()">↗</button></div>
-      <div id="v4-frame-note" class="v4-muted" style="display:none;margin-top:10px">Agar video 15 second mein na chale to net slow hai, ya is video ko bahir chalana band hai. <a id="v4-frame-yt" href="#" target="_blank" rel="noopener" style="color:var(--v4teal)">YouTube par kholein ↗</a></div>
+      <div id="v4-frame-note" class="v4-muted" style="display:none;margin-top:10px">Agar video 15 second mein na chale to net slow hai, ya is video ko bahir chalana band hai. <a id="v4-frame-yt" href="#" target="_blank" rel="noopener" style="color:var(--v4teal)">YouTube par kholein ↗</a> <button id="v4-frame-native" class="v4-btn2" style="display:none;margin-left:8px" onclick="v4NativePlay()">📱 Phone se play karein</button></div>
       <div class="v4-h" style="margin-top:18px">Related Videos</div>
       <div id="v4-related" class="v4-feedgrid"></div>
     </section>
@@ -2028,7 +2028,7 @@ function v4FrameSetup(id){
   const fr = v4$('v4-player');
   if(fr) fr.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1&modestbranding=1&enablejsapi=1';
   const note = v4$('v4-frame-note');
-  if(note){ note.style.display = 'none'; const lk = v4$('v4-frame-yt'); if(lk) lk.href = 'https://www.youtube.com/watch?v=' + id; }
+  if(note){ note.style.display = 'none'; const lk = v4$('v4-frame-yt'); if(lk) lk.href = 'https://www.youtube.com/watch?v=' + id; const nb = v4$('v4-frame-native'); if(nb) nb.style.display = v4NativeMode() ? '' : 'none'; }
   if(window._v4ft) clearTimeout(window._v4ft);
   if(fr) fr.onload = function(){ if(window._v4ft){ clearTimeout(window._v4ft); window._v4ft = null; } };
   window._v4ft = setTimeout(function(){ const n2 = v4$('v4-frame-note'); if(n2 && v4FrameId === id) n2.style.display = ''; }, 15000);
@@ -2038,6 +2038,22 @@ function v4FrameSetup(id){
 function v4FrameStop(){
   const fr = v4$('v4-player');
   if(fr && v4FrameId){ fr.src = 'about:blank'; v4FrameId = ''; }
+}
+function v4NativePlay(){
+  if(!v4FrameId || !v4NativeMode() || !PlayTubeApp.nativePlay){ v4Toast('Ye option sirf naye APK (v2.1+) mein hai'); return; }
+  v4Toast('Phone se video load ho rahi hai...');
+  window._v4npWait = true;
+  try{ PlayTubeApp.nativePlay(v4FrameId); }catch(e){ window._v4npWait = false; v4Toast('Phone se play nahi ho saka'); return; }
+  setTimeout(function(){ if(window._v4npWait){ window._v4npWait = false; v4Toast('Phone se stream nahi mili — net check karke dobara try karein'); } }, 45000);
+}
+function v4NativePlayResult(url){
+  window._v4npWait = false;
+  if(!url){ v4Toast('Phone se stream nahi mili'); return; }
+  const vid = v4$('v4-filevideo'); if(!vid) return;
+  v4$('v4-player-title').textContent = (v4Current && v4Current.title) || '';
+  vid.src = url;
+  v4$('v4-playerwrap').classList.add('open'); v4Lock(true);
+  const p = vid.play(); if(p && p.catch) p.catch(function(){});
 }
 function v4WatchFav(){
   if(!v4Current) return;
@@ -2149,7 +2165,7 @@ function v4OpenShorts(query){
         const act = btn.getAttribute('data-act');
         if(act === 'like'){ btn.classList.toggle('liked'); }
         else if(act === 'mute'){ v4ShortsMuted = !v4ShortsMuted; localStorage.setItem('pt_short_muted', v4ShortsMuted ? '1' : '0'); document.querySelectorAll('#v4-shorts-track video').forEach(function(v){ v.muted = v4ShortsMuted; }); document.querySelectorAll('.v4-sbtn[data-act="mute"] .ic').forEach(function(s){ s.textContent = v4ShortsMuted ? '🔇' : '🔊'; }); }
-        else if(act === 'dl' && it){ v4CloseShorts(); v4OpenWatch(it); setTimeout(function(){ v4OpenSheet(it); }, 400); }
+        else if(act === 'dl'){ v4CloseShorts(); v4OpenSheet(vid); }
         else if(act === 'share'){
           const url = 'https://www.youtube.com/watch?v=' + vid;
           const sn = (it && it.snippet) || {};
@@ -2211,7 +2227,7 @@ function v4FmtHint(f){
 function v4FriendlyErr(e){ const s = String(e || ''); if(/sign in to confirm|not a bot|bot-check/i.test(s)) return 'YouTube ne server ko kuch der ke liye roka hai — ye rukawat khud khatam ho jati hai, 10-15 minute baad dobara try karein'; if(/timed out|timeout|network|failed to fetch/i.test(s)) return 'Network masla — net check karke dobara try karein'; return s; }
 function v4NativeMode(){ try{ return !!(window.PlayTubeApp && PlayTubeApp.nativeAvailable && PlayTubeApp.nativeAvailable()); }catch(e){ return false; } }
 let v4NativeFmtWait = null;
-function v4NativeFormatsResult(jsonStr){ const w = v4NativeFmtWait; v4NativeFmtWait = null; if(!w) return; if(!jsonStr){ w(null); return; } try{ w(JSON.parse(jsonStr)); }catch(e){ w(null); } }
+function v4NativeFormatsResult(jsonStr, errStr){ window._v4NativeErr = errStr || ''; const w = v4NativeFmtWait; v4NativeFmtWait = null; if(!w) return; if(!jsonStr){ w(null); return; } try{ w(JSON.parse(jsonStr)); }catch(e){ w(null); } }
 function v4NativeFormats(id){ return new Promise(function(res){ v4NativeFmtWait = res; try{ PlayTubeApp.nativeFormats(id); }catch(e){ v4NativeFmtWait = null; res(null); return; } setTimeout(function(){ if(v4NativeFmtWait === res){ v4NativeFmtWait = null; res(null); } }, 45000); }); }
 async function v4OpenSheet(id, audioOnly){
   const v = v4Videos[id] || {videoId:id, title:'', channel:''};
@@ -2231,16 +2247,21 @@ async function v4OpenSheet(id, audioOnly){
   else { btn.disabled = false; btn.textContent = 'Download'; }
   const list = v4$('v4-sheet-list');
   let d = null;
+  window._v4NativeErr = '';
   if(v4NativeMode()){ d = await v4NativeFormats(id); if(d && !d.error){ d.nativeMode = true; } else d = null; }
   if(!d){
     const r = await v4Fetch('/api/formats/' + id);
     if(!r.ok || !r.data || r.data.error){ list.innerHTML = '<p class="v4-muted">Formats nahi mil sake: ' + v4Esc(v4FriendlyErr((r.data && r.data.error) || 'error')) + '</p>'; return; }
     d = r.data;
+    if(window._v4NativeErr) d.nativeErr = window._v4NativeErr;
   }
   if(d.title) v4$('v4-sheet-title').textContent = d.title;
   if(d.channel) v4$('v4-sheet-channel').textContent = d.channel;
   const row = function(f){ const music = (f.format === 'mp3' || f.format === 'm4a'); return '<div class="v4-fmtrow" data-fmt="' + f.format + '" data-q="' + (f.quality || '') + '" data-nk="' + (f.native_key || '') + '" onclick="v4PickFmt(this)"><span class="ic">' + (music ? '🎵' : '▶') + '</span><span class="tx"><span class="nm">' + v4Esc(f.label) + '</span><span class="hint">' + v4FmtHint(f) + '</span></span>' + (f.size_mb != null ? '<span class="sz">' + f.size_mb + ' MB</span>' : '') + '<span class="v4-radio">✓</span></div>'; };
-  list.innerHTML = '<div class="v4-sect">MUSIC / AUDIO</div>' + (d.music || []).map(row).join('') + (v4Sheet.audioOnly ? '' : '<div class="v4-sect">VIDEO</div>' + (d.video || []).map(row).join(''));
+  const modeNote = d.nativeMode
+    ? '<div class="v4-sect" style="color:#2dd4bf">📱 Phone se formats — download phone se hoga, server wala bot-error nahi ayega</div>'
+    : (window.PlayTubeApp ? '<div class="v4-sect" style="color:#fbbf24">⚠ Ye formats SERVER se aye hain' + (d.nativeErr ? ' — phone wala rasta fail hua: ' + v4Esc(String(d.nativeErr).slice(0, 120)) : ' — phone download ke liye naya APK (v2.0+) install karein') + '</div>' : '');
+  list.innerHTML = modeNote + '<div class="v4-sect">MUSIC / AUDIO</div>' + (d.music || []).map(row).join('') + (v4Sheet.audioOnly ? '' : '<div class="v4-sect">VIDEO</div>' + (d.video || []).map(row).join(''));
   let target = null;
   list.querySelectorAll('.v4-fmtrow').forEach(function(el){ if(el.getAttribute('data-q') === v4State.settings.defQuality) target = el; });
   if(!target) list.querySelectorAll('.v4-fmtrow').forEach(function(el){ if(el.getAttribute('data-q') === '360p') target = el; });
@@ -2311,7 +2332,7 @@ function v4DlTypeMatch(d){
 let v4DlSel = {on: false, set: {}};
 let v4DlMap = {};
 let v4MenuId = null;
-function v4Lock(on){ try{ document.body.style.overflow = on ? 'hidden' : ''; }catch(e){} }
+function v4Lock(on){ try{ document.body.style.overflow = on ? 'hidden' : ''; document.documentElement.style.overflow = on ? 'hidden' : ''; }catch(e){} }
 function v4DlSelectMode(){ v4DlSel.on = !v4DlSel.on; if(!v4DlSel.on) v4DlSel.set = {}; v4RenderDownloads(); }
 function v4DlToggleSel(id){ if(v4DlSel.set[id]) delete v4DlSel.set[id]; else v4DlSel.set[id] = 1; v4RenderDownloads(); }
 function v4DlSelectAll(){
@@ -2444,6 +2465,31 @@ function v4RenderDownloads(){
   else if(act.length) v4$('v4-dl-done').innerHTML = '<p class="v4-muted">Abhi tak koi download mukammal nahi</p>';
   else v4$('v4-dl-done').innerHTML = '<div class="v4-empty"><div class="v4-empty-ic">🎬</div><div class="v4-empty-t">Abhi tak koi download nahi</div><p class="v4-muted">Jo videos aap download karein ge, wo yahan mehfooz milengi — baghair internet ke dekhne ke liye.</p><button class="v4-bigbtn" style="max-width:240px;margin:10px auto 0" data-v="home" onclick="v4Show(this.dataset.v)">Videos dekhein</button></div>';
 }
+let v4AutoSaveBase = false;
+function v4AutoSaveOnce(){
+  if(!window.PlayTubeApp) return;
+  let saved = {};
+  try{ saved = JSON.parse(localStorage.getItem('pt_autosaved') || '{}'); }catch(e){}
+  const now = Date.now();
+  Object.keys(saved).forEach(function(k){ if(now - saved[k] > 30 * 24 * 3600 * 1000) delete saved[k]; });
+  (v4DlData.list || []).forEach(function(it){
+    if(!it || it.status !== 'completed' || !it.downloadId || it.private) return;
+    if(saved[it.downloadId]) return;
+    saved[it.downloadId] = now;
+    if(!v4AutoSaveBase) return; /* pehli list = purani downloads, inhe auto-save nahi karna */
+    try{
+      const a = document.createElement('a');
+      a.href = '/api/download-file/' + it.downloadId; a.setAttribute('download', '');
+      document.body.appendChild(a); a.click(); a.remove();
+    }catch(e){}
+    if(PlayTubeApp.notifyDone){ try{ PlayTubeApp.notifyDone(it.title || 'Video'); }catch(e){} }
+    v4Toast('📥 Auto-save: ' + (it.title || 'Video'));
+  });
+  try{ localStorage.setItem('pt_autosaved', JSON.stringify(saved)); }catch(e){}
+  v4AutoSaveBase = true;
+}
+const _v4RenderDlOrig = v4RenderDownloads;
+v4RenderDownloads = function(){ _v4RenderDlOrig(); try{ v4AutoSaveOnce(); }catch(e){} };
 async function v4PauseDl(id){ await v4Post('/api/cancel-download/' + id, {}); v4LoadDownloads(); }
 async function v4ResumeDl(id){ const r = await v4Post('/api/resume-download/' + id, {}); if(!r.ok) v4Toast((r.data && r.data.error) || 'Resume nahi ho saka'); v4LoadDownloads(); }
 async function v4RestartDl(id){ const r = await v4Post('/api/restart-download/' + id, {}); if(r.ok && r.data && r.data.success){ v4Toast('Download dobara start ho gaya'); } else v4Toast((r.data && r.data.error) || 'Restart nahi ho saka'); v4LoadDownloads(); }
@@ -2526,6 +2572,7 @@ function v4AiPrune(){
   try{ const a = JSON.parse(localStorage.getItem('pt_ai_chat') || '[]'); const b = a.filter(function(en){ return en.t > cut; }); if(b.length !== a.length) localStorage.setItem('pt_ai_chat', JSON.stringify(b)); }catch(e){}
   document.querySelectorAll('#v4-ai-msgs .v4-bubble').forEach(function(el){ const ts = Number(el.getAttribute('data-ts') || '0'); if(ts && ts < cut) el.remove(); });
 }
+function v4AiQuickSend(text){ const inp = v4$('v4-ai-input'); if(inp) inp.value = text; v4AiSend(null); }
 async function v4AiSend(e){
   if(e) e.preventDefault();
   const inp = v4$('v4-ai-input'); const text = inp.value.trim(); if(!text) return;
@@ -2554,6 +2601,17 @@ async function v4AiSend(e){
     return;
   }
   const b = v4AiBubble(d.message || 'Job shuru ho gaya');
+  if(d.options && d.options.length){
+    const orow = document.createElement('div');
+    orow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px';
+    d.options.forEach(function(op){
+      const ob = document.createElement('button');
+      ob.className = 'v4-btn2'; ob.textContent = op;
+      ob.onclick = function(){ v4AiQuickSend(op); };
+      orow.appendChild(ob);
+    });
+    b.appendChild(orow);
+  }
   if(d.job_id){ v4AiStore({t:Date.now(), kind:'job', text:(d.message || ''), job_id:d.job_id}); b.setAttribute('data-jid', d.job_id); const holder = document.createElement('div'); holder.id = 'v4-job-' + d.job_id; b.appendChild(holder); v4PollJob(d.job_id); }
 }
 /* Update 43: AI ko pic bhejo — parh kar khud download start */
@@ -6281,6 +6339,15 @@ def download_file(download_id):
         return jsonify({"error": "File not found"}), 404
     
     filename = os.path.basename(file_path)
+    # v16: save hone wali file ka naam hamesha ORIGINAL YouTube title ho
+    # (pehle ai_job_... jese andar ke naam ate thay).
+    _rec = downloaded_files.get(download_id) or {}
+    _ttl = (_rec.get('title') or '').strip()
+    if _ttl:
+        _clean = re.sub(r'[\\/:*?"<>|\n\r\t]', ' ', _ttl)
+        _clean = re.sub(r'\s+', ' ', _clean).strip()[:100].strip()
+        if _clean:
+            filename = _clean + os.path.splitext(file_path)[1]
 
     # Update 57: ?play=1 par file browser/app ke andar PLAY hoti hai
     # (inline + asal video/audio type) — dobara download nahi hoti.
@@ -7233,7 +7300,8 @@ def ai_parse_command(text):
                      'dramas': 'drama', 'cartoon': 'cartoon',
                      'cartoons': 'cartoon', 'short': 'shorts',
                      'shorts': 'shorts', 'reel': 'shorts', 'reels': 'shorts',
-                     'tiktok': 'shorts', 'tiktoks': 'shorts'}
+                     'tiktok': 'shorts', 'tiktoks': 'shorts',
+                     'video': 'video', 'videos': 'video'}
         if not parsed.get('category'):
             parsed['category'] = _noun2cat.get(cntm[1])
         t = re.sub(r'\b' + re.escape(str(parsed['count'])) + r'\s+(?:new\s+|latest\s+)?' + cntm[1] + r'\b', ' ', t, count=1)
@@ -7248,7 +7316,15 @@ def ai_parse_command(text):
     else:
         cnt = re.search(r'(\d+)\s*(?:episodes?|eps?|qistein|qistain|qist)', t)
         single = re.search(r'(?:episode|ep|qist)\s*(\d+)', t)
-        if cnt:
+        _lst = re.search(r'(?:episodes?|eps?|qist)\s+((?:\d+[\s,]+){1,}\d+)', t)
+        _lnums = []
+        if _lst:
+            _lnums = [int(x) for x in re.findall(r'\d+', _lst.group(1))
+                      if int(x) <= 500]
+        if _lnums and max(_lnums) - min(_lnums) <= 200:
+            parsed['episodes'] = sorted(set(_lnums))[:100]
+            t = t.replace(_lst.group(0), ' ')
+        elif cnt:
             n = int(cnt.group(1))
             parsed['episodes'] = list(range(1, n + 1))
             t = t.replace(cnt.group(0), ' ')
@@ -7368,14 +7444,28 @@ def _ai_pick_entry(parsed):
     if cat_word and cat_word not in title.lower():
         query = (title + ' ' + cat_word).strip()
     if (parsed.get('category') or '') == 'shorts':
-        for _it in _shorts_feed_items(query, 12):
+        _skws = [w for w in re.findall(r'[a-z0-9]+', title.lower())
+                 if len(w) >= 3 and w not in ('the', 'new', 'video',
+                                              'videos', 'full')]
+        _sbest = None
+        for _it in _shorts_feed_items(query, 20):
             _vid = (_it.get('id') or {}).get('videoId')
-            if _vid:
-                _sn = _it.get('snippet') or {}
-                return _vid, (_sn.get('title') or ''), {
-                    'channel': _sn.get('channelTitle') or '',
-                    'duration': _it.get('duration'),
-                    'view_count': _it.get('view_count')}
+            if not _vid:
+                continue
+            _sn = _it.get('snippet') or {}
+            _ttl = _sn.get('title') or ''
+            _hit = sum(1 for k in _skws if k in _ttl.lower()) if _skws else 1
+            if _skws and _hit < max(1, int(len(_skws) * 0.6)):
+                continue
+            if _sbest is None or _hit > _sbest[0]:
+                _sbest = (_hit, _vid, _ttl, _it)
+        if _sbest:
+            _it = _sbest[3]
+            _sn = _it.get('snippet') or {}
+            return _sbest[1], _sbest[2], {
+                'channel': _sn.get('channelTitle') or '',
+                'duration': _it.get('duration'),
+                'view_count': _it.get('view_count')}
         return None, None, None
     try:
         info = _extract_with_clients(
@@ -7896,12 +7986,199 @@ def api_ai_command():
         parsed['intent'] = 'download'
 
 
+
+    # v16: SAWAL WALA FLOW — naam / count / quality adhoora ho to AI
+    # pehle SAWAL kare ga; khud se ghalat (fake) cheez download nahi hogi.
+    _flow_done = False
+    if parsed['intent'] == 'download' and not parsed.get('schedule_at') \
+            and not parsed.get('schedule_in_seconds') and not _urlm:
+        _fk = (f"u{session.get('user_id')}" if session.get('user_id')
+               else _guest_device_id())
+        _qexp = bool(re.search(r'\d{3,4}\s*p\b|3gp|\bmp3\b|\bm4a\b',
+                               text.lower()))
+        # pt_guest cookie pehli response par set hota hai — us se pehle
+        # wala hash-key pending bhi parhna hai, warna flow toot jata hai.
+        import hashlib as _hl
+        _hkey = 'h_' + _hl.md5(((request.remote_addr or '') + '|'
+                                + (request.headers.get('User-Agent')
+                                   or '')).encode()).hexdigest()
+        _keys = [_fk] + ([_hkey] if _hkey != _fk else [])
+
+        def _clear_pend_all():
+            for _k in _keys:
+                _c = _ai_ctx_get(_k) or {}
+                if 'pending' in _c:
+                    _c.pop('pending', None)
+                    _ai_ctx_set(_k, _c)
+
+        def _ask(step, msg, p, options=None):
+            _c = _ai_ctx_get(_fk) or {}
+            _c['pending'] = {'step': step, 'title': p.get('title') or '',
+                             'category': p.get('category'),
+                             'count': p.get('count'),
+                             'episodes': p.get('episodes') or [],
+                             'quality': p.get('quality') or '360p',
+                             'format': p.get('format') or 'mp4',
+                             'lang': p.get('lang'), 'qexp': _qexp}
+            _ai_ctx_set(_fk, _c)
+            _r = {'success': True, 'intent': 'question', 'message': msg,
+                  'parsed': p}
+            if options:
+                _r['options'] = options
+            return jsonify(_r)
+
+        def _next_q(p, qexp):
+            _cat = p.get('category')
+            _catw2 = {'tiktok', 'tiktoks', 'short', 'shorts', 'reel',
+                      'reels', 'drama', 'serial', 'series', 'movie',
+                      'film', 'song', 'songs', 'gana', 'gaane', 'naat',
+                      'cartoon', 'video', 'videos', 'bayan'}
+            _has = bool([w for w in re.findall(
+                r'[a-z0-9]+', (p.get('title') or '').lower())
+                if w not in _catw2])
+            if not _has and not p.get('episodes'):
+                if _cat in ('shorts', 'drama', 'cartoon', 'movie', 'naat',
+                            'bayan', None):
+                    return 'name'
+                return None
+            if _cat == 'shorts' and not p.get('count') \
+                    and not p.get('episodes'):
+                return 'count'
+            if _cat == 'shorts' and not qexp:
+                return 'quality'
+            if _cat in ('drama', 'cartoon') and _has \
+                    and not p.get('episodes') and not p.get('count'):
+                return 'episodes'
+            return None
+
+        def _qtext(step, p):
+            _t = p.get('title') or ''
+            if step == 'name':
+                if p.get('category') == 'shorts':
+                    return ('Kis ke TikTok / Shorts download karun? '
+                            'Naam batayein — jaise kisi cartoon, actor ya '
+                            'topic ka naam likh dein.'), None
+                if p.get('category') == 'drama':
+                    return ('Kis drama ke download karun? '
+                            'Drama ka naam batayein.'), None
+                if p.get('category') == 'movie':
+                    return 'Kis movie ka naam hai? Naam batayein.', None
+                if p.get('category') == 'cartoon':
+                    return 'Kis cartoon ke download karun? Naam batayein.', None
+                return ('Download ke liye naam batayein — kis video, '
+                        'gane, drama ya cartoon ka naam hai?'), None
+            if step == 'count':
+                return (f"'{_t}' ke kitne chahiye?",
+                        ['10', '20', '50', '100'])
+            if step == 'quality':
+                return ('Kis quality mein download karun?',
+                        ['360p', '720p', '1080p'])
+            return (f"'{_t}' ki kaunsi episodes chahiye? Episode number "
+                    'likh dein — jaise: 10 11 12 13 14 — ya kitni videos '
+                    'chahiye, wo number likh dein.',
+                    ['Episode 1', '5 episodes', '10 episodes'])
+
+        _pend = None
+        for _k in _keys:
+            _c0 = _ai_ctx_get(_k) or {}
+            if _c0.get('pending'):
+                _pend = _c0['pending']
+                break
+        if _pend:
+            _ans = ai_parse_command(text)
+            _new_cmd = bool(_ans.get('title')) \
+                and _ans['title'] != 'Video' \
+                and bool(re.search(r'[a-zA-Z]', _ans['title'])) \
+                and (bool(_ans.get('episodes')) or bool(_ans.get('count'))) \
+                and _pend.get('step') != 'name' \
+                and (_ans['title'].lower()
+                     not in (_pend.get('title') or '').lower())
+            if _new_cmd:
+                _clear_pend_all()
+                _pend = None
+            else:
+                _mg = {'raw': text, 'intent': 'download',
+                       'title': _pend.get('title') or '',
+                       'episodes': list(_pend.get('episodes') or []),
+                       'quality': _pend.get('quality') or '360p',
+                       'format': _pend.get('format') or 'mp4',
+                       'schedule_at': None, 'schedule_in_seconds': None,
+                       'category': _pend.get('category'),
+                       'count': _pend.get('count'),
+                       'lang': _pend.get('lang')}
+                if _ans.get('title') and _ans['title'] != 'Video' \
+                        and re.search(r'[a-zA-Z]', _ans['title']):
+                    _mg['title'] = _ans['title']
+                if _ans.get('episodes'):
+                    _mg['episodes'] = _ans['episodes']
+                if _ans.get('count'):
+                    _mg['count'] = _ans['count']
+                if _ans.get('category'):
+                    _mg['category'] = _ans['category']
+                if _ans.get('lang'):
+                    _mg['lang'] = _ans['lang']
+                if _qexp:
+                    _mg['quality'] = _ans.get('quality') or _mg['quality']
+                    if _ans.get('format'):
+                        _mg['format'] = _ans['format']
+                _nums = [int(x) for x in re.findall(r'\d+', text)]
+                if _pend.get('step') == 'count' and _nums \
+                        and not _mg.get('count'):
+                    _mg['count'] = max(1, min(100, _nums[0]))
+                if _pend.get('step') == 'episodes' and _nums \
+                        and not _mg.get('episodes') \
+                        and not _mg.get('count'):
+                    if len(_nums) >= 2 and max(_nums) - min(_nums) <= 200:
+                        _mg['episodes'] = sorted(set(_nums))[:100]
+                    else:
+                        _mg['episodes'] = _nums[:1]
+                if _pend.get('step') == 'quality' and _nums and not _qexp:
+                    if 100 <= _nums[0] <= 4320:
+                        _mg['quality'] = f"{_nums[0]}p"
+                parsed = _mg
+                _qexp = _qexp or bool(_pend.get('qexp'))
+                _escape = _pend.get('step') == 'name' and (
+                    not parsed.get('title') or parsed['title'] == 'Video')
+                if _escape:
+                    # naam ki jagah aam jawab (jaise "viral wale") — aam
+                    # category batch chala do, sawal ka chakkar khatam.
+                    parsed['title'] = ''
+                    if not parsed.get('count'):
+                        parsed['count'] = 10
+                    _step = None
+                else:
+                    _step = _next_q(parsed, _qexp)
+                _changed = (_mg.get('title') or '') != (_pend.get('title') or '') \
+                    or (_mg.get('episodes') or []) != list(_pend.get('episodes') or []) \
+                    or (_mg.get('category') or '') != (_pend.get('category') or '')
+                if _step and _step == _pend.get('step') and not _changed:
+                    # wohi sawal dobara — default maan kar aage barho
+                    if _step == 'count':
+                        parsed['count'] = parsed.get('count') or 10
+                    elif _step == 'episodes':
+                        parsed['count'] = parsed.get('count') or 10
+                    elif _step == 'quality':
+                        _qexp = True
+                    _step = _next_q(parsed, _qexp)
+                    if _step == _pend.get('step'):
+                        _step = None
+                if _step:
+                    _m, _o = _qtext(_step, parsed)
+                    return _ask(_step, _m, parsed, _o)
+                _clear_pend_all()
+                _flow_done = True
+        if not _flow_done and not _pend:
+            _step = _next_q(parsed, _qexp)
+            if _step:
+                _m, _o = _qtext(_step, parsed)
+                return _ask(_step, _m, parsed, _o)
+
     # v11: follow-up context — "50 kro", "aur 20", "720p mein karo"
     # pichle topic par hi lagein, nayi search na bane.
     _ai_key = (f"u{session.get('user_id')}" if session.get('user_id')
                else _guest_device_id())
     _ctx = _ai_ctx_get(_ai_key)
-    if _ctx and parsed.get('intent') == 'download' \
+    if _ctx and not _flow_done and parsed.get('intent') == 'download' \
             and not parsed.get('episodes') and not parsed.get('schedule') \
             and not _urlm:
         _fill = {'kro', 'karo', 'kar', 'do', 'download', 'aur', 'or',
@@ -7935,10 +8212,11 @@ def api_ai_command():
             and (parsed.get('count') or not parsed.get('title')):
         _catw = {'movie': 'full movie', 'song': 'song', 'naat': 'naat',
                  'drama': 'drama episode', 'cartoon': 'cartoon episode',
-                 'bayan': 'bayan', 'shorts': 'shorts'}.get(parsed['category'], 'video')
+                 'bayan': 'bayan', 'shorts': 'shorts',
+                 'video': ''}.get(parsed['category'], 'video')
         _q = ' '.join(x for x in [parsed.get('lang') or '',
                                   parsed.get('title') or '', _catw,
-                                  'new latest'] if x).strip()
+                                  '' if parsed.get('title') else 'new latest'] if x).strip()
         _want = parsed.get('count') or 10
         _items = []
         if parsed.get('category') == 'shorts':
@@ -7969,6 +8247,18 @@ def api_ai_command():
             _dd = set()
             _items = [x for x in _items
                       if not (x['video_id'] in _dd or _dd.add(x['video_id']))]
+        # v16: STRICT match — naam diya ho to sirf wahi items download hon
+        # jin ke title mein naam ke alfaaz hon. Ghalat (fake) cheez nahi.
+        _tkws = [w for w in re.findall(r'[a-z0-9]+',
+                                       (parsed.get('title') or '').lower())
+                 if len(w) >= 3 and w not in ('the', 'new', 'video',
+                                              'videos', 'full', 'episode',
+                                              'episodes')]
+        if _tkws and _items:
+            _need = max(1, int(len(_tkws) * 0.6))
+            _items = [x for x in _items
+                      if sum(1 for k in _tkws
+                             if k in (x.get('title') or '').lower()) >= _need]
         if not _items:
             return jsonify({'success': False, 'parsed': parsed,
                             'message': f"😔 '{_q}' ke liye kuch nahi mila — naam thoda badal kar try karein."})
