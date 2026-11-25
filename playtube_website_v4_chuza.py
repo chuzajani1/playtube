@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 13  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 14  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1457,7 +1457,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">13</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">14</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2086,7 +2086,7 @@ function v4ShortActivate(sec){
   v.poster = 'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg';
   v.src = '/api/stream/' + vid;
   let retried = 0;
-  const retry = function(){ if(!sec.contains(v)) return; if(retried >= 2){ if(spin && !spin.dataset.fail){ spin.dataset.fail = '1'; spin.innerHTML = '<span style="color:#fff;font-size:13px;text-align:center;padding:0 22px;line-height:1.6;display:block">⚠ Ye short abhi load nahi ho raha<br>agla short dekhein</span>'; spin.style.display = 'flex'; } return; } retried++; if(spin) spin.style.display = 'flex'; v.src = '/api/stream/' + vid + '?retry=' + retried; const p2 = v.play(); if(p2 && p2.catch) p2.catch(function(){}); };
+  const retry = function(){ if(!sec.contains(v)) return; if(retried >= 2){ if(!sec.dataset.fbk){ sec.dataset.fbk = '1'; try{ v.pause(); }catch(e){} if(v.parentNode) v.remove(); const ifr = document.createElement('iframe'); ifr.src = 'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&rel=0&playsinline=1&modestbranding=1'; ifr.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen'); ifr.setAttribute('allowfullscreen', ''); ifr.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0'; sec.insertBefore(ifr, sec.children[1] || null); if(spin) spin.style.display = 'none'; const bg2 = sec.querySelector('img.bg'); if(bg2) bg2.style.display = 'none'; } return; } retried++; if(spin) spin.style.display = 'flex'; v.src = '/api/stream/' + vid + '?retry=' + retried; const p2 = v.play(); if(p2 && p2.catch) p2.catch(function(){}); };
   const wd = setTimeout(function(){ if(v.readyState < 3 && sec.contains(v)) retry(); }, 7000);
   v.addEventListener('playing', function(){ clearTimeout(wd); if(spin) spin.style.display = 'none'; const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none'; });
   v.addEventListener('error', function(){ retry(); });
@@ -2098,6 +2098,7 @@ function v4ShortActivate(sec){
 function v4ShortDeactivate(sec){
   const v = sec.querySelector('video');
   if(v){ try{ v.pause(); v.removeAttribute('src'); v.load(); }catch(e){} v.remove(); }
+  const ifr = sec.querySelector('iframe'); if(ifr) ifr.remove(); if(sec.dataset.fbk) delete sec.dataset.fbk;
   const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = '';
   const prog = sec.querySelector('.v4-short-prog'); if(prog) prog.style.width = '0';
   const spin = sec.querySelector('.v4-short-spin'); if(spin) spin.style.display = 'none';
@@ -2267,26 +2268,7 @@ async function v4LoadDownloads(){
     const res = await Promise.all([v4Fetch('/api/download-progress'), v4Fetch('/api/downloads-list')]);
     if(res[0].ok) v4DlData.progress = res[0].data || {};
     if(res[1].ok && res[1].data) v4DlData.list = res[1].data.downloads || [];
-    v4RenderDownloads(); v4UpdateBadge(); v4AutoSaveApk();
-  }catch(e){}
-}
-let v4KnownDone = null;
-function v4AutoSaveApk(){
-  try{
-    if(!window.PlayTubeApp) return;
-    const doneIds = (v4DlData.list || []).filter(function(x){ return x.status === 'completed' && x.downloadId; }).map(function(x){ return x.downloadId; });
-    if(v4KnownDone === null){ v4KnownDone = new Set(doneIds); return; }
-    let saved = [];
-    try{ saved = JSON.parse(localStorage.getItem('pt_autosaved') || '[]'); }catch(e){}
-    let changed = false;
-    doneIds.forEach(function(id){
-      if(!v4KnownDone.has(id) && saved.indexOf(id) < 0){
-        saved.push(id); changed = true;
-        const a = document.createElement('a'); a.href = '/api/download-file/' + id; a.style.display = 'none'; document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); }, 800);
-      }
-      v4KnownDone.add(id);
-    });
-    if(changed) localStorage.setItem('pt_autosaved', JSON.stringify(saved.slice(-300)));
+    v4RenderDownloads(); v4UpdateBadge();
   }catch(e){}
 }
 function v4UpdateBadge(){
