@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 29  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 30  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1459,7 +1459,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">29</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">30</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -1982,7 +1982,7 @@ const v4FeedGen = {};
 async function v4LoadFeed(elId, q, type, sub, opts){
   const el = v4$(elId); if(!el) return;
   const gen = (v4FeedGen[elId] = (v4FeedGen[elId] || 0) + 1);
-  v4FeedState[elId] = {q:q, type:(type || 'videos'), sub:(sub || ''), page:0, seen:{}, loading:false, done:false, sort:(opts && opts.sort) || '', minDur:(opts && opts.minDur) || 0, gen:gen};
+  v4FeedState[elId] = {q:q, type:(type || 'videos'), sub:(sub || ''), page:0, seen:{}, loading:false, done:false, sort:(opts && opts.sort) || '', minDur:(opts && opts.minDur) || 0, gen:gen, _retry:(opts && opts._retry) || 0};
   el.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
   await v4FeedMore(elId, true);
 }
@@ -2025,6 +2025,12 @@ async function v4FeedMore(elId, first){
   st.loading = false;
   if(added > 0) st.empty = 0; else { st.empty = (st.empty || 0) + 1; if(st.empty >= 2) st.done = true; }
   if(first && !added){
+    if(failed && !(st._retry || 0)){
+      el.innerHTML = '<p class="v4-muted">Server slow hai — dobara try ho raha hai...</p>';
+      const q2 = st.q, t2 = st.type, s2 = st.sub, so2 = st.sort, md2 = st.minDur;
+      setTimeout(function(){ v4LoadFeed(elId, q2, t2, s2, {sort: so2, minDur: md2, _retry: 1}); }, 3000);
+      return;
+    }
     el.innerHTML = failed ? '<p class="v4-muted">Results load nahi ho sake — net check karke dobara try karein.</p>' : '<p class="v4-muted">Kuch nahi mila — dobara try karein.</p>';
     return;
   }
@@ -2787,22 +2793,29 @@ async function v4AiSend(e){
     return;
   }
   if(d.intent === 'candidates'){
-    window._v4CandCtx = {quality:(d.parsed && d.parsed.quality) || '360p', format:(d.parsed && d.parsed.format) || 'mp4', qexp: !!d.qexp, show: d.show || '', category: (d.parsed && d.parsed.category) || ''};
-    const b = v4AiBubble(d.message || 'Results mil gaye — sahi wali par tap karein:');
-    (d.candidates || []).forEach(function(c){
+    window._v4CandCtx = {quality:(d.parsed && d.parsed.quality) || '360p', format:(d.parsed && d.parsed.format) || 'mp4', qexp: !!d.qexp, show: d.show || '', category: (d.parsed && d.parsed.category) || '', items:(d.candidates || []), sel:{}};
+    const ctx = window._v4CandCtx;
+    const b = v4AiBubble(d.message || 'Results mil gaye — jin par select karein, wahi download hongi:');
+    (d.candidates || []).forEach(function(c, ix){
       const v = {videoId:c.video_id, title:c.title || '', channel:c.channel || ''}; v4Videos[v.videoId] = v;
       const row = document.createElement('div'); row.className = 'v4-ep'; row.style.cssText = 'align-items:center;gap:8px;cursor:pointer';
+      const chk = document.createElement('span'); chk.className = 'v4-candchk'; chk.textContent = '☐'; chk.style.cssText = 'font-size:19px;flex:none;width:22px;text-align:center'; row.appendChild(chk);
       const im = document.createElement('img'); im.src = 'https://i.ytimg.com/vi/' + c.video_id + '/mqdefault.jpg'; im.style.cssText = 'width:86px;height:48px;object-fit:cover;border-radius:8px;flex:none'; row.appendChild(im);
       const tx = document.createElement('div'); tx.style.flex = '1';
       const t1 = document.createElement('div'); t1.textContent = c.title || ''; t1.style.cssText = 'font-size:13px;font-weight:600;line-height:1.3'; tx.appendChild(t1);
       const meta = [c.channel || '', c.duration ? v4Dur(c.duration) : '', c.view_count ? v4FmtCount(c.view_count) + ' views' : ''].filter(Boolean).join(' • ');
       const t2 = document.createElement('div'); t2.textContent = meta; t2.style.cssText = 'font-size:11px;opacity:.75;margin-top:2px'; tx.appendChild(t2);
       row.appendChild(tx);
-      const dl = document.createElement('span'); dl.textContent = '⬇'; dl.style.fontSize = '18px'; row.appendChild(dl);
-      row.setAttribute('data-vid', c.video_id); row.setAttribute('data-title', c.title || '');
-      row.onclick = function(){ v4AiPickCand(this); };
+      row.setAttribute('data-ix', ix);
+      row.onclick = function(){ v4CandToggle(this); };
       b.appendChild(row);
     });
+    const go = document.createElement('button'); go.className = 'v4-bigbtn'; go.textContent = '⬇ Download karein (0 select)'; go.disabled = true; go.style.marginTop = '10px'; go.style.opacity = '.55';
+    go.onclick = function(){ v4CandGo(this); };
+    ctx.goBtn = go;
+    b.appendChild(go);
+    const hint = document.createElement('div'); hint.className = 'v4-muted'; hint.style.marginTop = '6px'; hint.textContent = 'Har video par tap karke select karein — sirf select ki hui download hongi, baqi nahi.';
+    b.appendChild(hint);
     return;
   }
   if(d.intent === 'phone_job'){
@@ -2829,26 +2842,54 @@ async function v4AiSend(e){
   }
   if(d.job_id){ v4AiStore({t:Date.now(), kind:'job', text:(d.message || ''), job_id:d.job_id}); b.setAttribute('data-jid', d.job_id); const holder = document.createElement('div'); holder.id = 'v4-job-' + d.job_id; b.appendChild(holder); v4PollJob(d.job_id); }
 }
-/* Update 102: candidate par tap = sirf wahi download */
-function v4AiPickCand(el){
-  const vid = el.getAttribute('data-vid'); const title = el.getAttribute('data-title') || '';
+/* Update 105: candidates multi-select — tap = select, sirf select
+   ki hui hi download hongi (3-5 ya jitni chaahein) */
+function v4CandToggle(el){
+  const ctx = window._v4CandCtx || {}; const ix = el.getAttribute('data-ix');
+  const chk = el.querySelector('.v4-candchk');
+  if(ctx.sel && ctx.sel[ix]){ delete ctx.sel[ix]; if(chk) chk.textContent = '☐'; el.style.background = ''; }
+  else { if(!ctx.sel) ctx.sel = {}; ctx.sel[ix] = 1; if(chk) chk.textContent = '☑'; el.style.background = 'rgba(124,92,255,.20)'; }
+  const n = Object.keys(ctx.sel || {}).length;
+  if(ctx.goBtn){ ctx.goBtn.disabled = !n; ctx.goBtn.style.opacity = n ? '1' : '.55'; ctx.goBtn.textContent = '⬇ Download karein (' + n + ' select)'; }
+}
+function v4CandGo(el){
   const ctx = window._v4CandCtx || {};
-  v4AiBubble('✔ ' + title, true, true);
-  if(ctx.format === 'mp3'){ v4AiDoPick(vid, title, '192', 'mp3'); return; }
-  if(ctx.qexp){ v4AiDoPick(vid, title, ctx.quality || '360p', 'mp4'); return; }
-  const b = v4AiBubble('Kis quality mein download karun?');
+  const items = Object.keys(ctx.sel || {}).map(function(ix){ const c = (ctx.items || [])[+ix]; return c ? {video_id:c.video_id, title:c.title} : null; }).filter(Boolean);
+  if(!items.length) return;
+  ctx.selItems = items;
+  v4AiBubble('✔ ' + items.length + ' videos select ho gayin', true, true);
+  if(ctx.format === 'mp3'){ v4CandStart('192', 'mp3'); return; }
+  if(ctx.qexp){ v4CandStart(ctx.quality || '360p', 'mp4'); return; }
+  const b = v4AiBubble('Kis quality mein download karun? (' + items.length + ' videos)');
   const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px';
   [['360p','mp4'],['720p','mp4'],['1080p','mp4'],['MP3','mp3']].forEach(function(qo){
     const ob = document.createElement('button'); ob.className = 'v4-btn2'; ob.textContent = qo[0];
-    ob.setAttribute('data-vid', vid); ob.setAttribute('data-title', title); ob.setAttribute('data-q', qo[0]); ob.setAttribute('data-f', qo[1]);
-    ob.onclick = function(){ v4AiPickQuality(this); };
+    ob.setAttribute('data-q', qo[0]); ob.setAttribute('data-f', qo[1]);
+    ob.onclick = function(){ const f = this.getAttribute('data-f'); v4CandStart(f === 'mp3' ? '192' : this.getAttribute('data-q'), f); };
     row.appendChild(ob);
   });
   b.appendChild(row);
 }
-function v4AiPickQuality(el){
-  const q = el.getAttribute('data-q'); const f = el.getAttribute('data-f');
-  v4AiDoPick(el.getAttribute('data-vid'), el.getAttribute('data-title') || '', f === 'mp3' ? '192' : q, f);
+async function v4CandStart(quality, format){
+  const ctx = window._v4CandCtx || {};
+  const items = ctx.selItems || [];
+  if(!items.length) return;
+  if(v4PhoneAiOk()){
+    v4PhoneJobStart(items, quality, format, '📱 ' + items.length + ' videos phone par download ho rahi hain — one by one:', ctx.show || '');
+    return;
+  }
+  const r = await v4Post('/api/ai/pick-many', {items:items, quality:quality, format:format, show:ctx.show || ''});
+  const d = r.data || {};
+  if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); v4AiBubble('Limit khatam — pehle account banayein.'); return; } v4AiBubble(d.error || 'Download start nahi ho saka'); return; }
+  const b = v4AiBubble(d.message || 'Download start ho gayi');
+  if(d.job_id){ v4AiStore({t:Date.now(), kind:'job', text:(d.message || ''), job_id:d.job_id}); b.setAttribute('data-jid', d.job_id); const holder = document.createElement('div'); holder.id = 'v4-job-' + d.job_id; b.appendChild(holder); v4PollJob(d.job_id); }
+  const show = ctx.show || '';
+  if(show && (ctx.category === 'drama' || ctx.category === 'cartoon')){
+    const eb = document.createElement('button'); eb.className = 'v4-btn2'; eb.textContent = '📂 "' + show + '" ki saari episodes dekhein'; eb.style.marginTop = '8px';
+    eb.setAttribute('data-show', show);
+    eb.onclick = function(){ v4AiEpisodes(this); };
+    b.appendChild(document.createElement('br')); b.appendChild(eb);
+  }
 }
 async function v4AiDoPick(vid, title, quality, format){
   const ctx = window._v4CandCtx || {};
@@ -3925,12 +3966,40 @@ def _shorts_seeds_for(text):
     return FEED_SHORTS_POOL
 
 
+_feed_refreshing = set()
+
+
+def _feed_refresh_async(query, n, cache_key):
+    """Update 105: purana cache refresh background mein — user ko
+    slow extraction ka wait nahi karna padta."""
+    if cache_key in _feed_refreshing:
+        return
+    _feed_refreshing.add(cache_key)
+
+    def _run():
+        try:
+            _stale = search_cache.get(cache_key)
+            search_cache.pop(cache_key, None)
+            _fresh = _feed_search_items(query, n)
+            if not _fresh and _stale:
+                search_cache[cache_key] = _stale
+        except Exception:
+            pass
+        finally:
+            _feed_refreshing.discard(cache_key)
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
 def _feed_search_items(query, n=30):
     cache_key = f"feed_{query}_{n}"
     if cache_key in search_cache:
         cached_data, timestamp = search_cache[cache_key]
         if time.time() - timestamp < CACHE_DURATION:
             return cached_data
+        # Update 105: stale data fauran wapas, refresh peeche chalega
+        _feed_refresh_async(query, n, cache_key)
+        return cached_data
     items = []
     try:
         ydl_opts = {
@@ -4773,7 +4842,13 @@ def api_feed():
         _s = pool[(_base + _k * _step) % len(pool)]
         _v = FEED_VARIANTS[(eff + _k) % len(FEED_VARIANTS)]
         _seeds.append((_s + _v + _cyc).strip())
-    _buckets = [_feed_search_items(_sq, 12) for _sq in _seeds]
+    try:
+        from concurrent.futures import ThreadPoolExecutor as _TPE
+        with _TPE(max_workers=3) as _ex:
+            _buckets = list(_ex.map(
+                lambda _sq: _feed_search_items(_sq, 12), _seeds))
+    except Exception:
+        _buckets = [_feed_search_items(_sq, 12) for _sq in _seeds]
     items, _seen, _chan = [], set(), {}
     _idx = 0
     while len(items) < 30:
@@ -8480,17 +8555,18 @@ def _ai_ctx_set(key, ctx):
         pass
 
 
-def _ai_candidates(parsed):
-    """Update 102: naam se top-10 umeedwar videos — user khud chunta hai,
-    AI khud se koi video download nahi karta."""
+def _ai_candidates(parsed, query=None):
+    """Update 102/105: naam se top-20 umeedwar videos — user khud
+    chunta hai, AI khud se koi video download nahi karta."""
     title = parsed.get('title') or ''
     eps = parsed.get('episodes') or []
-    query = title
-    if eps:
-        query = f"{title} episode {eps[0]}"
+    if not query:
+        query = title
+        if eps:
+            query = f"{title} episode {eps[0]}"
     try:
         info = _extract_with_clients(
-            f"ytsearch15:{query}",
+            f"ytsearch30:{query}",
             {'quiet': True, 'no_warnings': True,
              'no_check_certificate': True, 'extract_flat': True,
              'skip_download': True, 'ignoreerrors': True,
@@ -8515,13 +8591,58 @@ def _ai_candidates(parsed):
                     'title': e.get('title') or query,
                     'channel': e.get('channel') or e.get('uploader') or '',
                     'duration': e.get('duration'),
-                    'view_count': e.get('view_count')})
-        if len(out) >= 10:
+                    'view_count': e.get('view_count'),
+                    'timestamp': (e.get('timestamp')
+                                  or e.get('release_timestamp') or 0)})
+        if len(out) >= 20:
             break
     if eps:
         _pat = f"episode {eps[0]}"
         out.sort(key=lambda x: 0 if _pat in (x.get('title') or '').lower()
                  else 1)
+    else:
+        # Update 105: latest pehle (jahan date mile) — user ki demand
+        # "latest 20 video ani chiya".
+        out.sort(key=lambda x: -(x.get('timestamp') or 0))
+    return out
+
+
+def _ai_episode_candidates(parsed):
+    """Update 105: range / latest commands ke liye bhi pehle LIST —
+    har episode number resolve karke candidates ki shakal mein.
+    Kuch resolve na ho to khali list (caller search par girta hai)."""
+    title = parsed.get('title') or ''
+    eps = list(parsed.get('episodes') or [])
+    if parsed.get('latest_count'):
+        _want = int(parsed['latest_count'])
+        _nums = set()
+        try:
+            _info = _extract_with_clients(
+                f"ytsearch30:{title} episode",
+                {'quiet': True, 'no_warnings': True,
+                 'no_check_certificate': True, 'extract_flat': True,
+                 'skip_download': True, 'ignoreerrors': True,
+                 'socket_timeout': 20, 'retries': 2,
+                 'extractor_retries': 2})
+            for _e in (_info or {}).get('entries') or []:
+                if not _e:
+                    continue
+                _m = re.search(r'episode\s*#?\s*(\d+)',
+                               (_e.get('title') or '').lower())
+                if _m:
+                    _nums.add(int(_m.group(1)))
+        except Exception:
+            _nums = set()
+        eps = sorted(_nums)[-_want:] if _nums \
+            else list(range(1, _want + 1))
+    out = []
+    for _ep in eps:
+        _v, _t, _f = _ai_find_episode(title, _ep)
+        if _v:
+            out.append({'video_id': _v,
+                        'title': _t or f"{title} Episode {_ep}",
+                        'channel': '', 'duration': None,
+                        'view_count': None, 'timestamp': 0})
     return out
 
 
@@ -8819,18 +8940,46 @@ def api_ai_command():
 
 
 
-    # Update 102: PEHLE DIKHAO, PHIR DOWNLOAD — naam wali command par
-    # AI khud video NAHI chunta. Top-10 results user ko dikhaye jate
-    # hain; user jis par click kare wahi download hoti hai (ghalat
-    # auto-download ka khatma). Bulk (count / range / latest / time /
-    # link) purane flow par hi chalta hai.
+    # Update 102/105: PEHLE DIKHAO, PHIR DOWNLOAD — HAR command par
+    # AI khud video NAHI chunta. Latest 20 results user ko dikhaye
+    # jate hain; user jin par select kare SIRF wahi download hoti
+    # hain (auto-download ka khatma — count / range / latest bhi
+    # pehle list dikhate hain). Sirf link aur schedule purane flow
+    # par chalte hain.
+    def _cand_response():
+        _eps = parsed.get('episodes') or []
+        if len(_eps) > 1 or parsed.get('latest_count'):
+            _cands = _ai_episode_candidates(parsed)
+            if not _cands:
+                _cands = _ai_candidates(parsed)
+        elif parsed.get('title') and parsed.get('title') != 'Video':
+            _cands = _ai_candidates(parsed)
+        else:
+            _catw = {'movie': 'full movie', 'song': 'song',
+                     'naat': 'naat', 'drama': 'drama episode',
+                     'cartoon': 'cartoon episode', 'bayan': 'bayan',
+                     'shorts': 'shorts',
+                     'video': ''}.get(parsed.get('category') or '', 'video')
+            _q2 = ' '.join(x for x in [parsed.get('lang') or '',
+                                       _catw, 'new latest'] if x).strip()
+            _cands = _ai_candidates(parsed, query=_q2)
+        if not _cands:
+            return None
+        _qexp2 = bool(re.search(
+            r'\d{3,4}\s*p\b|3gp|\bmp3\b|\bm4a\b', text.lower()))
+        _lbl = parsed.get('title') or parsed.get('category') or ''
+        return jsonify({
+            'success': True, 'intent': 'candidates',
+            'parsed': parsed, 'candidates': _cands,
+            'qexp': _qexp2, 'show': parsed.get('title') or '',
+            'message': (f"🔎 '{_lbl}' ke ye {len(_cands)} results mile "
+                        f"— jin par ✓ select karein ge, sirf wahi "
+                        f"download hongi:")})
+
     if parsed['intent'] == 'download' and not _urlm \
             and not parsed.get('schedule_at') \
             and not parsed.get('schedule_in_seconds') \
-            and not parsed.get('count') \
-            and not parsed.get('latest_count') \
-            and len(parsed.get('episodes') or []) <= 1 \
-            and parsed.get('title') and parsed.get('title') != 'Video':
+            and (parsed.get('title') or parsed.get('category')):
         # Sawal pehle se pending ho to ye text us ka jawab ho sakta
         # hai — us surat mein purana sawal-wala flow hi chale.
         _fk2 = (f"u{session.get('user_id')}" if session.get('user_id')
@@ -8842,23 +8991,14 @@ def api_ai_command():
         _has_pend = any((_ai_ctx_get(_k) or {}).get('pending')
                         for _k in {_fk2, _hk2})
         if not _has_pend:
-            _cands = _ai_candidates(parsed)
-            if _cands:
-                _qexp2 = bool(re.search(
-                    r'\d{3,4}\s*p\b|3gp|\bmp3\b|\bm4a\b',
-                    text.lower()))
-                return jsonify({
-                    'success': True, 'intent': 'candidates',
-                    'parsed': parsed, 'candidates': _cands,
-                    'qexp': _qexp2, 'show': parsed.get('title') or '',
-                    'message': (f"🔎 '{parsed.get('title')}' ke ye results "
-                                f"mile — jo sahi hai us par tap karein, "
-                                f"wahi download hogi:")})
+            _cr = _cand_response()
+            if _cr is not None:
+                return _cr
             return jsonify({
                 'success': False, 'parsed': parsed,
-                'message': (f"😔 '{parsed.get('title')}' ke liye koi "
-                            f"result nahi mila — naam thoda badal kar "
-                            f"try karein.")})
+                'message': (f"😔 '{parsed.get('title') or ''}' ke liye "
+                            f"koi result nahi mila — naam thoda badal "
+                            f"kar try karein.")})
 
     # v16: SAWAL WALA FLOW — naam / count / quality adhoora ho to AI
     # pehle SAWAL kare ga; khud se ghalat (fake) cheez download nahi hogi.
@@ -9084,6 +9224,21 @@ def api_ai_command():
                 parsed['quality'] = _ctx['quality']
             if _ctx.get('format'):
                 parsed['format'] = _ctx['format']
+
+    # Update 105: sawal-wale flow ya follow-up ("50 kro") se poori
+    # hui command bhi pehle LIST dikhayegi — auto job nahi banegi.
+    if parsed['intent'] == 'download' and not _urlm \
+            and not parsed.get('schedule_at') \
+            and not parsed.get('schedule_in_seconds') \
+            and (parsed.get('title') or parsed.get('category')):
+        _cr2 = _cand_response()
+        if _cr2 is not None:
+            return _cr2
+        return jsonify({
+            'success': False, 'parsed': parsed,
+            'message': (f"😔 '{parsed.get('title') or ''}' ke liye koi "
+                        f"result nahi mila — naam thoda badal kar try "
+                        f"karein.")})
 
     # v9: count / category-only requests — seedhi list (direct items).
     if parsed['intent'] == 'download' and parsed.get('category') \
