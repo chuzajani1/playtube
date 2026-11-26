@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 24  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 25  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1459,7 +1459,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">24</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">25</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -1497,8 +1497,8 @@ HTML = '''
         <button class="v4-searchbtn" type="button"><i class="fa-solid fa-magnifying-glass"></i></button>
       </div>
       <div id="v4-dl-stats" class="v4-dlstats" style="display:none"></div>
-      <div id="v4-phone-active"></div>
       <div class="v4-sect">DOWNLOADING <span id="v4-dl-actcount"></span></div>
+      <div id="v4-phone-active"></div>
       <div id="v4-dl-active"><p class="v4-muted">Koi download nahi chal raha</p></div>
       <div class="v4-sect">DOWNLOADED</div>
       <div id="v4-phone-done"></div>
@@ -5656,6 +5656,21 @@ def _find_duplicate(video_id, format_type, quality):
     return None
 
 
+def _find_active_download(video_id, format_type):
+    """Wohi video abhi download ho rahi ho to us ki dl_id (double rokne ko)."""
+    if not video_id:
+        return None
+    _f = (format_type or 'mp4').lower()
+    for _did, _st in list(download_progress.items()):
+        if _st.get('status') not in ('starting', 'downloading', 'processing'):
+            continue
+        _m = download_meta.get(_did, {})
+        if _m.get('video_id') == video_id and \
+                (_m.get('format_type') or 'mp4').lower() == _f:
+            return _did
+    return None
+
+
 @app.route('/api/start-download', methods=['POST'])
 def start_download():
     data = request.json or {}
@@ -6001,14 +6016,42 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
                     file_path = None
 
                 if not file_path:
+                    # Tay-shuda naam (outtmpl title-based hai) se dhoondo
+                    try:
+                        _exp = ydl.prepare_filename(info)
+                        _base = os.path.splitext(_exp)[0]
+                        for _e2 in ('.mp4', '.mkv', '.webm', '.3gp',
+                                    '.mp3', '.m4a'):
+                            _c = _base + _e2
+                            if os.path.exists(_c) and os.path.getsize(_c) > 0:
+                                file_path = _c
+                                break
+                    except Exception:
+                        file_path = None
+                if not file_path:
+                    # Aakhri sahara: sirf WAHI file jis ka naam is video ke
+                    # title se BILKUL milta ho aur jo is download ke shuru
+                    # hone ke baad bani ho. Folder ki sab se nayi file utha
+                    # lena (purana tareeqa) dusri download ki file is video
+                    # ke naam par save kar deta tha — wahi asal bug tha.
                     exts = ('.mp3', '.m4a') if format_type in ('mp3', 'm4a') else \
                            ('.mp4', '.mkv', '.webm', '.3gp')
-                    files = [f for f in os.listdir(download_dir) if f.endswith(exts)]
-                    if files:
-                        files.sort(key=lambda x: os.path.getmtime(
-                            os.path.join(download_dir, x)), reverse=True)
-                        file_path = os.path.join(download_dir, files[0])
-                        title = os.path.splitext(files[0])[0]
+                    _want = re.sub(r'[^a-z0-9]+', '', (title or '').lower())
+                    if _want:
+                        for _f in os.listdir(download_dir):
+                            if not _f.endswith(exts):
+                                continue
+                            _stem = os.path.splitext(_f)[0]
+                            if re.sub(r'[^a-z0-9]+', '', _stem.lower()) != _want:
+                                continue
+                            _fp = os.path.join(download_dir, _f)
+                            try:
+                                if os.path.getmtime(_fp) >= started_at - 5 \
+                                        and os.path.getsize(_fp) > 0:
+                                    file_path = _fp
+                                    break
+                            except Exception:
+                                pass
 
                 # 3GP fallback: if conversion did not produce a .3gp, do it
                 # directly with ffmpeg (h263 + aac, 176px wide - feature phones)
@@ -7576,30 +7619,6 @@ def ai_parse_command(text):
             parsed['format'] = 'mp3'
             parsed['quality'] = '192'
 
-    # ---- count (v9): '10 songs / 5 gaane / 3 movies' = utni videos ki list ----
-    cntm = re.search(r'(\d+)\s+(?:(?:new|latest|top|best|mix|mixed|indian|pakistani|hindi|urdu|punjabi|bollywood|old|fresh)\s+){0,3}(songs?|gana|gaane|geet|movies?|films?|videos?|naats?|dramas?|cartoons?|shorts?|reels?|tiktoks?)\b', t)
-    if not cntm:
-        cntm = re.search(r'(songs?|movies?|naats?|dramas?|cartoons?|shorts?|reels?|tiktoks?)\s+(\d+)\b', t)
-        if cntm:
-            cntm = (cntm.group(2), cntm.group(1))
-    else:
-        cntm = (cntm.group(1), cntm.group(2))
-    if cntm:
-        parsed['count'] = max(1, min(100, int(cntm[0])))
-        _noun2cat = {'song': 'song', 'songs': 'song', 'gana': 'song',
-                     'gaane': 'song', 'geet': 'song', 'movie': 'movie',
-                     'movies': 'movie', 'film': 'movie', 'films': 'movie',
-                     'naat': 'naat', 'naats': 'naat', 'drama': 'drama',
-                     'dramas': 'drama', 'cartoon': 'cartoon',
-                     'cartoons': 'cartoon', 'short': 'shorts',
-                     'shorts': 'shorts', 'reel': 'shorts', 'reels': 'shorts',
-                     'tiktok': 'shorts', 'tiktoks': 'shorts',
-                     'video': 'video', 'videos': 'video'}
-        if not parsed.get('category'):
-            parsed['category'] = _noun2cat.get(cntm[1])
-        t = re.sub(r'\b' + re.escape(str(parsed['count'])) + r'\s+(?:new\s+|latest\s+)?' + cntm[1] + r'\b', ' ', t, count=1)
-        t = re.sub(r'\b' + cntm[1] + r'\s+' + re.escape(str(parsed['count'])) + r'\b', ' ', t, count=1)
-
     # ---- episodes ----
     rng = re.search(r'(?:episode|ep|qist)\s*(\d+)\s*(?:to|se|sy|say|tak|-|–)\s*(\d+)(?:\s*(?:tak|tk))?', t)
     if rng:
@@ -7634,6 +7653,35 @@ def ai_parse_command(text):
                 parsed['episodes'] = list(range(1, 11))  # default: first 10
                 t = t.replace(allep.group(0), ' ')
     t = re.sub(r'\b(episodes?|eps?|qistein|qist)\b', ' ', t)
+
+    # ---- count (v9): '10 songs / 5 gaane / 3 movies' = utni videos ki list ----
+    _cnt_span = None
+    cntm = re.search(r'(\d+)\s+(?:[a-z]+\s+){0,3}?(songs?|gana|gaane|geet|movies?|films?|videos?|naats?|dramas?|cartoons?|shorts?|reels?|tiktoks?)\b', t)
+    if not cntm:
+        cntm = re.search(r'(songs?|movies?|naats?|dramas?|cartoons?|shorts?|reels?|tiktoks?)\s+(\d+)\b', t)
+        if cntm:
+            _cnt_span = cntm.group(0)
+            cntm = (cntm.group(2), cntm.group(1))
+    else:
+        _cnt_span = cntm.group(0)
+        cntm = (cntm.group(1), cntm.group(2))
+    if cntm:
+        parsed['count'] = max(1, min(100, int(cntm[0])))
+        _noun2cat = {'song': 'song', 'songs': 'song', 'gana': 'song',
+                     'gaane': 'song', 'geet': 'song', 'movie': 'movie',
+                     'movies': 'movie', 'film': 'movie', 'films': 'movie',
+                     'naat': 'naat', 'naats': 'naat', 'drama': 'drama',
+                     'dramas': 'drama', 'cartoon': 'cartoon',
+                     'cartoons': 'cartoon', 'short': 'shorts',
+                     'shorts': 'shorts', 'reel': 'shorts', 'reels': 'shorts',
+                     'tiktok': 'shorts', 'tiktoks': 'shorts',
+                     'video': 'video', 'videos': 'video'}
+        if not parsed.get('category'):
+            parsed['category'] = _noun2cat.get(cntm[1])
+        if _cnt_span:
+            t = t.replace(_cnt_span, ' ', 1)
+        t = re.sub(r'\b' + re.escape(str(parsed['count'])) + r'\s+(?:new\s+|latest\s+)?' + cntm[1] + r'\b', ' ', t, count=1)
+        t = re.sub(r'\b' + cntm[1] + r'\s+' + re.escape(str(parsed['count'])) + r'\b', ' ', t, count=1)
 
     # ---- intent ----
     if 'thumbnail' in t:
@@ -7937,7 +7985,7 @@ def _enrich_ai_job(job):
         pass
     return job
 
-def _ai_wait_download(download_id, timeout=1800):
+def _ai_wait_download(download_id, timeout=3600):
     start = time.time()
     while time.time() - start < timeout:
         if download_control.get(download_id, {}).get('cancel'):
@@ -8063,6 +8111,40 @@ def _ai_run_job(job_id, only_idx=None):
                     _save_ai_jobs()
                 ok = True
                 break
+            if attempt > 1 and locals().get('_prev_dl'):
+                # Pichli attempt ab bhi zinda ho to pehle use band karo —
+                # do zinda downloads ek hi video ki do files bana deti theen.
+                download_control[_prev_dl] = {'cancel': True, 'deleted': True}
+                for _w in range(15):
+                    if download_progress.get(_prev_dl, {}).get('status') in (None, 'error', 'paused'):
+                        break
+                    time.sleep(1)
+            _act = _find_active_download(vid, parsed['format'])
+            if _act:
+                # Wohi video pehle se download ho rahi hai — usi ka
+                # intezaar karo, dusri copy mat chalao.
+                with ai_jobs_lock:
+                    job['episodes_status'][idx].update(
+                        {'video_id': vid, 'title': vtitle, 'download_id': _act,
+                         'status': 'downloading', 'attempts': attempt})
+                    _save_ai_jobs()
+                ok, st = _ai_wait_download(_act)
+                if ok and _act not in downloaded_files:
+                    ok = False
+                    st = {'error': 'File registry me nahi mili'}
+                with ai_jobs_lock:
+                    if job['episodes_status'][idx].get('status') != 'deleted':
+                        job['episodes_status'][idx].update(
+                            {'attempts': attempt, 'video_id': vid,
+                             'title': vtitle,
+                             'status': 'downloading' if not ok else 'completed',
+                             'file_path': st.get('file_path'),
+                             'error': st.get('error')})
+                    _save_ai_jobs()
+                if ok:
+                    break
+                last_err = st.get('error') or 'Failed'
+                continue
             dl_id = f"ai_{job_id}_{idx}_{attempt}_{int(time.time())}"
             download_progress[dl_id] = {'status': 'starting', 'percent': 0,
                                         'speed': '', 'error': None}
@@ -8074,6 +8156,7 @@ def _ai_run_job(job_id, only_idx=None):
                                   kwargs={'title_hint': vtitle})
             th.daemon = True
             th.start()
+            _prev_dl = dl_id
             with ai_jobs_lock:
                 job['episodes_status'][idx].update(
                     {'video_id': vid, 'title': vtitle, 'download_id': dl_id,
