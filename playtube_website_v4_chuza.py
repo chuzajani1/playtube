@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 28  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 29  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1459,7 +1459,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">28</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">29</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -1503,6 +1503,9 @@ HTML = '''
       <div class="v4-sect">DOWNLOADED</div>
       <div id="v4-phone-done"></div>
       <div id="v4-dl-done"><p class="v4-muted">Abhi tak koi download nahi</p></div>
+      <div class="v4-sect" id="v4-dl-failsect" style="display:none">❌ FAIL HUI <span id="v4-dl-failcount"></span></div>
+      <div id="v4-phone-failed"></div>
+      <div id="v4-dl-failed"></div>
     </section>
 
     <section id="v4-view-ai" class="v4-view">
@@ -2427,7 +2430,9 @@ function v4PhoneDlRender(){
   if(sig !== window._v4phSig){
     window._v4phSig = sig;
     boxA.innerHTML = active.map(v4PhoneRowHtml).join('');
-    let doneHtml = bad.map(v4PhoneRowHtml).join('');
+    const boxF = v4$('v4-phone-failed');
+    if(boxF) boxF.innerHTML = bad.map(v4PhoneRowHtml).join('');
+    let doneHtml = '';
     stored.forEach(function(s){ if(liveKeys[(s.title || '') + '|' + (s.quality || '')]) return; doneHtml += v4PhoneStoredRow(s); });
     boxD.innerHTML = doneHtml;
   } else {
@@ -2443,6 +2448,7 @@ function v4PhoneDlRender(){
   const acEl2 = v4$('v4-dl-actcount');
   if(acEl2){ const tot = (window._v4srvAct || 0) + active.length; acEl2.textContent = tot ? '(' + tot + ')' : ''; }
   v4DlEmptyFix();
+  v4FailSectSync();
 }
 async function v4LoadDownloads(){
   try{
@@ -2560,6 +2566,13 @@ function v4MenuShare(){ const d = v4DlMap[v4MenuId] || {}; const id = v4MenuId; 
 function v4MenuPrivate(){ const d = v4DlMap[v4MenuId] || {}; const id = v4MenuId; v4CloseDlMenu(); v4PrivToggle(id, !d.private); }
 function v4MenuDelete(){ const id = v4MenuId; v4CloseDlMenu(); v4DeleteDl(id); }
 function v4MenuRetry(el){ const vid = el.getAttribute('data-vid'); v4CloseDlMenu(); v4OpenSheet(vid); }
+function v4FailSectSync(){
+  const fs = v4$('v4-dl-failsect'); if(!fs) return;
+  const a = v4$('v4-dl-failed'), b = v4$('v4-phone-failed');
+  const n = (a ? a.children.length : 0) + (b ? b.children.length : 0);
+  fs.style.display = n ? '' : 'none';
+  const fc = v4$('v4-dl-failcount'); if(fc) fc.textContent = n ? '(' + n + ')' : '';
+}
 function v4RenderDownloads(){
   const fEl = v4$('v4-dl-filter'); if(!fEl) return;
   const f = (fEl.value || '').toLowerCase();
@@ -2610,12 +2623,17 @@ function v4RenderDownloads(){
       statsEl.textContent = '📥 ' + comp.length + ' downloads • Kul size: ' + v4MB(tot);
     } else statsEl.style.display = 'none';
   }
-  const rendered = doneList.map(rowDone).join('');
+  const compList = doneList.filter(function(d){ return d.status === 'completed'; });
+  const failList = doneList.filter(function(d){ return d.status !== 'completed'; });
+  const rendered = compList.map(rowDone).join('');
+  const failRendered = failList.map(rowDone).join('');
+  const dfEl = v4$('v4-dl-failed'); if(dfEl) dfEl.innerHTML = failRendered;
   if(rendered) v4$('v4-dl-done').innerHTML = rendered;
   else if(f || v4DlType !== 'all') v4$('v4-dl-done').innerHTML = '<p class="v4-muted">Is filter mein koi download nahi mili</p>';
   else if(act.length) v4$('v4-dl-done').innerHTML = '<p class="v4-muted">Abhi tak koi download mukammal nahi</p>';
   else v4$('v4-dl-done').innerHTML = '<div class="v4-empty"><div class="v4-empty-ic">🎬</div><div class="v4-empty-t">Abhi tak koi download nahi</div><p class="v4-muted">Jo videos aap download karein ge, wo yahan mehfooz milengi — baghair internet ke dekhne ke liye.</p><button class="v4-bigbtn" style="max-width:240px;margin:10px auto 0" data-v="home" onclick="v4Show(this.dataset.v)">Videos dekhein</button></div>';
   v4DlEmptyFix();
+  v4FailSectSync();
 }
 let v4AutoSaveBase = false;
 function v4SaveFileName(it){
