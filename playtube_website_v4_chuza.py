@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 30  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 31  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1459,7 +1459,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">30</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">31</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2958,6 +2958,9 @@ function v4PhoneJobStart(items, quality, format, msg, show){
   const stop = document.createElement('button'); stop.className = 'v4-btn2'; stop.textContent = '⏹ Sab band'; stop.style.marginTop = '8px';
   stop.onclick = function(){ job.stopped = true; v4PhoneJobCancelCurrent(job); if(job.stopBtn) job.stopBtn.style.display = 'none'; v4PhoneJobRender(job); };
   b.appendChild(stop); job.stopBtn = stop;
+  const del = document.createElement('button'); del.className = 'v4-btn2'; del.textContent = '🗑 All delete'; del.style.marginTop = '8px'; del.style.marginLeft = '6px';
+  del.onclick = function(){ v4PhoneJobDeleteAll(job); };
+  b.appendChild(del); job.delBtn = del;
   if(show){
     const eb = document.createElement('button'); eb.className = 'v4-btn2'; eb.textContent = '📂 "' + show + '" ki saari episodes dekhein'; eb.style.marginTop = '8px';
     eb.setAttribute('data-show', show);
@@ -2967,6 +2970,29 @@ function v4PhoneJobStart(items, quality, format, msg, show){
   v4AiStore({t:Date.now(), kind:'text', text:(msg || 'Phone par download') + ' (' + items.length + ' videos)'});
   v4PhoneJobRender(job);
   v4PhoneJobNext(job);
+}
+function v4PhoneJobDeleteAll(job){
+  job.stopped = true;
+  if(job._timer) clearInterval(job._timer);
+  const vids = {};
+  (job.items || []).forEach(function(it){ if(it.video_id) vids[it.video_id] = 1; });
+  try{
+    if(window.PlayTubeApp && PlayTubeApp.phoneDlState && PlayTubeApp.phoneDlRemove){
+      const live = JSON.parse(PlayTubeApp.phoneDlState() || '[]');
+      live.forEach(function(p){ if(vids[p.videoId]){ try{ PlayTubeApp.phoneDlRemove(p.id); }catch(e){} } });
+    }
+  }catch(e){}
+  try{
+    let stored = JSON.parse(localStorage.getItem('pt_phone_dl') || '[]');
+    stored = stored.filter(function(s){ return !vids[s.videoId]; });
+    localStorage.setItem('pt_phone_dl', JSON.stringify(stored));
+  }catch(e){}
+  if(job.stopBtn) job.stopBtn.style.display = 'none';
+  if(job.delBtn) job.delBtn.style.display = 'none';
+  if(job.holder) job.holder.innerHTML = '<div style="font-size:13px">🗑 Poori list delete ho gayi — phone se files bhi hata di gayin.</div>';
+  window._v4phSig = '';
+  try{ v4PhoneDlRender(); }catch(e){}
+  v4Toast('Poori list delete ho gayi');
 }
 function v4PhoneJobRender(job){
   if(!job.holder) return;
@@ -3149,6 +3175,23 @@ function v4AiDeleteItem(el){
     else v4Toast((r.data && r.data.error) || 'Delete nahi ho saka');
   });
 }
+function v4AiDeleteAll(el){
+  const jid = el.getAttribute('data-job'); if(!jid) return;
+  el.disabled = true; el.textContent = 'Delete ho raha hai...';
+  v4Post('/api/ai/jobs/' + jid + '/delete-all', {}).then(function(r){
+    if(r.ok && r.data && r.data.success){
+      if(v4JobTimers[jid]){ clearInterval(v4JobTimers[jid]); delete v4JobTimers[jid]; }
+      try{ const a = JSON.parse(localStorage.getItem('pt_ai_chat') || '[]'); localStorage.setItem('pt_ai_chat', JSON.stringify(a.filter(function(e){ return e.job_id !== jid; }))); }catch(e){}
+      const holder = v4$('v4-job-' + jid);
+      if(holder && holder.parentNode) holder.parentNode.innerHTML = '<span>🗑 Poori list delete ho gayi — files bhi hata di gayin.</span>';
+      v4Toast('Poori list delete ho gayi');
+      v4LoadDownloads();
+    } else {
+      el.disabled = false; el.textContent = '🗑 All delete';
+      v4Toast((r.data && r.data.error) || 'Delete nahi ho saka');
+    }
+  });
+}
 function v4RenderJob(jobId, job){
   const holder = v4$('v4-job-' + jobId); if(!holder) return;
   const eps = job.episodes_status || [];
@@ -3156,7 +3199,7 @@ function v4RenderJob(jobId, job){
   if(!vis.length){ holder.innerHTML = ''; return; }
   const total = vis.length;
   const done = vis.filter(function(e){ return e.status === 'completed'; }).length;
-  let h = '<div class="v4-ailist"><div class="v4-ailist-h"><span class="t">📥 ' + total + ' videos</span><span class="cnt">' + done + ' / ' + total + '</span><button class="v4-sabband" data-job="' + jobId + '" onclick="v4AiStopAll(this)">⏹ Sab band</button></div>';
+  let h = '<div class="v4-ailist"><div class="v4-ailist-h"><span class="t">📥 ' + total + ' videos</span><span class="cnt">' + done + ' / ' + total + '</span><button class="v4-sabband" data-job="' + jobId + '" onclick="v4AiStopAll(this)">⏹ Sab band</button><button class="v4-sabband" data-job="' + jobId + '" onclick="v4AiDeleteAll(this)">🗑 All delete</button></div>';
   eps.forEach(function(es, i){
     if(es.status === 'deleted') return;
     const name = es.title || (es.episode != null ? ('Episode ' + es.episode) : ('Video ' + (i + 1)));
@@ -9680,6 +9723,37 @@ def api_ai_delete_item(job_id):
     if _dl:
         try:
             delete_download(_dl)
+        except Exception:
+            pass
+    return jsonify({'success': True})
+
+
+@app.route('/api/ai/jobs/<job_id>/delete-all', methods=['POST'])
+def api_ai_delete_all(job_id):
+    """Update 106: 'All delete' — poori list ek sath delete: chal
+    rahi downloads cancel, bani hui files delete, saari rows khatam.
+    'Sab band' ke sath ye button har AI list par ata hai."""
+    dls = []
+    with ai_jobs_lock:
+        job = ai_jobs.get(job_id)
+        if not job:
+            return jsonify({'success': False, 'error': 'Job nahi mila'}), 404
+        job['stop_all'] = True
+        job['status'] = 'cancelled'
+        for es in job.get('episodes_status') or []:
+            if es.get('status') != 'deleted':
+                if es.get('download_id'):
+                    dls.append(es['download_id'])
+                es['status'] = 'deleted'
+                es['user_stopped'] = True
+                es.pop('error', None)
+        job['completed_count'] = 0
+        job['total_count'] = 0
+        _save_ai_jobs()
+    for dl in dls:
+        download_control[dl] = {'cancel': True}
+        try:
+            delete_download(dl)
         except Exception:
             pass
     return jsonify({'success': True})
