@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 38  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 39  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1473,7 +1473,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">38</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">39</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2824,7 +2824,7 @@ function v4AiRestore(){
       const _ff = v4AiFolderGet(_fkey, en.title || 'Downloads');
       window._v4Restoring = false;
       if(_ff && _ff.el) _ff.el.setAttribute('data-ts', String(en.t));
-      v4AiFolderRender(_fkey);
+      if(_ff) v4AiFolderRender(_ff.key);
     } else if(en.kind === 'job'){
       const b = v4AiBubble(en.text || '', false);
       b.setAttribute('data-ts', String(en.t)); b.setAttribute('data-jid', en.job_id);
@@ -2996,11 +2996,14 @@ async function v4CandStart(quality, format){
     v4PhoneJobStart(items, quality, format, '📱 ' + items.length + ' videos phone par download ho rahi hain — one by one:', ctx.show || '', {key:v4AiFolderKeyFor(ctx), title:v4AiFolderTitleFor(ctx)});
     return;
   }
-  const r = await v4Post('/api/ai/pick-many', {items:items, quality:quality, format:format, show:ctx.show || ''});
-  const d = r.data || {};
-  if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); v4AiBubble('Limit khatam — pehle account banayein.'); return; } v4AiBubble(d.error || 'Download start nahi ho saka'); return; }
-  const b = v4AiBubble(d.message || 'Download start ho gayi');
-  if(d.job_id){ v4AiAttachJob(d.job_id); }
+  const submit = async function(){
+    const r = await v4Post('/api/ai/pick-many', {items:items, quality:quality, format:format, show:ctx.show || ''});
+    const d = r.data || {};
+    if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); v4AiBubble('Limit khatam — pehle account banayein.'); return; } v4AiBubble(d.error || 'Download start nahi ho saka'); return; }
+    const b = v4AiBubble(d.message || 'Download start ho gayi');
+    if(d.job_id){ v4AiAttachJob(d.job_id); }
+  };
+  v4SrvEnqueue(items, submit);
 }
 async function v4AiDoPick(vid, title, quality, format){
   const ctx = window._v4CandCtx || {};
@@ -3010,11 +3013,14 @@ async function v4AiDoPick(vid, title, quality, format){
     v4PhoneJobStart([{video_id:vid, title:title}], quality, format, '✅ Yahi phone par download ho rahi hai: ' + title, ctx.show || '', {key:v4AiFolderKeyFor(ctx), title:v4AiFolderTitleFor(ctx)});
     return;
   }
-  const r = await v4Post('/api/ai/pick', {video_id:vid, title:title, quality:quality, format:format, show:ctx.show || '', category:ctx.category || ''});
-  const d = r.data || {};
-  if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); v4AiBubble('Limit khatam — pehle account banayein.'); return; } v4AiBubble(d.error || 'Download start nahi ho saka'); return; }
-  const b = v4AiBubble(d.message || 'Download start ho gayi');
-  if(d.job_id){ v4AiAttachJob(d.job_id); }
+  const submit = async function(){
+    const r = await v4Post('/api/ai/pick', {video_id:vid, title:title, quality:quality, format:format, show:ctx.show || '', category:ctx.category || ''});
+    const d = r.data || {};
+    if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); v4AiBubble('Limit khatam — pehle account banayein.'); return; } v4AiBubble(d.error || 'Download start nahi ho saka'); return; }
+    const b = v4AiBubble(d.message || 'Download start ho gayi');
+    if(d.job_id){ v4AiAttachJob(d.job_id); }
+  };
+  v4SrvEnqueue([{video_id:vid, title:title}], submit);
 }
 async function v4AiEpisodes(el){
   const show = el.getAttribute('data-show'); el.disabled = true;
@@ -3090,11 +3096,14 @@ async function v4AiPickAll(el){
   }
   const ctx = window._v4CandCtx || {};
   window._v4AttachCtx = _epshow ? {show:_epshow} : ctx;
-  const r = await v4Post('/api/ai/pick-many', {items:items, quality: ctx.qexp ? (ctx.quality || '360p') : '360p', format:'mp4', show: _epshow || ctx.show || ''});
-  const d = r.data || {};
-  if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); } v4AiBubble(d.error || 'Download start nahi ho saka'); return; }
-  const b = v4AiBubble(d.message || 'Sab episodes download start');
-  if(d.job_id){ v4AiAttachJob(d.job_id); }
+  const submit = async function(){
+    const r = await v4Post('/api/ai/pick-many', {items:items, quality: ctx.qexp ? (ctx.quality || '360p') : '360p', format:'mp4', show: _epshow || ctx.show || ''});
+    const d = r.data || {};
+    if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); } v4AiBubble(d.error || 'Download start nahi ho saka'); return; }
+    const b = v4AiBubble(d.message || 'Sab episodes download start');
+    if(d.job_id){ v4AiAttachJob(d.job_id); }
+  };
+  v4SrvEnqueue(items, submit);
 }
 
 /* Update 103: AI jobs APK mein PHONE par — server bot-check se mehfooz */
@@ -3102,22 +3111,23 @@ function v4PhoneAiOk(){ try{ return !!(window.PlayTubeApp && PlayTubeApp.phoneDl
 let v4PhoneJobSeq = 0;
 function v4PhoneJobStart(items, quality, format, msg, show, opts){
   if(!items || !items.length) return;
-  const job = {id: ++v4PhoneJobSeq, items: items, quality: quality || '360p', format: format || 'mp4', idx: 0, stopped: false, done: 0, failed: 0};
+  const job = {id: ++v4PhoneJobSeq, items: items, quality: quality || '360p', format: format || 'mp4', idx: 0, userStopped: false, done: 0, failed: 0};
   job.key = 'pj' + job.id; (window._v4PhoneJobs = window._v4PhoneJobs || {})[job.key] = job;
   /* Update 114 (corrected): phone job apne naye bubble mein nahi —
      apne kaam/show ke FOLDER mein add hota hai. */
-  const _fk = (opts && opts.key) || (show ? 'show:' + String(show).toLowerCase() : 'cmd:' + (window._v4LastAiCmd || 'Downloads'));
-  const _ft = (opts && opts.title) || (show ? ('📂 ' + show) : String(window._v4LastAiCmd || 'Downloads').slice(0, 60));
-  job.folderKey = _fk;
+  const _kf = (opts && opts.key) ? {key: opts.key, title: opts.title || '📥 Downloads'} : v4AiFolderKeyOf({show: show}, items);
+  const _fk = _kf.key, _ft = _kf.title;
   const _F = v4AiFolderGet(_fk, _ft);
+  job.folderKey = _F.key; job.folderTitle = _F.title;
   _F.phoneJobs[job.key] = job;
   v4AiFolderRender(_fk);
   window.scrollTo(0, document.body.scrollHeight);
   v4PhoneJobNext(job);
 }
 function v4PhoneJobDeleteAll(job){
-  job.stopped = true;
+  job.userStopped = true;
   if(job._timer) clearInterval(job._timer);
+  (job.items || []).forEach(function(it){ if(it._timer){ clearInterval(it._timer); it._timer = null; } if(it._st === 'starting' || it._st === 'downloading') it._st = 'deleted'; });
   const vids = {};
   (job.items || []).forEach(function(it){ if(it.video_id) vids[it.video_id] = 1; });
   try{
@@ -3148,8 +3158,8 @@ function v4PhoneJobRender(job){
     if(it._st === 'done') st = '✓';
     else if(it._st === 'deleted') st = '🗑';
     else if(it._st === 'failed') st = '✗';
-    else if(i === job.idx && !job.stopped){ st = '⬇'; if(it._pct != null) pct = ' ' + it._pct + '%'; }
-    if(job.stopped && !it._st) st = '⏹';
+    else if(i === job.idx && !job.userStopped){ st = '⬇'; if(it._pct != null) pct = ' ' + it._pct + '%'; }
+    if(job.userStopped && !it._st) st = '⏹';
     let btn = '';
     if(it._st === 'done') btn = '<span class="v4-ai-stop" data-job="' + job.key + '" data-idx="' + i + '" onclick="event.stopPropagation();v4PhoneJobDelItem(this)" title="Delete">🗑</span>';
     else if(it._st !== 'deleted') btn = '<span class="v4-ai-stop" data-job="' + job.key + '" data-idx="' + i + '" onclick="event.stopPropagation();v4PhoneJobDelItem(this)" title="Band + delete">✕</span>';
@@ -3181,62 +3191,192 @@ function v4PhoneJobDelItem(el){
     v4PhoneJobRender(job);
     return;
   }
-  if(idx === job.idx && !job.stopped){
+  if(it._st === 'starting' || it._st === 'downloading'){
     try{
       let live = [];
       try{ live = JSON.parse(PlayTubeApp.phoneDlState() || '[]'); }catch(e){}
-      const ent = live.filter(function(x){ return x.videoId === it.video_id && !(job._preIds && job._preIds[x.id]); })[0] || live.filter(function(x){ return x.videoId === it.video_id; })[0];
+      const ent = (it._entId && live.filter(function(x){ return x.id === it._entId; })[0]) || live.filter(function(x){ return x.videoId === it.video_id && !(it._preIds && it._preIds[x.id]); })[0] || live.filter(function(x){ return x.videoId === it.video_id; })[0];
       if(ent){
         if(PlayTubeApp.phoneDlCancel && ent.status === 'running'){ try{ PlayTubeApp.phoneDlCancel(ent.id); }catch(e){} }
         if(PlayTubeApp.phoneDlRemove){ try{ PlayTubeApp.phoneDlRemove(ent.id); }catch(e){} }
       }
     }catch(e){}
-    if(job._timer) clearInterval(job._timer);
+    if(it._timer){ clearInterval(it._timer); it._timer = null; }
     it._st = 'deleted';
-    job.idx++;
     v4PhoneJobRender(job);
-    v4PhoneJobNext(job);
+    v4FolderSched();
     return;
   }
   it._st = 'deleted';
   v4PhoneJobRender(job);
 }
-function v4PhoneJobNext(job){
-  while(job.idx < job.items.length && job.items[job.idx]._st === 'deleted') job.idx++;
-  if(job.stopped || job.idx >= job.items.length){ if(job.stopBtn) job.stopBtn.style.display = 'none'; v4PhoneJobRender(job); return; }
-  const it = job.items[job.idx];
-  job._preIds = {};
-  try{ JSON.parse(PlayTubeApp.phoneDlState() || '[]').forEach(function(x){ if(x.videoId === it.video_id) job._preIds[x.id] = 1; }); }catch(e){}
-  try{ PlayTubeApp.phoneDlStart(it.video_id, job.quality, job.format, it.title || ''); }
-  catch(e){ it._st = 'failed'; job.failed++; job.idx++; v4PhoneJobRender(job); v4PhoneJobNext(job); return; }
-  job._wait = 0;
-  if(job._timer) clearInterval(job._timer);
-  job._timer = setInterval(function(){ v4PhoneJobPoll(job); }, 2000);
+/* Update 118: PHONE runner — folder-level scheduler. Ek waqt mein
+   utni hi downloads jitni Settings ki 'Ek sath downloads' limit
+   (v4State.settings.maxConc, default 3) — phone + server mila kar.
+   Har item SIRF apni fresh entry se bandhta hai (snapshot + claim);
+   purani 'stopped' entry kabhi nahi bandhti, aur 'stopped' sirf
+   user ke stop se banta hai (item._st = 'ustop'). */
+function v4DlLimit(){
+  const n = parseInt((v4State.settings && v4State.settings.maxConc) || 3, 10);
+  return (n >= 1 && n <= 5) ? n : 3;
 }
-function v4PhoneJobPoll(job){
-  if(job.stopped){ if(job._timer) clearInterval(job._timer); return; }
-  const it = job.items[job.idx]; if(!it) return;
-  let live = [];
-  try{ live = JSON.parse(PlayTubeApp.phoneDlState() || '[]'); }catch(e){}
-  const ent = live.filter(function(x){ return x.videoId === it.video_id && !(job._preIds && job._preIds[x.id]); })[0];
-  if(ent){
-    job._wait = 0;
-    if(ent.status === 'stopped'){ it._st = 'failed'; job.failed++; job.idx++; if(job._timer) clearInterval(job._timer); v4PhoneJobRender(job); v4PhoneJobNext(job); return; }
-    if(ent.status === 'done'){ v4ShowTrackTitle(it.title || ''); it._st = 'done'; it._pct = 100; job.done++; job.idx++; if(job._timer) clearInterval(job._timer); v4PhoneJobRender(job); v4PhoneJobNext(job); return; }
-    if(ent.status === 'failed'){ it._st = 'failed'; job.failed++; job.idx++; if(job._timer) clearInterval(job._timer); v4PhoneJobRender(job); v4PhoneJobNext(job); return; }
-    it._pct = ent.percent; v4PhoneJobRender(job);
-    return;
+function v4PhoneActiveCount(){
+  let n = 0;
+  const F = (window._v4Folders || {})[V4_FOLDER_KEY]; if(!F) return 0;
+  Object.keys(F.phoneJobs || {}).forEach(function(jk){
+    (F.phoneJobs[jk].items || []).forEach(function(it){ if(it._st === 'starting' || it._st === 'downloading') n++; });
+  });
+  return n;
+}
+function v4SrvActiveCount(){
+  let n = 0;
+  const F = (window._v4Folders || {})[V4_FOLDER_KEY]; if(!F) return 0;
+  Object.keys(F.serverJobs || {}).forEach(function(jid){
+    const job = F.serverData[jid];
+    if(!job){ n += 1; return; }
+    (job.episodes_status || []).forEach(function(es){ if(es.status === 'downloading' || es.status === 'searching') n++; });
+  });
+  return n;
+}
+function v4PhoneSched(){
+  const F = (window._v4Folders || {})[V4_FOLDER_KEY]; if(!F) return;
+  let active = v4PhoneActiveCount() + v4SrvActiveCount();
+  const lim = v4DlLimit();
+  const jobs = Object.keys(F.phoneJobs || {}).map(function(jk){ return F.phoneJobs[jk]; }).sort(function(a, b){ return a.id - b.id; });
+  for(let ji = 0; ji < jobs.length; ji++){
+    const job = jobs[ji];
+    if(job.userStopped) continue;
+    for(let ii = 0; ii < job.items.length; ii++){
+      if(active >= lim) return;
+      const it = job.items[ii];
+      if(!it._st){ v4PhoneItemStart(job, it); if(it._st === 'starting' || it._st === 'downloading') active++; }
+    }
   }
-  job._wait = (job._wait || 0) + 1;
-  if(job._wait > 90){ it._st = 'failed'; job.failed++; job.idx++; if(job._timer) clearInterval(job._timer); v4PhoneJobRender(job); v4PhoneJobNext(job); }
+}
+function v4PhoneItemStart(job, it){
+  it._err = ''; it._entId = null; it._wait = 0; it._gone = 0;
+  it._preIds = {};
+  try{ JSON.parse(PlayTubeApp.phoneDlState() || '[]').forEach(function(x){ if(x.videoId === it.video_id) it._preIds[x.id] = 1; }); }catch(e){}
+  it._st = 'starting';
+  try{ PlayTubeApp.phoneDlStart(it.video_id, job.quality, job.format, it.title || ''); }
+  catch(e){ it._st = 'failed'; it._err = 'Download start nahi hua — ↻ se dobara try karein'; job.failed++; v4PhoneJobRender(job); return; }
+  if(it._timer) clearInterval(it._timer);
+  it._timer = setInterval(function(){ v4PhoneItemPoll(job, it); }, 1500);
+}
+function v4PhoneItemPoll(job, it){
+  if(it._st !== 'starting' && it._st !== 'downloading'){ if(it._timer) clearInterval(it._timer); return; }
+  let live = null;
+  try{ live = JSON.parse(PlayTubeApp.phoneDlState() || '[]'); }catch(e){ live = null; }
+  if(!live) return;
+  let ent = null;
+  if(it._entId){
+    ent = live.filter(function(x){ return x.id === it._entId; })[0] || null;
+    if(!ent){
+      /* Bandhi hui entry list se gayab (app restart / remove) —
+         stopped NAHI, fail + wajah + retry. */
+      it._gone = (it._gone || 0) + 1;
+      if(it._gone >= 5) v4PhoneItemFinish(job, it, 'failed', 'Download list se gayab ho gaya — ↻ se dobara try karein');
+      return;
+    }
+  } else {
+    const claims = (window._v4EntClaim = window._v4EntClaim || {});
+    const cand = live.filter(function(x){ return x.videoId === it.video_id && !(it._preIds && it._preIds[x.id]) && (!claims[x.id] || claims[x.id] === job.key); });
+    /* List nayi-pehle tartib mein hai; hamari entry is start ki SAB
+       SE PURANI unclaimed hai (FIFO) — dusre job ki nayi entry
+       galti se nahi bandhti. */
+    ent = cand.length ? cand[cand.length - 1] : null;
+    if(ent){ it._entId = ent.id; claims[ent.id] = job.key; it._st = 'downloading'; }
+    else {
+      it._wait = (it._wait || 0) + 1;
+      if(it._wait > 40) v4PhoneItemFinish(job, it, 'failed', 'Download start nahi hua — ↻ se dobara try karein');
+      return;
+    }
+  }
+  if(ent.status === 'done'){ v4ShowTrackTitle(it.title || ''); it._pct = 100; v4PhoneItemFinish(job, it, 'done', ''); return; }
+  if(ent.status === 'failed'){ v4PhoneItemFinish(job, it, 'failed', ent.error || 'Download fail ho gaya — ↻ se dobara try karein'); return; }
+  if(ent.status === 'stopped'){
+    /* Apni entry par baghair user-stop ke 'stopped' — ye fail hai;
+       'stopped' kabhi khud nahi banta. */
+    v4PhoneItemFinish(job, it, 'failed', 'Download ruk gaya — ↻ se dobara try karein'); return;
+  }
+  it._pct = ent.percent; v4PhoneJobRender(job);
+}
+function v4PhoneItemFinish(job, it, st, err){
+  if(it._timer){ clearInterval(it._timer); it._timer = null; }
+  it._st = st; if(err) it._err = err;
+  if(st === 'done') job.done++; else if(st === 'failed') job.failed++;
+  v4PhoneJobRender(job);
+  v4FolderSched();
+}
+function v4PhoneJobNext(job){ v4PhoneSched(); }
+/* Server picks ki line: limit bhar jaye to pick-many/pick ki
+   submission ruk jati hai (items folder mein 'line mein' dikhte
+   hain); slot khali hote hi khud submit ho jati hai. */
+function v4SrvEnqueue(items, submitFn){
+  const F = v4AiFolderGet(V4_FOLDER_KEY, '📥 Downloads');
+  if(!F.pendingSrv) F.pendingSrv = [];
+  (items || []).forEach(function(it){ F.pendingSrv.push({title: it.title || '', video_id: it.video_id || ''}); });
+  (window._v4SrvQueue = window._v4SrvQueue || []).push({items: items, fn: submitFn});
+  v4AiFolderRender(F.key);
+  v4FolderSched();
+  v4SrvTimerStart();
+}
+function v4SrvTimerStart(){
+  if(window._v4SrvTimer) return;
+  window._v4SrvTimer = setInterval(function(){
+    if(!(window._v4SrvQueue || []).length){ clearInterval(window._v4SrvTimer); window._v4SrvTimer = null; return; }
+    v4FolderSched();
+  }, 2500);
+}
+function v4SrvPendDel(el){
+  const F = (window._v4Folders || {})[V4_FOLDER_KEY]; if(!F || !F.pendingSrv) return;
+  const ix = Number(el.getAttribute('data-idx'));
+  const p = F.pendingSrv[ix]; if(!p) return;
+  F.pendingSrv.splice(ix, 1);
+  (window._v4SrvQueue || []).forEach(function(q){
+    for(let i = 0; i < q.items.length; i++){ if(q.items[i].video_id === p.video_id){ q.items.splice(i, 1); break; } }
+  });
+  window._v4SrvQueue = (window._v4SrvQueue || []).filter(function(q){ return q.items.length; });
+  v4AiFolderRender(F.key);
+}
+function v4FolderSched(){
+  v4PhoneSched();
+  const q = window._v4SrvQueue || [];
+  if(!q.length) return;
+  const F = (window._v4Folders || {})[V4_FOLDER_KEY]; if(!F) return;
+  let active = v4PhoneActiveCount() + v4SrvActiveCount();
+  while(q.length && active < v4DlLimit()){
+    const job = q.shift();
+    if(F.pendingSrv){
+      job.items.forEach(function(sit){
+        for(let i = 0; i < F.pendingSrv.length; i++){ if(F.pendingSrv[i].video_id === sit.video_id){ F.pendingSrv.splice(i, 1); break; } }
+      });
+    }
+    active += 1;
+    try{ job.fn(); }catch(e){}
+  }
+  v4AiFolderRender(F.key);
 }
 function v4PhoneJobCancelCurrent(job){
-  const it = job.items[job.idx]; if(!it) return;
-  let live = [];
-  try{ live = JSON.parse(PlayTubeApp.phoneDlState() || '[]'); }catch(e){}
-  const ent = live.filter(function(x){ return x.videoId === it.video_id && x.status === 'running'; })[0];
-  if(ent && PlayTubeApp.phoneDlCancel){ try{ PlayTubeApp.phoneDlCancel(ent.id); }catch(e){} }
-  if(job._timer) clearInterval(job._timer);
+  (job.items || []).forEach(function(it){
+    if(it._st !== 'starting' && it._st !== 'downloading') return;
+    if(it._timer){ clearInterval(it._timer); it._timer = null; }
+    let live = [];
+    try{ live = JSON.parse(PlayTubeApp.phoneDlState() || '[]'); }catch(e){}
+    const ent = (it._entId && live.filter(function(x){ return x.id === it._entId; })[0]) || live.filter(function(x){ return x.videoId === it.video_id && x.status === 'running'; })[0];
+    if(ent && PlayTubeApp.phoneDlCancel){ try{ PlayTubeApp.phoneDlCancel(ent.id); }catch(e){} }
+    it._st = 'ustop';
+  });
+}
+/* Update 118: fail hui phone row ka ↻ — wohi item dobara start,
+   usi (ek hi) folder mein; purani fail row hat jati hai. */
+function v4PhoneJobRetryItem(el){
+  const job = (window._v4PhoneJobs || {})[el.getAttribute('data-job')]; if(!job) return;
+  const idx = Number(el.getAttribute('data-idx'));
+  const it = job.items[idx]; if(!it || it._st !== 'failed') return;
+  it._st = 'deleted'; it._err = '';
+  v4PhoneJobStart([{video_id: it.video_id, title: it.title}], job.quality, job.format, '', '', {key: job.folderKey, title: job.folderTitle});
+  if(job.folderKey) v4AiFolderRender(job.folderKey);
 }
 
 /* ---------- Update 109: Mere Shows / Nayi Episode Check / Channel
@@ -3562,7 +3702,7 @@ function v4AiDeleteAll(el){
 }
 function v4RenderJob(jobId, job){
   const _fk = v4AiFolderKeyOfJob(jobId);
-  if(_fk){ const _F = (window._v4Folders || {})[_fk]; if(_F){ _F.serverData[jobId] = job; v4AiFolderRender(_fk); return; } }
+  if(_fk){ const _F = (window._v4Folders || {})[_fk]; if(_F){ _F.serverData[jobId] = job; v4AiFolderRender(_fk); v4FolderSched(); return; } }
   const holder = v4$('v4-job-' + jobId); if(!holder) return;
   const eps = job.episodes_status || [];
   const vis = eps.filter(function(e){ return e.status !== 'deleted'; });
@@ -3593,19 +3733,19 @@ function v4RenderJob(jobId, job){
    USI folder mein add hoti hain (naya folder sirf naye kaam par),
    folder har update par chat ke aakhir mein aa jata hai. ---------- */
 let v4AiFolderSeq = 0;
-function v4AiFolderKeyFor(c){
-  c = c || {};
-  if(c.show) return 'show:' + String(c.show).toLowerCase();
-  if(c.src) return 'src:' + c.src;
-  return 'cmd:' + (window._v4LastAiCmd || 'Downloads');
-}
-function v4AiFolderTitleFor(c){
-  c = c || {};
-  if(c.show) return '📂 ' + c.show;
-  if(c.src) return String(c.src).slice(0, 60);
-  return String(window._v4LastAiCmd || 'Downloads').slice(0, 60);
-}
+/* Update 118 (user override 20:49): AI ki SAARI downloads EK hi
+   folder mein jati hain — per-show/per-surface folders khatam.
+   Nayi download (koi bhi surface: search, episodes, similar, taza,
+   channel, playlist, link, pic — phone ho ya server) isi ek folder
+   mein add hoti hai; andar nayi/running item sab se UPAR rehti hai. */
+const V4_FOLDER_KEY = 'downloads';
+function v4AiFolderKeyOf(c, items){ return {key: V4_FOLDER_KEY, title: '📥 Downloads'}; }
+function v4AiFolderKeyFor(c){ return V4_FOLDER_KEY; }
+function v4AiFolderTitleFor(c){ return '📥 Downloads'; }
 function v4AiFolderGet(key, title){
+  /* Update 118: purana jo bhi key aye (v38 ke per-purpose folders),
+     card EK hi banta hai — baqi sab isi mein merge ho jate hain. */
+  key = V4_FOLDER_KEY; title = '📥 Downloads';
   const F = (window._v4Folders = window._v4Folders || {});
   const box = v4$('v4-ai-msgs');
   let f = F[key];
@@ -3642,8 +3782,10 @@ function v4AiFolderKeyOfJob(jobId){
 function v4AiFolderAddServerJob(key, title, jobId){
   const f = v4AiFolderGet(key, title);
   f.serverJobs[jobId] = 1;
+  if(!f.jobSeq) f.jobSeq = {};
+  if(!f.jobSeq[jobId]) f.jobSeq[jobId] = ++v4AiFolderSeq;
   v4AiFolderJobsSave();
-  v4AiFolderRender(key);
+  v4AiFolderRender(f.key);
   v4PollJob(jobId);
 }
 function v4AiAttachJob(jobId){
@@ -3665,12 +3807,15 @@ function v4AiFolderRowHtml(F, r){
     const delIc = (st === 'completed' || st === 'failed' || st === 'stopped') ? '🗑' : '✕';
     right += '<span class="v4-ai-stop" data-job="' + r.jobId + '" data-idx="' + r.idx + '" onclick="event.stopPropagation();v4AiDeleteItem(this)" title="Delete">' + delIc + '</span>';
   } else if(r.kind === 'phone'){
+    if(st === 'failed') right += '<span class="v4-ai-stop" style="background:rgba(20,184,166,.13);border-color:rgba(20,184,166,.55);color:#5eead4;cursor:pointer" data-job="' + r.jobKey + '" data-idx="' + r.idx + '" onclick="event.stopPropagation();v4PhoneJobRetryItem(this)">↻</span>';
     const delIc2 = (st === 'completed') ? '🗑' : '✕';
     right += '<span class="v4-ai-stop" data-job="' + r.jobKey + '" data-idx="' + r.idx + '" onclick="event.stopPropagation();v4PhoneJobDelItem(this)" title="Delete">' + delIc2 + '</span>';
+  } else if(r.kind === 'srvpend'){
+    right += '<span class="v4-ai-stop" data-idx="' + r.idx + '" onclick="event.stopPropagation();v4SrvPendDel(this)" title="Line se hata dein">✕</span>';
   } else {
     right += '<span class="v4-ai-stop" data-fid="' + F.fid + '" data-idx="' + r.idx + '" onclick="event.stopPropagation();v4AiFolderDelStored(this)" title="Delete">🗑</span>';
   }
-  return '<div class="v4-ai-row' + (st === 'downloading' ? ' act' : '') + '"><div class="v4-ai-r1">' + icon + '<span class="v4-ai-t">' + v4Esc(r.title || '') + '</span>' + right + '</div>' + bar + '</div>';
+  return '<div class="v4-ai-row' + (st === 'downloading' ? ' act' : '') + '"><div class="v4-ai-r1">' + icon + '<span class="v4-ai-t">' + v4Esc(r.title || '') + '</span>' + right + '</div>' + (r.err && st === 'failed' ? '<div style="font-size:11px;color:#f87171;margin-top:2px">' + v4Esc(r.err) + '</div>' : '') + bar + '</div>';
 }
 function v4AiFolderRender(key){
   const F = (window._v4Folders || {})[key]; if(!F || !F.el) return;
@@ -3682,30 +3827,40 @@ function v4AiFolderRender(key){
       let st = 'pending';
       if(it._st === 'done') st = 'completed';
       else if(it._st === 'failed') st = 'failed';
-      else if(i === job.idx && !job.stopped) st = 'downloading';
-      else if(job.stopped) st = 'stopped';
-      rows.push({title: it.title || '', status: st, pct: it._pct || 0, kind:'phone', jobKey: jk, idx: i, ord: rows.length});
+      else if(it._st === 'starting' || it._st === 'downloading') st = 'downloading';
+      else if(it._st === 'ustop' || job.userStopped) st = 'stopped';
+      rows.push({title: it.title || '', status: st, pct: it._pct || 0, kind:'phone', jobKey: jk, idx: i, ord: rows.length, seq: job.id || 0, err: it._err || ''});
     });
   });
   Object.keys(F.serverJobs || {}).forEach(function(jid){
     const job = F.serverData[jid]; if(!job) return;
     (job.episodes_status || []).forEach(function(es, i){
       if(es.status === 'deleted') return;
-      rows.push({title: es.title || (es.episode != null ? ('Episode ' + es.episode) : ''), status: es.status, pct: es.percent || 0, kind:'server', jobId: jid, idx: i, ord: rows.length});
+      rows.push({title: es.title || (es.episode != null ? ('Episode ' + es.episode) : ''), status: es.status, pct: es.percent || 0, kind:'server', jobId: jid, idx: i, ord: rows.length, seq: (F.jobSeq && F.jobSeq[jid]) || 0, err: es.error || ''});
     });
   });
+  (F.pendingSrv || []).forEach(function(p, i){ rows.push({title: p.title || '', status:'pending', pct: 0, kind:'srvpend', idx: i, ord: rows.length, seq: 1000000 - i, err: ''}); });
   (F.restoredDone || []).forEach(function(rd, i){ rows.push({title: rd.title || '', status:'completed', pct:100, kind:'stored', idx: i, ord: rows.length}); });
   const rank = {downloading:0, searching:1, pending:2, queued:2, failed:3, stopped:3, completed:4};
   rows.sort(function(a, b){
     const ra = (rank[a.status] != null) ? rank[a.status] : 2;
     const rb = (rank[b.status] != null) ? rank[b.status] : 2;
     if(ra !== rb) return ra - rb;
+    /* Update 118: nayi download hamesha UPAR — pehle naye kaam ki bari */
+    const sa = a.seq || 0, sb = b.seq || 0;
+    if(sa !== sb) return sb - sa;
     if(ra === 4) return b.ord - a.ord;
     return a.ord - b.ord;
   });
   const total = rows.length;
   const done = rows.filter(function(r){ return r.status === 'completed'; }).length;
-  let h = '<div class="v4-ailist"><div class="v4-ailist-h"><span class="t">' + v4Esc(F.title) + '</span><span class="cnt">' + done + ' / ' + total + '</span><button class="v4-sabband" data-fid="' + F.fid + '" onclick="v4AiFolderStopAll(this)">⏹ All Stop</button><button class="v4-sabband" data-fid="' + F.fid + '" onclick="v4AiFolderDeleteAll(this)">🗑 All delete</button></div><div class="v4-cand-box v4-job-box">';
+  /* Update 118 addendum: All Stop <-> All Start EK hi toggle button —
+     label folder ki asal halat se banta hai, har render par fresh. */
+  let anyActive = false, anyResumable = false;
+  rows.forEach(function(r){ if(r.status === 'downloading' || r.status === 'searching' || r.status === 'pending' || r.status === 'queued') anyActive = true; if(r.status === 'stopped') anyResumable = true; });
+  const tglMode = anyActive ? 'stop' : (anyResumable ? 'start' : 'stop');
+  const tglLbl = (tglMode === 'start') ? '▶ All Start' : '⏹ All Stop';
+  let h = '<div class="v4-ailist"><div class="v4-ailist-h"><span class="t">' + v4Esc(F.title) + '</span><span class="cnt">' + done + ' / ' + total + '</span><button class="v4-sabband" data-fid="' + F.fid + '" data-mode="' + tglMode + '" onclick="v4AiFolderToggleAll(this)">' + tglLbl + '</button><button class="v4-sabband" data-fid="' + F.fid + '" onclick="v4AiFolderDeleteAll(this)">🗑 All delete</button></div><div class="v4-cand-box v4-job-box">';
   if(!total) h += '<div class="v4-ep"><span style="flex:1;font-size:13px">Load ho raha hai...</span></div>';
   rows.forEach(function(r){ h += v4AiFolderRowHtml(F, r); });
   h += '</div></div>';
@@ -3714,12 +3869,36 @@ function v4AiFolderRender(key){
 }
 function v4AiFolderStopAll(el){
   const F = v4AiFolderByFid(el.getAttribute('data-fid')); if(!F) return;
-  Object.keys(F.phoneJobs || {}).forEach(function(jk){ const job = F.phoneJobs[jk]; if(job){ job.stopped = true; v4PhoneJobCancelCurrent(job); } });
+  Object.keys(F.phoneJobs || {}).forEach(function(jk){ const job = F.phoneJobs[jk]; if(job){ job.userStopped = true; v4PhoneJobCancelCurrent(job); } });
+  window._v4SrvQueue = [];
+  if(F.pendingSrv && F.pendingSrv.length) F.pendingSrv = [];
   Object.keys(F.serverJobs || {}).forEach(function(jid){
     v4Post('/api/ai/jobs/' + jid + '/stop-all', {}).then(function(){ v4Fetch('/api/ai/jobs/' + jid).then(function(r){ if(r.ok && r.data && r.data.job) v4RenderJob(jid, r.data.job); }); });
   });
   v4AiFolderRender(F.key);
   v4Toast('Is folder ki sab downloads band kar di gayin');
+}
+function v4AiFolderToggleAll(el){
+  const F = v4AiFolderByFid(el.getAttribute('data-fid')); if(!F) return;
+  if(el.getAttribute('data-mode') === 'start'){ v4AiFolderStartAll(F); return; }
+  v4AiFolderStopAll(el);
+}
+function v4AiFolderStartAll(F){
+  /* Toggle ka dusra rukh: user ki roki hui downloads dobara chalti
+     hain — phone items runner mein wapas, server ki stopped rows
+     maujooda retry-item raste se. */
+  Object.keys(F.phoneJobs || {}).forEach(function(jk){
+    const job = F.phoneJobs[jk]; if(!job) return;
+    job.userStopped = false;
+    (job.items || []).forEach(function(it){ if(it._st === 'ustop') it._st = undefined; });
+  });
+  Object.keys(F.serverJobs || {}).forEach(function(jid){
+    const job = F.serverData[jid]; if(!job) return;
+    (job.episodes_status || []).forEach(function(es, i){ if(es.status === 'stopped'){ v4Post('/api/ai/jobs/' + jid + '/retry-item', {index: i}); } });
+  });
+  v4AiFolderRender(F.key);
+  v4FolderSched();
+  v4Toast('Sab downloads dobara start kar di gayin');
 }
 function v4AiFolderDeleteAll(el){
   const F = v4AiFolderByFid(el.getAttribute('data-fid')); if(!F) return;
@@ -3745,7 +3924,7 @@ function v4AiFolderDeleteAll(el){
     F.restoredDone = [];
   }
   v4AiFolderJobsSave();
-  try{ const a = JSON.parse(localStorage.getItem('pt_ai_chat') || '[]'); localStorage.setItem('pt_ai_chat', JSON.stringify(a.filter(function(e){ return !(e.kind === 'folder' && e.key === F.key) && jids.indexOf(e.job_id) < 0; }))); }catch(e){}
+  try{ const a = JSON.parse(localStorage.getItem('pt_ai_chat') || '[]'); localStorage.setItem('pt_ai_chat', JSON.stringify(a.filter(function(e){ return e.kind !== 'folder' && jids.indexOf(e.job_id) < 0; }))); }catch(e){}
   if(F.el && F.el.parentNode) F.el.parentNode.removeChild(F.el);
   delete (window._v4Folders || {})[F.key];
   window._v4phSig = '';
@@ -3774,22 +3953,23 @@ function v4AiFolderDelStored(el){
   v4AiFolderRender(F.key);
 }
 function v4AiFolderRefill(){
+  /* Update 118 migration: v38 ke per-purpose folders ka saara data
+     (server job ids + phone ki mukammal downloads) EK hi folder
+     mein merge — purane alag cards wapas nahi bante. */
+  const F = (window._v4Folders || {})[V4_FOLDER_KEY];
+  if(!F) return;
   try{
     const m = JSON.parse(localStorage.getItem('pt_ai_folder_jobs') || '{}');
     Object.keys(m).forEach(function(k){
-      const F = (window._v4Folders || {})[k]; if(!F) return;
-      (m[k] || []).forEach(function(jid){ if(!F.serverJobs[jid]){ F.serverJobs[jid] = 1; v4PollJob(jid); } });
+      (m[k] || []).forEach(function(jid){ if(!F.serverJobs[jid]){ F.serverJobs[jid] = 1; if(!F.jobSeq) F.jobSeq = {}; if(!F.jobSeq[jid]) F.jobSeq[jid] = ++v4AiFolderSeq; v4PollJob(jid); } });
     });
+    v4AiFolderJobsSave();
   }catch(e){}
   try{
     const stored = JSON.parse(localStorage.getItem('pt_phone_dl') || '[]');
-    const F = window._v4Folders || {};
-    Object.keys(F).forEach(function(k){
-      if(k.indexOf('show:') !== 0) return;
-      const sn = k.slice(5);
-      stored.forEach(function(s){ if(s.title && s.title.toLowerCase().indexOf(sn) >= 0) F[k].restoredDone.push({title:s.title, videoId:s.videoId}); });
-      if(F[k].restoredDone.length) v4AiFolderRender(k);
-    });
+    const have = {}; (F.restoredDone || []).forEach(function(rd){ have[rd.videoId] = 1; });
+    stored.forEach(function(s){ if(s.title && !have[s.videoId]) F.restoredDone.push({title: s.title, videoId: s.videoId}); });
+    if(F.restoredDone.length) v4AiFolderRender(V4_FOLDER_KEY);
   }catch(e){}
 }
 
@@ -9035,7 +9215,7 @@ def _ai_run_job(job_id, only_idx=None):
             continue
         if _gdev and _guest_count(_gdev) >= get_guest_limit():
             with ai_jobs_lock:
-                job['episodes_status'][idx]['status'] = 'stopped'
+                job['episodes_status'][idx]['status'] = 'failed'
                 job['episodes_status'][idx]['error'] = 'Guest limit khatam'
                 _save_ai_jobs()
             continue
