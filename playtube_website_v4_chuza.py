@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 34  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 35  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1473,7 +1473,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">34</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">35</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -8998,6 +8998,25 @@ def _ai_age_str(ts):
     return f"{_s // (365 * 86400)}y ago"
 
 
+def _ai_fill_ages(out, query):
+    # Update 110: yt-dlp flat entries mein timestamp nahi ata (sab 0
+    # rehta hai), isiliye AI rows ka time YouTube results page ke
+    # ASAL published text se bharta hai — feed cards wala hi
+    # tareeqa (Update 108). Sirf khali age wale bharte hain; fail
+    # ho to list jaisi hai waisi — nakli time kabhi nahi lagta.
+    try:
+        if not out or not query:
+            return out
+        _map = _feed_age_map(query)
+        if _map:
+            for _c in out:
+                if not _c.get('age') and _c.get('video_id') in _map:
+                    _c['age'] = _map[_c['video_id']]
+    except Exception:
+        pass
+    return out
+
+
 def _ai_candidates(parsed, query=None):
     """Update 102/105: naam se top-20 umeedwar videos — user khud
     chunta hai, AI khud se koi video download nahi karta."""
@@ -9007,6 +9026,9 @@ def _ai_candidates(parsed, query=None):
         query = title
         if eps:
             query = f"{title} episode {eps[0]}"
+    _age_warm = threading.Thread(
+        target=lambda: _dated_search_items(query, 30), daemon=True)
+    _age_warm.start()
     try:
         info = _extract_with_clients(
             f"ytsearch60:{query}",
@@ -9049,6 +9071,7 @@ def _ai_candidates(parsed, query=None):
         # Update 105: latest pehle (jahan date mile) — user ki demand
         # "latest 20 video ani chiya".
         out.sort(key=lambda x: -(x.get('timestamp') or 0))
+    _ai_fill_ages(out, query)
     return out
 
 
@@ -9291,6 +9314,7 @@ def _ai_channel_candidates(channel):
                if e and e.get('id')]
     out = _ai_cand_from_entries(entries, 50)
     out.sort(key=lambda x: -(x.get('timestamp') or 0))
+    _ai_fill_ages(out, channel)
     return out
 
 
@@ -9324,6 +9348,7 @@ def _ai_similar_candidates(sim):
                if e and e.get('id') and e.get('id') != _sid]
     out = _ai_cand_from_entries(entries, 50)
     out.sort(key=lambda x: -(x.get('view_count') or 0))
+    _ai_fill_ages(out, _q)
     return out
 
 
