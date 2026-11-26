@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 35  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 36  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1473,7 +1473,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">35</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">36</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -9442,11 +9442,22 @@ def api_ai_taza():
     _found = {}
     _lock = threading.Lock()
 
+    _sem = threading.Semaphore(2)
+
     def _one(_q):
-        try:
-            _items = _dated_search_items(_q, 20)
-        except Exception:
-            return
+        # Update 111: ek sath 6-10 page-bursts par YouTube aksar
+        # khali page de deta hai (taza live par 0 araha tha) — is
+        # liye ek waqt mein 2 se zyada fetch nahi, n=30 (feed wali
+        # cache share hoti hai), aur khali jawab par ek dobara
+        # koshish.
+        with _sem:
+            try:
+                _items = _dated_search_items(_q, 30)
+                if not _items:
+                    time.sleep(1.5)
+                    _items = _dated_search_items(_q, 30)
+            except Exception:
+                return
         with _lock:
             for _it in _items or []:
                 _am = _it.get('age_min')
@@ -9471,7 +9482,7 @@ def api_ai_taza():
     for _t in _ths:
         _t.start()
     for _t in _ths:
-        _t.join(timeout=20)
+        _t.join(timeout=45)
     _out = sorted(_found.values(), key=lambda x: x.get('_amin') or 0)[:50]
     for _o in _out:
         _o.pop('_amin', None)
