@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 31  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 32  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1061,9 +1061,13 @@ HTML = '''
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   }
   html[data-theme="light"] #v4app, html[data-theme="light"]{
-    --v4bg:#f4f2fa; --v4card:#ffffff; --v4border:#ddd8f0; --v4text:#1c1a2e;
-    --v4muted:#5d5878; --v4nav:#ffffff;
+    --v4bg:#f4f2fa; --v4card:#ffffff; --v4border:#cfc9e8; --v4text:#17142a;
+    --v4muted:#453f63; --v4nav:#ffffff; --v4danger:#cf222e;
   }
+  html[data-theme="light"] .v4-h{background:none;-webkit-text-fill-color:#5a3ee0;color:#5a3ee0}
+  html[data-theme="light"] .v4-sect{color:#43307e}
+  html[data-theme="light"] .v4-chip{color:#2e2a4a;border-color:#cfc9e8}
+  html[data-theme="light"] .v4-tool .td{color:#453f63}
   #v4app *{box-sizing:border-box;max-width:100%}
   #v4app img{max-width:100%}
   .v4-head{display:flex;align-items:center;gap:8px;padding:12px 14px 4px;max-width:1100px;margin:0 auto}
@@ -1459,7 +1463,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">31</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">32</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -1503,9 +1507,14 @@ HTML = '''
       <div class="v4-sect">DOWNLOADED</div>
       <div id="v4-phone-done"></div>
       <div id="v4-dl-done"><p class="v4-muted">Abhi tak koi download nahi</p></div>
-      <div class="v4-sect" id="v4-dl-failsect" style="display:none">❌ FAIL HUI <span id="v4-dl-failcount"></span></div>
+    </section>
+
+    <section id="v4-view-failed" class="v4-view">
+      <button class="v4-btn2" onclick="v4Show('tools')">← Tools</button>
+      <div class="v4-h" style="margin-top:10px">❌ Fail Hui <span id="v4-dl-failcount"></span></div>
+      <p class="v4-muted">Jo downloads kisi wajah se fail ho gayin, wo yahan hain — dobara try ya delete yahin se ho ga. Downloads page par sirf mukammal (complete) downloads dikhti hain.</p>
       <div id="v4-phone-failed"></div>
-      <div id="v4-dl-failed"></div>
+      <div id="v4-dl-failed"><p class="v4-muted">Koi fail download nahi</p></div>
     </section>
 
     <section id="v4-view-ai" class="v4-view">
@@ -1546,6 +1555,7 @@ HTML = '''
         <div class="v4-tool" onclick="v4Show('settings')"><div class="ic">⚙️</div><div class="tn">Settings</div><div class="td">Folder, quality, language, theme</div></div>
         <div class="v4-tool" onclick="window.location.href='/contact'"><div class="ic">✉️</div><div class="tn">Contact</div><div class="td">Madad aur rabta</div></div>
         <div class="v4-tool" onclick="v4Show('private')"><div class="ic">🔒</div><div class="tn">Private Folder</div><div class="td">PIN ke peeche chhupi downloads</div></div>
+        <div class="v4-tool" onclick="v4Show('failed')"><div class="ic">❌</div><div class="tn">Fail Hui Downloads</div><div class="td">Fail hui — dobara try / delete</div></div>
         <div class="v4-tool" onclick="v4Show('compress')"><div class="ic">🗜️</div><div class="tn">Video Compressor</div><div class="td">Quality wohi — sirf size kam</div></div>
       </div>
     </section>
@@ -1833,7 +1843,7 @@ function v4Show(view){
   document.querySelectorAll('#v4-toptabs button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tt') === (V4_TTMAP[view] || '')); });
   document.querySelectorAll('#v4-bottomnav button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-bn') === (V4_BNMAP[view] || '')); });
   window.scrollTo(0, 0);
-  if(view === 'downloads'){ v4LoadDownloads(); try{ v4PhoneDlRender(); v4PhonePollStart(); }catch(e){} } else v4PhonePollStop();
+  if(view === 'downloads' || view === 'failed'){ v4LoadDownloads(); try{ v4PhoneDlRender(); v4PhonePollStart(); }catch(e){} } else v4PhonePollStop();
   if(view === 'ai') v4RenderAiChips();
   if(view === 'private') v4RenderPrivate();
   if(view === 'compress') v4RenderCompress();
@@ -2429,7 +2439,7 @@ function v4PhoneDlRender(){
     }
   });
   if(changed){ try{ localStorage.setItem('pt_phone_dl', JSON.stringify(stored.slice(0, 50))); }catch(e){} }
-  const liveKeys = {}; live.forEach(function(p){ liveKeys[(p.title || '') + '|' + (p.quality || '')] = 1; });
+  const liveKeys = {}; live.forEach(function(p){ if(p.status !== 'done') liveKeys[(p.title || '') + '|' + (p.quality || '')] = 1; });
   const active = live.filter(function(p){ return p.status === 'running' || p.status === 'paused'; });
   const bad = live.filter(function(p){ return p.status === 'failed' || p.status === 'stopped'; });
   const sig = live.map(function(p){ return p.id + ':' + p.status; }).join(',') + '#' + stored.length;
@@ -2573,10 +2583,8 @@ function v4MenuPrivate(){ const d = v4DlMap[v4MenuId] || {}; const id = v4MenuId
 function v4MenuDelete(){ const id = v4MenuId; v4CloseDlMenu(); v4DeleteDl(id); }
 function v4MenuRetry(el){ const vid = el.getAttribute('data-vid'); v4CloseDlMenu(); v4OpenSheet(vid); }
 function v4FailSectSync(){
-  const fs = v4$('v4-dl-failsect'); if(!fs) return;
   const a = v4$('v4-dl-failed'), b = v4$('v4-phone-failed');
-  const n = (a ? a.children.length : 0) + (b ? b.children.length : 0);
-  fs.style.display = n ? '' : 'none';
+  const n = (a ? a.querySelectorAll('.v4-dlrow').length : 0) + (b ? b.children.length : 0);
   const fc = v4$('v4-dl-failcount'); if(fc) fc.textContent = n ? '(' + n + ')' : '';
 }
 function v4RenderDownloads(){
