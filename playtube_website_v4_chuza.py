@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 36  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 37  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1473,7 +1473,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">36</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">37</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -4742,14 +4742,32 @@ def _age_minutes(text):
     t = str(text).lower()
     if 'just now' in t:
         return 0
-    m = re.search(r'(\d+)\s*(second|minute|hour|day|week|month|year)', t)
+    # Update 112: YouTube ab aksar MUKHTASAR text deta hai ('19h ago',
+    # '1d ago') — purana parser sirf '19 hours ago' samajhta tha, to
+    # age_min None reh jata tha aur Aaj Ki Taza sab kuch gira deti
+    # thi. Ab dono shaklein chalti hain ('mo' = month, 'm' = minute).
+    m = re.search(r'(\d+)\s*(seconds?|secs?|months?|mo|minutes?|mins?|'
+                  r'hours?|hrs?|days?|weeks?|years?|[smhdwy])\b', t)
     if not m:
         return None
-    if m.group(2) == 'second':
+    _u = m.group(2)
+    if _u.startswith('s'):
         return 0
-    mult = {'minute': 1, 'hour': 60, 'day': 1440, 'week': 10080,
-            'month': 43200, 'year': 525600}
-    return int(m.group(1)) * mult[m.group(2)]
+    if _u == 'mo' or _u.startswith('month'):
+        _mult = 43200
+    elif _u.startswith('mi') or _u == 'm':
+        _mult = 1
+    elif _u.startswith('h'):
+        _mult = 60
+    elif _u.startswith('d'):
+        _mult = 1440
+    elif _u.startswith('w'):
+        _mult = 10080
+    elif _u.startswith('y'):
+        _mult = 525600
+    else:
+        return None
+    return int(m.group(1)) * _mult
 
 
 def _dated_search_items(query, n=30):
