@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 32  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 33  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1463,7 +1463,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">32</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">33</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -4042,6 +4042,24 @@ def _feed_refresh_async(query, n, cache_key):
     threading.Thread(target=_run, daemon=True).start()
 
 
+def _feed_age_map(query):
+    """Update 108: YouTube results page se {video_id: '3 days ago'} —
+    card ki line ke liye ASAL upload time. yt-dlp flat results mein
+    timestamp nahi ata, isiliye ye alag se liya jata hai. Fail/block
+    ho to khali dict — koi andazay wala time kabhi nahi lagta."""
+    try:
+        _dated = _dated_search_items(query, 30)
+    except Exception:
+        return {}
+    _map = {}
+    for _it in _dated or []:
+        _vid = ((_it.get('id') or {}).get('videoId') or '')
+        _age = _it.get('age_text') or ''
+        if _vid and _age:
+            _map[_vid] = _age
+    return _map
+
+
 def _feed_search_items(query, n=30):
     cache_key = f"feed_{query}_{n}"
     if cache_key in search_cache:
@@ -4052,6 +4070,14 @@ def _feed_search_items(query, n=30):
         _feed_refresh_async(query, n, cache_key)
         return cached_data
     items = []
+    _age_holder = {}
+    def _age_run():
+        try:
+            _age_holder.update(_feed_age_map(query))
+        except Exception:
+            pass
+    _age_th = threading.Thread(target=_age_run, daemon=True)
+    _age_th.start()
     try:
         ydl_opts = {
             'quiet': True,
@@ -4092,6 +4118,17 @@ def _feed_search_items(query, n=30):
         except Exception:
             items = []
     if items:
+        try:
+            _age_th.join(timeout=6)
+            if _age_holder:
+                for _it in items:
+                    if not _it.get('age_text') and not _it.get('age_ts'):
+                        _vid = ((_it.get('id') or {}).get('videoId')
+                                or '')
+                        if _vid and _vid in _age_holder:
+                            _it['age_text'] = _age_holder[_vid]
+        except Exception:
+            pass
         try:
             _q = (query or '').strip().lower()
             _words = [w for w in _q.split() if len(w) > 2]
