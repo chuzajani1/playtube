@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 27  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 28  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1459,7 +1459,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">27</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">28</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2753,7 +2753,7 @@ async function v4AiSend(e){
   inp.value = '';
   v4AiCmdRecord(text);
   v4AiBubble(text, true, true);
-  const r = await v4Post('/api/ai/command', {command:text});
+  const r = await v4Post('/api/ai/command', {command:text, phone_mode: v4PhoneAiOk()});
   const d = r.data || {};
   if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai', text:text}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); return; } v4AiBubble(d.error || 'Command nahi chali — dobara try karein'); return; }
   if(d.intent === 'search'){
@@ -2785,6 +2785,10 @@ async function v4AiSend(e){
       row.onclick = function(){ v4AiPickCand(this); };
       b.appendChild(row);
     });
+    return;
+  }
+  if(d.intent === 'phone_job'){
+    v4PhoneJobStart(d.items || [], (d.parsed && d.parsed.quality) || '360p', (d.parsed && d.parsed.format) || 'mp4', d.message, '');
     return;
   }
   if(d.url){
@@ -2830,6 +2834,10 @@ function v4AiPickQuality(el){
 }
 async function v4AiDoPick(vid, title, quality, format){
   const ctx = window._v4CandCtx || {};
+  if(v4PhoneAiOk()){
+    v4PhoneJobStart([{video_id:vid, title:title}], quality, format, '✅ Yahi phone par download ho rahi hai: ' + title, ctx.show || '');
+    return;
+  }
   const r = await v4Post('/api/ai/pick', {video_id:vid, title:title, quality:quality, format:format, show:ctx.show || '', category:ctx.category || ''});
   const d = r.data || {};
   if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); v4AiBubble('Limit khatam — pehle account banayein.'); return; } v4AiBubble(d.error || 'Download start nahi ho saka'); return; }
@@ -2867,12 +2875,83 @@ async function v4AiPickAll(el){
   el.disabled = true;
   const items = (window._v4EpItems || []).map(function(ep){ return {video_id:ep.video_id, title:ep.title}; });
   if(!items.length) return;
+  if(v4PhoneAiOk()){
+    const cx = window._v4CandCtx || {};
+    v4PhoneJobStart(items, cx.qexp ? (cx.quality || '360p') : '360p', 'mp4', '📱 ' + items.length + ' episodes phone par download ho rahi hain — one by one:', '');
+    return;
+  }
   const ctx = window._v4CandCtx || {};
   const r = await v4Post('/api/ai/pick-many', {items:items, quality: ctx.qexp ? (ctx.quality || '360p') : '360p', format:'mp4', show: ctx.show || ''});
   const d = r.data || {};
   if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); } v4AiBubble(d.error || 'Download start nahi ho saka'); return; }
   const b = v4AiBubble(d.message || 'Sab episodes download start');
   if(d.job_id){ v4AiStore({t:Date.now(), kind:'job', text:(d.message || ''), job_id:d.job_id}); b.setAttribute('data-jid', d.job_id); const holder = document.createElement('div'); holder.id = 'v4-job-' + d.job_id; b.appendChild(holder); v4PollJob(d.job_id); }
+}
+
+/* Update 103: AI jobs APK mein PHONE par — server bot-check se mehfooz */
+function v4PhoneAiOk(){ try{ return !!(window.PlayTubeApp && PlayTubeApp.phoneDlStart); }catch(e){ return false; } }
+let v4PhoneJobSeq = 0;
+function v4PhoneJobStart(items, quality, format, msg, show){
+  if(!items || !items.length) return;
+  const job = {id: ++v4PhoneJobSeq, items: items, quality: quality || '360p', format: format || 'mp4', idx: 0, stopped: false, done: 0, failed: 0};
+  const b = v4AiBubble(msg || ('📱 ' + items.length + ' videos phone par download ho rahi hain — one by one:'));
+  const holder = document.createElement('div'); b.appendChild(holder); job.holder = holder;
+  const stop = document.createElement('button'); stop.className = 'v4-btn2'; stop.textContent = '⏹ Sab band'; stop.style.marginTop = '8px';
+  stop.onclick = function(){ job.stopped = true; v4PhoneJobCancelCurrent(job); if(job.stopBtn) job.stopBtn.style.display = 'none'; v4PhoneJobRender(job); };
+  b.appendChild(stop); job.stopBtn = stop;
+  if(show){
+    const eb = document.createElement('button'); eb.className = 'v4-btn2'; eb.textContent = '📂 "' + show + '" ki saari episodes dekhein'; eb.style.marginTop = '8px';
+    eb.setAttribute('data-show', show);
+    eb.onclick = function(){ v4AiEpisodes(this); };
+    b.appendChild(document.createElement('br')); b.appendChild(eb);
+  }
+  v4AiStore({t:Date.now(), kind:'text', text:(msg || 'Phone par download') + ' (' + items.length + ' videos)'});
+  v4PhoneJobRender(job);
+  v4PhoneJobNext(job);
+}
+function v4PhoneJobRender(job){
+  if(!job.holder) return;
+  job.holder.innerHTML = job.items.map(function(it, i){
+    let st = '⏳', pct = '';
+    if(it._st === 'done') st = '✓';
+    else if(it._st === 'failed') st = '✗';
+    else if(i === job.idx && !job.stopped){ st = '⬇'; if(it._pct != null) pct = ' ' + it._pct + '%'; }
+    if(job.stopped && !it._st) st = '⏹';
+    return '<div class="v4-ep"><span style="flex:1;font-size:13px">' + st + ' ' + v4Esc(it.title || '') + pct + '</span></div>';
+  }).join('') + '<div style="font-size:12px;opacity:.8;margin-top:4px">' + job.done + ' / ' + job.items.length + ' ho gayi' + (job.failed ? ' • ' + job.failed + ' fail' : '') + ' — Downloads page mein live progress bhi chal raha hai</div>';
+}
+function v4PhoneJobNext(job){
+  if(job.stopped || job.idx >= job.items.length){ if(job.stopBtn) job.stopBtn.style.display = 'none'; v4PhoneJobRender(job); return; }
+  const it = job.items[job.idx];
+  try{ PlayTubeApp.phoneDlStart(it.video_id, job.quality, job.format, it.title || ''); }
+  catch(e){ it._st = 'failed'; job.failed++; job.idx++; v4PhoneJobRender(job); v4PhoneJobNext(job); return; }
+  job._wait = 0;
+  if(job._timer) clearInterval(job._timer);
+  job._timer = setInterval(function(){ v4PhoneJobPoll(job); }, 2000);
+}
+function v4PhoneJobPoll(job){
+  if(job.stopped){ if(job._timer) clearInterval(job._timer); return; }
+  const it = job.items[job.idx]; if(!it) return;
+  let live = [];
+  try{ live = JSON.parse(PlayTubeApp.phoneDlState() || '[]'); }catch(e){}
+  const ent = live.filter(function(x){ return x.videoId === it.video_id; })[0];
+  if(ent){
+    job._wait = 0;
+    if(ent.status === 'done'){ it._st = 'done'; it._pct = 100; job.done++; job.idx++; if(job._timer) clearInterval(job._timer); v4PhoneJobRender(job); v4PhoneJobNext(job); return; }
+    if(ent.status === 'failed'){ it._st = 'failed'; job.failed++; job.idx++; if(job._timer) clearInterval(job._timer); v4PhoneJobRender(job); v4PhoneJobNext(job); return; }
+    it._pct = ent.percent; v4PhoneJobRender(job);
+    return;
+  }
+  job._wait = (job._wait || 0) + 1;
+  if(job._wait > 90){ it._st = 'failed'; job.failed++; job.idx++; if(job._timer) clearInterval(job._timer); v4PhoneJobRender(job); v4PhoneJobNext(job); }
+}
+function v4PhoneJobCancelCurrent(job){
+  const it = job.items[job.idx]; if(!it) return;
+  let live = [];
+  try{ live = JSON.parse(PlayTubeApp.phoneDlState() || '[]'); }catch(e){}
+  const ent = live.filter(function(x){ return x.videoId === it.video_id && x.status === 'running'; })[0];
+  if(ent && PlayTubeApp.phoneDlCancel){ try{ PlayTubeApp.phoneDlCancel(ent.id); }catch(e){} }
+  if(job._timer) clearInterval(job._timer);
 }
 
 /* Update 43: AI ko pic bhejo — parh kar khud download start */
@@ -9043,6 +9122,14 @@ def api_ai_command():
         if not _items:
             return jsonify({'success': False, 'parsed': parsed,
                             'message': f"😔 '{_q}' ke liye kuch nahi mila — naam thoda badal kar try karein."})
+        if data.get('phone_mode'):
+            # Update 103: APK mein ye videos PHONE par utarti hain —
+            # server wala bot-check in par nahi lagta.
+            return jsonify({'success': True, 'intent': 'phone_job',
+                            'parsed': parsed, 'items': _items,
+                            'message': (f"🎵 '{_q}' ki {len(_items)} videos "
+                                        f"phone par download start kar di "
+                                        f"hain — one by one hongi.")})
         _jid = f"job_{int(time.time())}_{random.randint(1000, 9999)}"
         _job = {'job_id': _jid, 'command': text, 'parsed': parsed,
                 'status': 'queued', 'run_at_epoch': time.time(),
@@ -9111,6 +9198,51 @@ def api_ai_command():
             and (not parsed.get('title') or parsed.get('title') == 'Video'):
         return jsonify({'success': True, 'intent': 'chat',
                         'message': 'Samajh nahi aya — download ke liye video ka naam likhein, jaise "Ertugrul episode 1", "Atif Aslam new song" ya "Hindi full movie".'})
+
+    # Update 103: APK mein downloads PHONE par — episodes pehle yahin
+    # resolve karke list wapas; server job nahi banti (bot-check se
+    # phone wali downloads mehfooz hain). Schedule ho to purana rasta.
+    if data.get('phone_mode') and not parsed.get('schedule_at') \
+            and not parsed.get('schedule_in_seconds'):
+        _peps = list(parsed.get('episodes') or [None])
+        if parsed.get('latest_count'):
+            _want2 = int(parsed['latest_count'])
+            _nums2 = set()
+            try:
+                _info2 = _extract_with_clients(
+                    f"ytsearch30:{parsed['title']} episode",
+                    {'quiet': True, 'no_warnings': True,
+                     'no_check_certificate': True, 'extract_flat': True,
+                     'skip_download': True, 'ignoreerrors': True,
+                     'socket_timeout': 20, 'retries': 2,
+                     'extractor_retries': 2})
+                for _e2 in (_info2 or {}).get('entries') or []:
+                    if not _e2:
+                        continue
+                    _m2 = re.search(r'episode\s*#?\s*(\d+)',
+                                    (_e2.get('title') or '').lower())
+                    if _m2:
+                        _nums2.add(int(_m2.group(1)))
+            except Exception:
+                _nums2 = set()
+            _peps = sorted(_nums2)[-_want2:] if _nums2 \
+                else list(range(1, _want2 + 1))
+        _pitems = []
+        for _ep2 in _peps:
+            if _ep2:
+                _v2, _t2, _f2 = _ai_find_episode(parsed.get('title') or '', _ep2)
+            else:
+                _v2, _t2, _e3 = _ai_pick_entry(parsed)
+            if _v2:
+                _pitems.append({'video_id': _v2,
+                                'title': _t2 or parsed.get('title')
+                                or 'Video'})
+        if _pitems:
+            return jsonify({'success': True, 'intent': 'phone_job',
+                            'parsed': parsed, 'items': _pitems,
+                            'message': (f"📱 {len(_pitems)} videos phone "
+                                        f"par download start kar di hain "
+                                        f"— one by one hongi.")})
 
     # Download job (episodes, one by one, background)
     job_id = f"job_{int(time.time())}_{random.randint(1000, 9999)}"
