@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 33  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 34  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1218,6 +1218,16 @@ HTML = '''
 .v4-sugrow .ic{color:var(--v4muted);font-size:13px}
 .v4-sugrow b{color:#5eead4}
 .v4-ailist{margin-top:8px;background:#17142e;color:#eceaf6;border:1px solid var(--v4border);border-radius:14px;padding:10px}
+.v4-cand-box{max-height:300px;overflow-y:auto;border:1px solid var(--v4border);border-radius:10px;padding:2px 8px;margin-top:8px;background:rgba(0,0,0,.14);scrollbar-width:thin;scrollbar-color:#7c5cff #262250}
+.v4-cand-box::-webkit-scrollbar{width:5px}
+.v4-cand-box::-webkit-scrollbar-thumb{background:#7c5cff;border-radius:99px}
+.v4-cand-box::-webkit-scrollbar-track{background:#262250;border-radius:99px}
+.v4-job-box{max-height:320px}
+.v4-cand-player{position:relative;margin-top:8px;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:16/9}
+.v4-cand-player iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.v4-cand-player .v4-pband{position:absolute;top:6px;right:6px;z-index:2}
+.v4-fixchips{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 8px}
+.v4-bubble.v4-showalert{border:1.5px solid var(--v4teal)}
 .v4-ailist-h{display:flex;align-items:center;gap:8px}
 .v4-ailist-h .t{font-size:13.5px;font-weight:800;flex:1}
 .v4-ailist-h .cnt{font-size:11.5px;font-weight:800;color:#5eead4;background:rgba(20,184,166,.13);border:1px solid rgba(20,184,166,.45);padding:3px 9px;border-radius:999px}
@@ -1463,7 +1473,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">33</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">34</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -1526,6 +1536,11 @@ HTML = '''
         <button class="v4-chip" onclick="v4AiChip(this)">Sab se chhoti quality me gana download karo</button>
       </div>
       <p class="v4-muted" id="v4-ai-tip" style="margin:2px 0 8px"></p>
+      <div class="v4-fixchips" id="v4-ai-fixchips">
+        <button class="v4-chip" type="button" onclick="v4AiTazaOpen()">🆕 Aaj ki taza</button>
+        <button class="v4-chip" type="button" onclick="v4AiShowsPanel()">📺 Mere Shows</button>
+        <button class="v4-chip" type="button" onclick="v4AiChannelPanel()">📂 Channel mode</button>
+      </div>
       <div id="v4-ai-msgs">
         <div class="v4-bubble ai">Assalam-o-Alaikum! Main Playza AI hoon. Bas command likhein — masalan kisi drama ke episodes, gana, ya quality bata kar download karwayein. Downloads background me one by one chalte rahen ge, aur tayyar videos Downloads me milen ge.</div>
       </div>
@@ -1533,6 +1548,7 @@ HTML = '''
         <button class="v4-searchbtn" type="button" title="Pic bhejein — AI parh kar download kare ga" onclick="v4$('v4-ai-file').click()">📎</button>
         <input id="v4-ai-input" placeholder="AI ko command likhein, link ya pic bhejein..." autocomplete="off">
         <input type="file" id="v4-ai-file" accept="image/*" style="display:none" onchange="v4AiImage(this)">
+        <button class="v4-searchbtn" type="button" id="v4-ai-mic" title="Bol kar command dein" style="display:none" onclick="v4AiMic()">🎤</button>
         <button class="v4-searchbtn" type="submit">➤</button>
       </form>
     </section>
@@ -1842,9 +1858,10 @@ function v4Show(view){
   v4State.view = view;
   document.querySelectorAll('#v4-toptabs button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tt') === (V4_TTMAP[view] || '')); });
   document.querySelectorAll('#v4-bottomnav button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-bn') === (V4_BNMAP[view] || '')); });
-  window.scrollTo(0, 0);
+  if(view === 'ai'){ const _sb109 = function(){ window.scrollTo(0, document.body.scrollHeight); }; setTimeout(_sb109, 50); setTimeout(_sb109, 400); }
+  else window.scrollTo(0, 0);
   if(view === 'downloads' || view === 'failed'){ v4LoadDownloads(); try{ v4PhoneDlRender(); v4PhonePollStart(); }catch(e){} } else v4PhonePollStop();
-  if(view === 'ai') v4RenderAiChips();
+  if(view === 'ai'){ v4RenderAiChips(); v4AiShowCheck(); }
   if(view === 'private') v4RenderPrivate();
   if(view === 'compress') v4RenderCompress();
   if(view === 'profile') v4RenderProfile();
@@ -2470,7 +2487,7 @@ async function v4LoadDownloads(){
   try{
     const res = await Promise.all([v4Fetch('/api/download-progress'), v4Fetch('/api/downloads-list')]);
     if(res[0].ok) v4DlData.progress = res[0].data || {};
-    if(res[1].ok && res[1].data) v4DlData.list = res[1].data.downloads || [];
+    if(res[1].ok && res[1].data) v4DlData.list = res[1].data.downloads || []; window._v4DlCache = v4DlData.list;
     v4RenderDownloads(); v4UpdateBadge();
   }catch(e){}
 }
@@ -2760,7 +2777,7 @@ function v4AiRestore(){
   v4AiPrune();
   let a = [];
   try{ a = JSON.parse(localStorage.getItem('pt_ai_chat') || '[]'); }catch(e){}
-  const cut = Date.now() - 7 * 24 * 3600 * 1000;
+  const cut = Date.now() - 24 * 3600 * 1000;
   a.filter(function(en){ return en.t > cut; }).forEach(function(en){
     if(en.kind === 'job'){
       const b = v4AiBubble(en.text || '', false);
@@ -2774,17 +2791,17 @@ function v4AiRestore(){
   });
 }
 function v4AiPrune(){
-  const cut = Date.now() - 7 * 24 * 3600 * 1000;
+  const cut = Date.now() - 24 * 3600 * 1000;
   try{ const a = JSON.parse(localStorage.getItem('pt_ai_chat') || '[]'); const b = a.filter(function(en){ return en.t > cut; }); if(b.length !== a.length) localStorage.setItem('pt_ai_chat', JSON.stringify(b)); }catch(e){}
   document.querySelectorAll('#v4-ai-msgs .v4-bubble').forEach(function(el){ const ts = Number(el.getAttribute('data-ts') || '0'); if(ts && ts < cut) el.remove(); });
 }
 function v4AiQuickSend(text){ const inp = v4$('v4-ai-input'); if(inp) inp.value = text; v4AiSend(null); }
-async function v4AiSend(e){
+async function v4AiSend(e, _sendText, _dispText){
   if(e) e.preventDefault();
-  const inp = v4$('v4-ai-input'); const text = inp.value.trim(); if(!text) return;
+  const inp = v4$('v4-ai-input'); const text = ((_sendText != null ? _sendText : inp.value) || '').trim(); if(!text) return;
   inp.value = '';
   v4AiCmdRecord(text);
-  v4AiBubble(text, true, true);
+  v4AiBubble(_dispText || text, true, true);
   const r = await v4Post('/api/ai/command', {command:text, phone_mode: v4PhoneAiOk()});
   const d = r.data || {};
   if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai', text:text}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); return; } v4AiBubble(d.error || 'Command nahi chali — dobara try karein'); return; }
@@ -2801,29 +2818,10 @@ async function v4AiSend(e){
     return;
   }
   if(d.intent === 'candidates'){
-    window._v4CandCtx = {quality:(d.parsed && d.parsed.quality) || '360p', format:(d.parsed && d.parsed.format) || 'mp4', qexp: !!d.qexp, show: d.show || '', category: (d.parsed && d.parsed.category) || '', items:(d.candidates || []), sel:{}};
-    const ctx = window._v4CandCtx;
     const b = v4AiBubble(d.message || 'Results mil gaye — jin par select karein, wahi download hongi:');
-    (d.candidates || []).forEach(function(c, ix){
-      const v = {videoId:c.video_id, title:c.title || '', channel:c.channel || ''}; v4Videos[v.videoId] = v;
-      const row = document.createElement('div'); row.className = 'v4-ep'; row.style.cssText = 'align-items:center;gap:8px;cursor:pointer';
-      const chk = document.createElement('span'); chk.className = 'v4-candchk'; chk.textContent = '☐'; chk.style.cssText = 'font-size:19px;flex:none;width:22px;text-align:center'; row.appendChild(chk);
-      const im = document.createElement('img'); im.src = 'https://i.ytimg.com/vi/' + c.video_id + '/mqdefault.jpg'; im.style.cssText = 'width:86px;height:48px;object-fit:cover;border-radius:8px;flex:none'; row.appendChild(im);
-      const tx = document.createElement('div'); tx.style.flex = '1';
-      const t1 = document.createElement('div'); t1.textContent = c.title || ''; t1.style.cssText = 'font-size:13px;font-weight:600;line-height:1.3'; tx.appendChild(t1);
-      const meta = [c.channel || '', c.duration ? v4Dur(c.duration) : '', c.view_count ? v4FmtCount(c.view_count) + ' views' : ''].filter(Boolean).join(' • ');
-      const t2 = document.createElement('div'); t2.textContent = meta; t2.style.cssText = 'font-size:11px;opacity:.75;margin-top:2px'; tx.appendChild(t2);
-      row.appendChild(tx);
-      row.setAttribute('data-ix', ix);
-      row.onclick = function(){ v4CandToggle(this); };
-      b.appendChild(row);
-    });
-    const go = document.createElement('button'); go.className = 'v4-bigbtn'; go.textContent = '⬇ Download karein (0 select)'; go.disabled = true; go.style.marginTop = '10px'; go.style.opacity = '.55';
-    go.onclick = function(){ v4CandGo(this); };
-    ctx.goBtn = go;
-    b.appendChild(go);
-    const hint = document.createElement('div'); hint.className = 'v4-muted'; hint.style.marginTop = '6px'; hint.textContent = 'Har video par tap karke select karein — sirf select ki hui download hongi, baqi nahi.';
-    b.appendChild(hint);
+    const ctx = v4RenderCandidates(b, d.candidates || [], {quality:(d.parsed && d.parsed.quality) || '360p', format:(d.parsed && d.parsed.format) || 'mp4', qexp: !!d.qexp, show: d.show || '', category: (d.parsed && d.parsed.category) || '', kind: d.kind || ''});
+    window._v4CandCtx = ctx;
+    setTimeout(function(){ window.scrollTo(0, document.body.scrollHeight); }, 60);
     return;
   }
   if(d.intent === 'phone_job'){
@@ -2850,6 +2848,68 @@ async function v4AiSend(e){
   }
   if(d.job_id){ v4AiStore({t:Date.now(), kind:'job', text:(d.message || ''), job_id:d.job_id}); b.setAttribute('data-jid', d.job_id); const holder = document.createElement('div'); holder.id = 'v4-job-' + d.job_id; b.appendChild(holder); v4PollJob(d.job_id); }
 }
+/* Update 109: candidates renderer — scroll-box (5 jitni rows dikhti
+   hain), pic tap = USI bubble ke upar inline player (ek waqt me ek),
+   har row mein channel • duration • views • time + ↗ Isi jaisi aur.
+   Har bubble ka apna context — tap par global ctx usi ka ho jata hai. */
+function v4CandPlay(ctx, vid){
+  if(!ctx || !ctx.playerBox) return;
+  const box = ctx.playerBox;
+  box.innerHTML = '';
+  const wrap = document.createElement('div'); wrap.className = 'v4-cand-player';
+  const fr = document.createElement('iframe');
+  fr.src = 'https://www.youtube.com/embed/' + vid + '?autoplay=1&rel=0';
+  fr.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+  fr.setAttribute('allowfullscreen', '');
+  wrap.appendChild(fr);
+  const band = document.createElement('button'); band.className = 'v4-btn2 v4-pband'; band.textContent = '✕ Band';
+  band.onclick = function(ev){ ev.stopPropagation(); box.innerHTML = ''; };
+  wrap.appendChild(band);
+  box.appendChild(wrap);
+}
+function v4RenderCandidates(b, candidates, opts){
+  opts = opts || {};
+  const ctx = {quality: opts.quality || '360p', format: opts.format || 'mp4', qexp: !!opts.qexp, show: opts.show || '', category: opts.category || '', kind: opts.kind || '', items: candidates || [], sel: {}};
+  const player = document.createElement('div'); b.appendChild(player); ctx.playerBox = player;
+  const box = document.createElement('div'); box.className = 'v4-cand-box'; b.appendChild(box);
+  (candidates || []).forEach(function(c, ix){
+    const v = {videoId:c.video_id, title:c.title || '', channel:c.channel || ''}; v4Videos[v.videoId] = v;
+    const row = document.createElement('div'); row.className = 'v4-ep'; row.style.cssText = 'align-items:center;gap:8px;cursor:pointer';
+    const chk = document.createElement('span'); chk.className = 'v4-candchk'; chk.textContent = '☐'; chk.style.cssText = 'font-size:19px;flex:none;width:22px;text-align:center'; row.appendChild(chk);
+    const im = document.createElement('img'); im.src = 'https://i.ytimg.com/vi/' + c.video_id + '/mqdefault.jpg'; im.alt = '▶'; im.style.cssText = 'width:86px;height:48px;object-fit:cover;border-radius:8px;flex:none';
+    im.setAttribute('data-vid', c.video_id);
+    im.onclick = function(ev){ ev.stopPropagation(); v4CandPlay(ctx, this.getAttribute('data-vid')); };
+    row.appendChild(im);
+    const tx = document.createElement('div'); tx.style.flex = '1';
+    const t1 = document.createElement('div'); t1.textContent = c.title || ''; t1.style.cssText = 'font-size:13px;font-weight:600;line-height:1.3'; tx.appendChild(t1);
+    const meta = [c.channel || '', c.duration ? v4Dur(c.duration) : '', c.view_count ? v4FmtCount(c.view_count) + ' views' : '', c.age || ''].filter(Boolean).join(' • ');
+    const t2 = document.createElement('div'); t2.textContent = meta; t2.style.cssText = 'font-size:11px;opacity:.75;margin-top:2px'; tx.appendChild(t2);
+    row.appendChild(tx);
+    const sim = document.createElement('button'); sim.className = 'v4-btn2'; sim.textContent = '↗ Isi jaisi aur'; sim.style.cssText = 'font-size:10.5px;padding:4px 7px;flex:none';
+    sim.onclick = function(ev){ ev.stopPropagation(); v4AiSimilar(c); };
+    row.appendChild(sim);
+    row.setAttribute('data-ix', ix);
+    row.onclick = function(){ window._v4CandCtx = ctx; v4CandToggle(this); };
+    box.appendChild(row);
+  });
+  const go = document.createElement('button'); go.className = 'v4-bigbtn'; go.textContent = '⬇ Download karein (0 select)'; go.disabled = true; go.style.marginTop = '10px'; go.style.opacity = '.55';
+  go.onclick = function(){ window._v4CandCtx = ctx; v4CandGo(this); };
+  ctx.goBtn = go;
+  b.appendChild(go);
+  const hint = document.createElement('div'); hint.className = 'v4-muted'; hint.style.marginTop = '6px'; hint.textContent = 'Video par tap = select • pic par tap = wahin play • ↗ = isi jaisi aur videos';
+  b.appendChild(hint);
+  b._candCtx = ctx;
+  return ctx;
+}
+async function v4AiSimilar(c){
+  const b = v4AiBubble('↗ "' + (c.title || 'video') + '" jaisi aur videos dhoondh raha hoon...');
+  const r = await v4Post('/api/ai/command', {similar:{id:c.video_id, channel:c.channel || '', title:c.title || ''}});
+  const d = r.data || {};
+  if(!r.ok || !d.candidates || !d.candidates.length){ b.textContent = '😔 Is jaisi aur videos nahi mil sakein.'; return; }
+  b.textContent = '↗ "' + (c.title || '') + '" jaisi aur videos — select karke download karein:';
+  const ctx = v4RenderCandidates(b, d.candidates, {quality:'360p', format:'mp4', qexp:false, show:'', category:''});
+  window._v4CandCtx = ctx;
+}
 /* Update 105: candidates multi-select — tap = select, sirf select
    ki hui hi download hongi (3-5 ya jitni chaahein) */
 function v4CandToggle(el){
@@ -2870,10 +2930,11 @@ function v4CandGo(el){
   if(ctx.qexp){ v4CandStart(ctx.quality || '360p', 'mp4'); return; }
   const b = v4AiBubble('Kis quality mein download karun? (' + items.length + ' videos)');
   const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px';
-  [['360p','mp4'],['720p','mp4'],['1080p','mp4'],['MP3','mp3']].forEach(function(qo){
+  const _qopts109 = ctx.kind === 'songs' ? [['MP3','mp3'],['360p','mp4'],['720p','mp4'],['1080p','mp4']] : [['360p','mp4'],['720p','mp4'],['1080p','mp4'],['MP3','mp3']];
+  _qopts109.forEach(function(qo){
     const ob = document.createElement('button'); ob.className = 'v4-btn2'; ob.textContent = qo[0];
     ob.setAttribute('data-q', qo[0]); ob.setAttribute('data-f', qo[1]);
-    ob.onclick = function(){ const f = this.getAttribute('data-f'); v4CandStart(f === 'mp3' ? '192' : this.getAttribute('data-q'), f); };
+    ob.onclick = function(){ window._v4CandCtx = ctx; const f = this.getAttribute('data-f'); v4CandStart(f === 'mp3' ? '192' : this.getAttribute('data-q'), f); };
     row.appendChild(ob);
   });
   b.appendChild(row);
@@ -2925,18 +2986,60 @@ async function v4AiEpisodes(el){
   const d = r.data || {};
   if(!r.ok || !d.episodes || !d.episodes.length){ b.textContent = '😔 "' + show + '" ki episodes nahi mil sakein — naam check karke dobara try karein.'; return; }
   window._v4EpItems = d.episodes;
+  b._epItems = d.episodes; b._epShow = show; b._baqi = false;
   b.textContent = '📂 "' + show + '" — ' + d.episodes.length + ' episodes mil gayi. Jo chahiye us par tap karein, ya sab ek sath download karein:';
   const all = document.createElement('button'); all.className = 'v4-btn2'; all.textContent = '⬇ Sab episodes download karein'; all.style.margin = '8px 0';
   all.onclick = function(){ v4AiPickAll(this); };
   b.appendChild(document.createElement('br')); b.appendChild(all);
-  d.episodes.forEach(function(ep){
+  const tg = document.createElement('button'); tg.className = 'v4-btn2'; tg.textContent = '🎯 Sirf baqi: OFF'; tg.style.margin = '8px 0 8px 6px';
+  tg.onclick = function(){ b._baqi = !b._baqi; this.textContent = '🎯 Sirf baqi: ' + (b._baqi ? 'ON' : 'OFF'); v4RenderEpRows(b); };
+  b.appendChild(tg);
+  const box = document.createElement('div'); box.className = 'v4-cand-box'; b.appendChild(box); b._epBox = box;
+  v4RenderEpRows(b);
+  v4EnsureDlCache(function(){ if(b._baqi) v4RenderEpRows(b); });
+}
+function v4RenderEpRows(b){
+  const box = b._epBox; if(!box) return;
+  const got = b._baqi ? v4DownloadedEps(b._epShow || '') : {};
+  box.innerHTML = '';
+  let shown = 0;
+  (b._epItems || []).forEach(function(ep){
+    if(b._baqi && got[ep.episode]) return;
+    shown++;
     const row = document.createElement('div'); row.className = 'v4-ep'; row.style.cssText = 'align-items:center;gap:8px;cursor:pointer';
     const nm = document.createElement('span'); nm.style.flex = '1'; nm.style.fontSize = '13px'; nm.textContent = 'Episode ' + ep.episode + ' — ' + (ep.title || ''); row.appendChild(nm);
     const dl = document.createElement('span'); dl.textContent = '⬇'; row.appendChild(dl);
     row.setAttribute('data-vid', ep.video_id); row.setAttribute('data-title', ep.title || '');
     row.onclick = function(){ const c2 = window._v4CandCtx || {}; v4AiBubble('✔ Episode ' + ep.episode, true, true); v4AiDoPick(this.getAttribute('data-vid'), this.getAttribute('data-title'), c2.qexp ? (c2.quality || '360p') : '360p', 'mp4'); };
-    b.appendChild(row);
+    box.appendChild(row);
   });
+  if(!shown){ const p = document.createElement('div'); p.className = 'v4-muted'; p.style.padding = '8px 2px'; p.textContent = '✓ Saari episodes pehle hi download ho chuki hain — baqi koi nahi.'; box.appendChild(p); }
+}
+/* Update 109: download ho chuki episodes ka set — phone (pt_phone_dl)
+   + server downloads (cache/list) se, show ke naam + episode number par */
+function v4DownloadedEps(show){
+  const set = {};
+  const sl = (show || '').toLowerCase();
+  const first = sl.split(/[^a-z0-9]+/).filter(function(w){ return w.length >= 3; })[0] || sl;
+  function scan(title){
+    if(!title) return;
+    const t = String(title).toLowerCase();
+    if(sl && t.indexOf(sl) < 0 && (!first || t.indexOf(first) < 0)) return;
+    let m = /episode\s*#?\s*(\d+)/.exec(t);
+    if(!m){ const mm = /(^|[^a-z])ep\s*#?\s*(\d+)/.exec(t); if(mm) m = [mm[0], mm[2]]; }
+    if(m) set[+m[1]] = 1;
+  }
+  try{ (JSON.parse(localStorage.getItem('pt_phone_dl') || '[]')).forEach(function(s){ scan(s.title); }); }catch(e){}
+  (window._v4DlCache || []).forEach(function(x){ if(x.status === 'completed' || !x.status) scan(x.title); });
+  (v4DlData.list || []).forEach(function(x){ if(x.status === 'completed') scan(x.title); });
+  return set;
+}
+function v4EnsureDlCache(cb){
+  if(window._v4DlCache){ if(cb) cb(); return; }
+  v4Fetch('/api/downloads-list').then(function(r){
+    window._v4DlCache = (r.ok && r.data && r.data.downloads) || [];
+    if(cb) cb();
+  }).catch(function(){ window._v4DlCache = []; if(cb) cb(); });
 }
 async function v4AiPickAll(el){
   el.disabled = true;
@@ -2961,9 +3064,10 @@ let v4PhoneJobSeq = 0;
 function v4PhoneJobStart(items, quality, format, msg, show){
   if(!items || !items.length) return;
   const job = {id: ++v4PhoneJobSeq, items: items, quality: quality || '360p', format: format || 'mp4', idx: 0, stopped: false, done: 0, failed: 0};
+  job.key = 'pj' + job.id; (window._v4PhoneJobs = window._v4PhoneJobs || {})[job.key] = job;
   const b = v4AiBubble(msg || ('📱 ' + items.length + ' videos phone par download ho rahi hain — one by one:'));
   const holder = document.createElement('div'); b.appendChild(holder); job.holder = holder;
-  const stop = document.createElement('button'); stop.className = 'v4-btn2'; stop.textContent = '⏹ Sab band'; stop.style.marginTop = '8px';
+  const stop = document.createElement('button'); stop.className = 'v4-btn2'; stop.textContent = '⏹ All Stop'; stop.style.marginTop = '8px';
   stop.onclick = function(){ job.stopped = true; v4PhoneJobCancelCurrent(job); if(job.stopBtn) job.stopBtn.style.display = 'none'; v4PhoneJobRender(job); };
   b.appendChild(stop); job.stopBtn = stop;
   const del = document.createElement('button'); del.className = 'v4-btn2'; del.textContent = '🗑 All delete'; del.style.marginTop = '8px'; del.style.marginLeft = '6px';
@@ -3004,16 +3108,68 @@ function v4PhoneJobDeleteAll(job){
 }
 function v4PhoneJobRender(job){
   if(!job.holder) return;
-  job.holder.innerHTML = job.items.map(function(it, i){
+  const total = job.items.length;
+  const head = '<div class="v4-ailist-h"><span class="t">📥 ' + total + ' videos</span><span class="cnt">' + job.done + ' / ' + total + '</span></div>';
+  const rows = job.items.map(function(it, i){
     let st = '⏳', pct = '';
     if(it._st === 'done') st = '✓';
+    else if(it._st === 'deleted') st = '🗑';
     else if(it._st === 'failed') st = '✗';
     else if(i === job.idx && !job.stopped){ st = '⬇'; if(it._pct != null) pct = ' ' + it._pct + '%'; }
     if(job.stopped && !it._st) st = '⏹';
-    return '<div class="v4-ep"><span style="flex:1;font-size:13px">' + st + ' ' + v4Esc(it.title || '') + pct + '</span></div>';
-  }).join('') + '<div style="font-size:12px;opacity:.8;margin-top:4px">' + job.done + ' / ' + job.items.length + ' ho gayi' + (job.failed ? ' • ' + job.failed + ' fail' : '') + ' — Downloads page mein live progress bhi chal raha hai</div>';
+    let btn = '';
+    if(it._st === 'done') btn = '<span class="v4-ai-stop" data-job="' + job.key + '" data-idx="' + i + '" onclick="event.stopPropagation();v4PhoneJobDelItem(this)" title="Delete">🗑</span>';
+    else if(it._st !== 'deleted') btn = '<span class="v4-ai-stop" data-job="' + job.key + '" data-idx="' + i + '" onclick="event.stopPropagation();v4PhoneJobDelItem(this)" title="Band + delete">✕</span>';
+    return '<div class="v4-ep"><span style="flex:1;font-size:13px">' + st + ' ' + v4Esc(it.title || '') + pct + '</span>' + btn + '</div>';
+  }).join('');
+  job.holder.innerHTML = head + '<div class="v4-cand-box v4-job-box">' + rows + '</div>' + '<div style="font-size:12px;opacity:.8;margin-top:4px">' + job.done + ' / ' + total + ' ho gayi' + (job.failed ? ' • ' + job.failed + ' fail' : '') + ' — Downloads page mein live progress bhi chal raha hai</div>';
+}
+/* Update 109: phone job ki ek row ka ✕ = band + DELETE (galti se lagi
+   download ek tap mein saaf). Chalti hui ho to cancel + partial remove
+   karke runner aage barhta hai; line wali sirf skip ho jati hai. */
+function v4PhoneJobDelItem(el){
+  const job = (window._v4PhoneJobs || {})[el.getAttribute('data-job')];
+  if(!job) return;
+  const idx = Number(el.getAttribute('data-idx'));
+  const it = job.items[idx]; if(!it || it._st === 'deleted') return;
+  if(it._st === 'done'){
+    try{
+      if(window.PlayTubeApp && PlayTubeApp.phoneDlState && PlayTubeApp.phoneDlRemove){
+        const live = JSON.parse(PlayTubeApp.phoneDlState() || '[]');
+        live.forEach(function(p){ if(p.videoId === it.video_id){ try{ PlayTubeApp.phoneDlRemove(p.id); }catch(e){} } });
+      }
+      let stored = JSON.parse(localStorage.getItem('pt_phone_dl') || '[]');
+      stored = stored.filter(function(s){ return s.videoId !== it.video_id; });
+      localStorage.setItem('pt_phone_dl', JSON.stringify(stored));
+    }catch(e){}
+    it._st = 'deleted'; if(job.done > 0) job.done--;
+    window._v4phSig = '';
+    try{ v4PhoneDlRender(); }catch(e){}
+    v4PhoneJobRender(job);
+    return;
+  }
+  if(idx === job.idx && !job.stopped){
+    try{
+      let live = [];
+      try{ live = JSON.parse(PlayTubeApp.phoneDlState() || '[]'); }catch(e){}
+      const ent = live.filter(function(x){ return x.videoId === it.video_id; })[0];
+      if(ent){
+        if(PlayTubeApp.phoneDlCancel && ent.status === 'running'){ try{ PlayTubeApp.phoneDlCancel(ent.id); }catch(e){} }
+        if(PlayTubeApp.phoneDlRemove){ try{ PlayTubeApp.phoneDlRemove(ent.id); }catch(e){} }
+      }
+    }catch(e){}
+    if(job._timer) clearInterval(job._timer);
+    it._st = 'deleted';
+    job.idx++;
+    v4PhoneJobRender(job);
+    v4PhoneJobNext(job);
+    return;
+  }
+  it._st = 'deleted';
+  v4PhoneJobRender(job);
 }
 function v4PhoneJobNext(job){
+  while(job.idx < job.items.length && job.items[job.idx]._st === 'deleted') job.idx++;
   if(job.stopped || job.idx >= job.items.length){ if(job.stopBtn) job.stopBtn.style.display = 'none'; v4PhoneJobRender(job); return; }
   const it = job.items[job.idx];
   try{ PlayTubeApp.phoneDlStart(it.video_id, job.quality, job.format, it.title || ''); }
@@ -3030,7 +3186,7 @@ function v4PhoneJobPoll(job){
   const ent = live.filter(function(x){ return x.videoId === it.video_id; })[0];
   if(ent){
     job._wait = 0;
-    if(ent.status === 'done'){ it._st = 'done'; it._pct = 100; job.done++; job.idx++; if(job._timer) clearInterval(job._timer); v4PhoneJobRender(job); v4PhoneJobNext(job); return; }
+    if(ent.status === 'done'){ v4ShowTrackTitle(it.title || ''); it._st = 'done'; it._pct = 100; job.done++; job.idx++; if(job._timer) clearInterval(job._timer); v4PhoneJobRender(job); v4PhoneJobNext(job); return; }
     if(ent.status === 'failed'){ it._st = 'failed'; job.failed++; job.idx++; if(job._timer) clearInterval(job._timer); v4PhoneJobRender(job); v4PhoneJobNext(job); return; }
     it._pct = ent.percent; v4PhoneJobRender(job);
     return;
@@ -3047,6 +3203,174 @@ function v4PhoneJobCancelCurrent(job){
   if(job._timer) clearInterval(job._timer);
 }
 
+/* ---------- Update 109: Mere Shows / Nayi Episode Check / Channel
+   Mode / Aaj Ki Taza / Bol Kar Command ---------- */
+const V4_CH_DRAMA_PK = ['ARY Digital', 'Hum TV', 'Geo TV', 'Har Pal Geo', 'Green TV', 'Express Entertainment', 'PTV Home', 'Urdu1', 'ARY Zindagi', 'Bol Entertainment', 'Aan TV'];
+const V4_CH_DRAMA_IN = ['Star Plus', 'Colors TV', 'Zee TV', 'Dangal TV', 'Sony SAB'];
+const V4_CH_YT = ['Coke Studio', '8XM', 'T-Series', 'ARY Musik'];
+function v4ShowsGet(){ try{ return JSON.parse(localStorage.getItem('pt_ai_shows') || '[]'); }catch(e){ return []; } }
+function v4ShowsSet(a){ try{ localStorage.setItem('pt_ai_shows', JSON.stringify(a)); }catch(e){} }
+function v4ShowSaved(name){ const l = (name || '').toLowerCase(); return v4ShowsGet().some(function(s){ return (s.name || '').toLowerCase() === l; }); }
+function v4ShowToggle(name){
+  let a = v4ShowsGet(); const l = name.toLowerCase();
+  if(a.some(function(s){ return (s.name || '').toLowerCase() === l; })) a = a.filter(function(s){ return (s.name || '').toLowerCase() !== l; });
+  else a.push({name:name, lastEp:0});
+  v4ShowsSet(a);
+}
+function v4ShowTrackTitle(title){
+  if(!title) return;
+  const m = /episode\s*#?\s*(\d+)/i.exec(title); if(!m) return;
+  const ep = +m[1]; const tl = String(title).toLowerCase();
+  const a = v4ShowsGet(); let ch = false;
+  a.forEach(function(s){ if(s.name && tl.indexOf(s.name.toLowerCase()) >= 0 && ep > (s.lastEp || 0)){ s.lastEp = ep; ch = true; } });
+  if(ch) v4ShowsSet(a);
+}
+function v4ShowChip(name){
+  const btn = document.createElement('button'); btn.className = 'v4-chip'; btn.type = 'button';
+  const paint = function(){ const on = v4ShowSaved(name); btn.textContent = name + (on ? ' ✓' : ' +'); btn.style.borderColor = on ? '#14b8a6' : ''; btn.style.color = on ? '#5eead4' : ''; };
+  paint();
+  btn.onclick = function(){ v4ShowToggle(name); paint(); };
+  return btn;
+}
+function v4RenderShowsPanel(b){
+  b.innerHTML = '';
+  const hd = document.createElement('div'); hd.textContent = '📺 Mere Shows — save kiye hue channel/show ki nayi episode ane par AI kholte hi upar bata dega. Jis par ✓ hai wo save hai:'; b.appendChild(hd);
+  const mk = function(label, names){
+    const h = document.createElement('div'); h.style.cssText = 'font-size:12px;font-weight:800;margin-top:9px;opacity:.9'; h.textContent = label; b.appendChild(h);
+    const row = document.createElement('div'); row.className = 'v4-chips'; row.style.margin = '4px 0 6px';
+    names.forEach(function(n){ row.appendChild(v4ShowChip(n)); });
+    b.appendChild(row);
+  };
+  mk('🎭 Drama Channels — Pakistani', V4_CH_DRAMA_PK);
+  mk('🇮🇳 Drama Channels — Indian', V4_CH_DRAMA_IN);
+  mk('▶️ YouTube Channels', V4_CH_YT);
+  const h2 = document.createElement('div'); h2.style.cssText = 'font-size:12px;font-weight:800;margin-top:9px;opacity:.9'; h2.textContent = '➕ Apna show / channel (koi bhi)'; b.appendChild(h2);
+  const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;margin-top:4px';
+  const inp = document.createElement('input'); inp.className = 'v4-input'; inp.placeholder = 'Show ya channel ka naam likhein...'; inp.style.flex = '1';
+  const add = document.createElement('button'); add.className = 'v4-btn2'; add.textContent = '+ Save';
+  add.onclick = function(){
+    const nm = inp.value.trim(); if(!nm) return;
+    if(!v4ShowSaved(nm)) v4ShowToggle(nm);
+    v4Toast('✓ "' + nm + '" save ho gaya');
+    v4RenderShowsPanel(b);
+  };
+  row.appendChild(inp); row.appendChild(add); b.appendChild(row);
+}
+function v4AiShowsPanel(){ const b = v4AiBubble('📺 Mere Shows'); v4RenderShowsPanel(b); }
+async function v4AiShowCheck(){
+  const shows = v4ShowsGet(); if(!shows.length) return;
+  let last = 0; try{ last = Number(localStorage.getItem('pt_ai_show_check_ts') || '0'); }catch(e){}
+  if(Date.now() - last < 30 * 60 * 1000) return;
+  try{ localStorage.setItem('pt_ai_show_check_ts', String(Date.now())); }catch(e){}
+  const r = await v4Post('/api/ai/show-check', {shows: shows.map(function(s){ return s.name; })});
+  const d = r.data || {}; if(!r.ok || !d.results) return;
+  const box = v4$('v4-ai-msgs'); if(!box) return;
+  window._v4ShowAlerts = window._v4ShowAlerts || {};
+  d.results.forEach(function(res){
+    const a = v4ShowsGet();
+    const s = a.filter(function(x){ return (x.name || '').toLowerCase() === (res.show || '').toLowerCase(); })[0];
+    if(!s) return;
+    if(!(s.lastEp > 0)){ s.lastEp = res.ep; v4ShowsSet(a); return; }
+    if(res.ep > s.lastEp && !window._v4ShowAlerts[res.show]){
+      window._v4ShowAlerts[res.show] = 1;
+      const card = document.createElement('div'); card.className = 'v4-bubble ai v4-showalert'; card.setAttribute('data-ts', String(Date.now()));
+      const tx = document.createElement('div'); tx.textContent = '📺 ' + res.show + ' ki nayi Episode ' + res.ep + ' aa gayi hai!'; card.appendChild(tx);
+      if(res.title){ const t2 = document.createElement('div'); t2.className = 'v4-muted'; t2.textContent = res.title; card.appendChild(t2); }
+      const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;margin-top:8px';
+      const dl = document.createElement('button'); dl.className = 'v4-btn2'; dl.textContent = '⬇ Download karein';
+      dl.onclick = function(){ v4AiQuickSend(res.show + ' episode ' + res.ep); };
+      const later = document.createElement('button'); later.className = 'v4-btn2'; later.textContent = 'Baad mein';
+      later.onclick = function(){
+        const a2 = v4ShowsGet(); a2.forEach(function(x){ if((x.name || '').toLowerCase() === (res.show || '').toLowerCase()) x.lastEp = res.ep; }); v4ShowsSet(a2);
+        card.remove();
+      };
+      row.appendChild(dl); row.appendChild(later); card.appendChild(row);
+      box.insertBefore(card, box.firstChild);
+    }
+  });
+}
+function v4AiChannelPanel(){
+  const b = v4AiBubble('📂 Channel Mode — channel chunein, us ki latest 50 videos ki list aa jayegi:');
+  const mk = function(label, names){
+    const h = document.createElement('div'); h.style.cssText = 'font-size:12px;font-weight:800;margin-top:9px;opacity:.9'; h.textContent = label; b.appendChild(h);
+    const row = document.createElement('div'); row.className = 'v4-chips'; row.style.margin = '4px 0 6px';
+    names.forEach(function(n){
+      const btn = document.createElement('button'); btn.className = 'v4-chip'; btn.type = 'button'; btn.textContent = n;
+      btn.onclick = function(){ v4AiChannelGo(n); };
+      row.appendChild(btn);
+    });
+    b.appendChild(row);
+  };
+  mk('🎭 Drama — Pakistani', V4_CH_DRAMA_PK);
+  mk('🇮🇳 Drama — Indian', V4_CH_DRAMA_IN);
+  mk('▶️ YouTube Channels', V4_CH_YT);
+  const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;margin-top:6px';
+  const inp = document.createElement('input'); inp.className = 'v4-input'; inp.placeholder = 'Koi aur channel likhein...'; inp.style.flex = '1';
+  const go = document.createElement('button'); go.className = 'v4-btn2'; go.textContent = 'List lao';
+  go.onclick = function(){ const nm = inp.value.trim(); if(nm) v4AiChannelGo(nm); };
+  row.appendChild(inp); row.appendChild(go); b.appendChild(row);
+}
+function v4AiChannelGo(name){ v4AiSend(null, 'channel:' + name, '📂 ' + name); }
+function v4AiTazaOpen(){
+  const b = v4AiBubble('🆕 Aaj Ki Taza — kya dekhna hai? Upar se chunein, list isi box mein badlegi:');
+  const opts = [['drama', '🎭 Aaj ki nayi drama episodes'], ['songs', '🎵 Aaj ke naye ganay'], ['mine', '📺 Mere save channels se'], ['mix', '🌐 Sab kuch mix']];
+  const orow = document.createElement('div'); orow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px';
+  const holder = document.createElement('div');
+  const btns = [];
+  opts.forEach(function(o){
+    const ob = document.createElement('button'); ob.className = 'v4-btn2'; ob.textContent = o[1];
+    ob.onclick = function(){
+      btns.forEach(function(x){ x.style.background = ''; x.style.color = ''; });
+      ob.style.background = '#7c5cff'; ob.style.color = '#fff';
+      v4AiTazaLoad(holder, o[0]);
+    };
+    btns.push(ob); orow.appendChild(ob);
+  });
+  b.appendChild(orow); b.appendChild(holder);
+}
+async function v4AiTazaLoad(holder, kind){
+  holder.innerHTML = '';
+  const load = document.createElement('div'); load.className = 'v4-muted'; load.style.marginTop = '8px'; load.textContent = 'Load ho raha hai...'; holder.appendChild(load);
+  const shows = v4ShowsGet().map(function(s){ return s.name; });
+  const r = await v4Post('/api/ai/taza', {kind: kind, shows: shows});
+  const d = r.data || {};
+  holder.innerHTML = '';
+  if(!r.ok || !d.candidates || !d.candidates.length){
+    const p = document.createElement('div'); p.className = 'v4-muted'; p.style.marginTop = '8px';
+    p.textContent = (kind === 'mine' && !shows.length) ? 'Pehle 📺 Mere Shows mein koi channel save karein.' : 'Aaj ki koi nayi video nahi mili — thodi dair baad try karein.';
+    holder.appendChild(p); return;
+  }
+  const hd = document.createElement('div'); hd.style.marginTop = '8px'; hd.textContent = '🆕 ' + d.candidates.length + ' nayi videos mili — select karke download karein:'; holder.appendChild(hd);
+  const ctx = v4RenderCandidates(holder, d.candidates, {quality:'360p', format:'mp4', qexp:false, show:'', category:'', kind: kind === 'songs' ? 'songs' : ''});
+  window._v4CandCtx = ctx;
+}
+function v4AiMicInit(){
+  const btn = v4$('v4-ai-mic'); if(!btn) return;
+  if(window.SpeechRecognition || window.webkitSpeechRecognition) btn.style.display = '';
+}
+function v4AiMic(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ v4Toast('Is phone/browser mein voice support nahi'); return; }
+  let rec;
+  try{ rec = new SR(); }catch(e){ v4Toast('Mic start nahi ho saka'); return; }
+  rec.lang = 'ur-PK'; rec.interimResults = false; rec.maxAlternatives = 1;
+  const inp = v4$('v4-ai-input'); if(!inp) return;
+  const old = inp.placeholder; inp.placeholder = '🎤 Sun raha hoon… bolein';
+  let retried = false;
+  rec.onresult = function(ev){
+    const t = (ev.results && ev.results[0] && ev.results[0][0] && ev.results[0][0].transcript) || '';
+    inp.placeholder = old;
+    if(t){ inp.value = t; v4AiSend(null); }
+  };
+  rec.onerror = function(ev){
+    if(ev && ev.error === 'not-allowed'){ inp.placeholder = old; v4Toast('Mic ki ijazat dein — phir bol kar command chalega'); return; }
+    if(!retried && rec.lang === 'ur-PK'){ retried = true; try{ rec.lang = 'en-US'; rec.start(); return; }catch(e){} }
+    inp.placeholder = old;
+    v4Toast('Awaz samajh nahi ayi — dobara try karein');
+  };
+  rec.onend = function(){ if(inp.placeholder.indexOf('Sun raha') >= 0) inp.placeholder = old; };
+  try{ rec.start(); }catch(e){ inp.placeholder = old; v4Toast('Mic start nahi ho saka'); }
+}
 /* Update 43: AI ko pic bhejo — parh kar khud download start */
 function v4AiImage(input){
   const file = input.files && input.files[0];
@@ -3207,22 +3531,24 @@ function v4RenderJob(jobId, job){
   if(!vis.length){ holder.innerHTML = ''; return; }
   const total = vis.length;
   const done = vis.filter(function(e){ return e.status === 'completed'; }).length;
-  let h = '<div class="v4-ailist"><div class="v4-ailist-h"><span class="t">📥 ' + total + ' videos</span><span class="cnt">' + done + ' / ' + total + '</span><button class="v4-sabband" data-job="' + jobId + '" onclick="v4AiStopAll(this)">⏹ Sab band</button><button class="v4-sabband" data-job="' + jobId + '" onclick="v4AiDeleteAll(this)">🗑 All delete</button></div>';
+  let h = '<div class="v4-ailist"><div class="v4-ailist-h"><span class="t">📥 ' + total + ' videos</span><span class="cnt">' + done + ' / ' + total + '</span><button class="v4-sabband" data-job="' + jobId + '" onclick="v4AiStopAll(this)">⏹ All Stop</button><button class="v4-sabband" data-job="' + jobId + '" onclick="v4AiDeleteAll(this)">🗑 All delete</button></div><div class="v4-cand-box v4-job-box">';
   eps.forEach(function(es, i){
     if(es.status === 'deleted') return;
     const name = es.title || (es.episode != null ? ('Episode ' + es.episode) : ('Video ' + (i + 1)));
+    if(es.status === 'completed') v4ShowTrackTitle(name);
     let icon, right = '', bar = '';
     if(es.status === 'completed') icon = '<span class="v4-ai-ic ok">✓</span>';
-    else if(es.status === 'downloading'){ icon = '<span class="v4-ai-ic dl">⬇</span>'; right = '<span class="pct">' + (es.percent || 0) + '%</span><span class="v4-ai-stop">⏹</span>'; bar = '<div class="v4-ai-bar"><i style="width:' + (es.percent || 0) + '%"></i></div>'; }
+    else if(es.status === 'downloading'){ icon = '<span class="v4-ai-ic dl">⬇</span>'; right = '<span class="pct">' + (es.percent || 0) + '%</span><span class="v4-ai-stop" data-job="' + jobId + '" data-idx="' + i + '" onclick="event.stopPropagation();v4AiDeleteItem(this)" title="Band + delete">✕</span>'; bar = '<div class="v4-ai-bar"><i style="width:' + (es.percent || 0) + '%"></i></div>'; }
     else if(es.status === 'searching'){ icon = '<span class="v4-ai-ic dl">⬇</span>'; right = '<span class="pct">…</span>'; }
     else if(es.status === 'failed'){ icon = '<span class="v4-ai-ic bad">✗</span>'; right = '<span class="v4-ai-stop" style="background:rgba(20,184,166,.13);border-color:rgba(20,184,166,.55);color:#5eead4;cursor:pointer" data-job="' + jobId + '" data-idx="' + i + '" onclick="event.stopPropagation();v4AiRetryItem(this)">↻</span>'; }
     else if(es.status === 'stopped'){ icon = '<span class="v4-ai-ic stop">⏹</span>'; right = '<span class="v4-ai-stop" style="background:rgba(20,184,166,.13);border-color:rgba(20,184,166,.55);color:#5eead4;cursor:pointer" data-job="' + jobId + '" data-idx="' + i + '" onclick="event.stopPropagation();v4AiRetryItem(this)">↻</span>'; }
     else icon = '<span class="v4-ai-ic">' + (i + 1) + '</span>';
-    const tap = (es.status === 'downloading' || es.status === 'searching') ? ' data-job="' + jobId + '" data-idx="' + i + '" onclick="v4AiStopItem(this)" style="cursor:pointer"' : '';
-    right += '<span class="v4-ai-stop" data-job="' + jobId + '" data-idx="' + i + '" onclick="event.stopPropagation();v4AiDeleteItem(this)" title="Delete">🗑</span>';
+    const tap = (es.status === 'downloading' || es.status === 'searching') ? ' data-job="' + jobId + '" data-idx="' + i + '" onclick="v4AiDeleteItem(this)" style="cursor:pointer"' : '';
+    const _delIc = (es.status === 'completed' || es.status === 'failed' || es.status === 'stopped') ? '🗑' : '✕';
+    right += '<span class="v4-ai-stop" data-job="' + jobId + '" data-idx="' + i + '" onclick="event.stopPropagation();v4AiDeleteItem(this)" title="Delete">' + _delIc + '</span>';
     h += '<div class="v4-ai-row' + (es.status === 'downloading' ? ' act' : '') + '"' + tap + '><div class="v4-ai-r1">' + icon + '<span class="v4-ai-t">' + v4Esc(name) + '</span>' + right + '</div>' + bar + '</div>';
   });
-  holder.innerHTML = h + '</div>';
+  holder.innerHTML = h + '</div></div>';
 }
 /* ---------- search screen (Update 79: SnapTube-style alag page) ---------- */
 let v4SearchState = {q:'', filter:'all', platform:'all'};
@@ -3854,6 +4180,7 @@ async function v4LoadConfig(){
   const _sq = v4$('v4-sq'); if(_sq){ _sq.addEventListener('input', v4SuggRender); _sq.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); v4RunSearch(_sq.value); } }); }
   ['v4-q-home','v4-q-youtube','v4-q-music'].forEach(function(id){ const _el = v4$(id); if(_el) _el.addEventListener('focus', function(){ v4OpenSearch(); }); });
   v4AiRestore();
+  v4AiMicInit();
   setInterval(v4AiPrune, 60000);
   const _dpr = v4$('v4-set-dlpath-row'); if(_dpr && window.PlayTubeApp && window.PlayTubeApp.pickFolder){ _dpr.style.display = ''; v4DlPathLabel(); }
   v4LoadConfig();
@@ -6243,7 +6570,7 @@ def _speed_opts():
     opts = {
         'concurrent_fragment_downloads': 16,
         'http_chunk_size': 10 * 1024 * 1024,
-        'buffer_size': 1024 * 16,
+        'buffer_size': 1024 * 1024,
         'retries': 10,
         'fragment_retries': 10,
         'file_access_retries': 5,
@@ -7913,9 +8240,9 @@ def _load_ai_jobs():
         if _job.get('status') in ('running', 'queued'):
             _job['status'] = 'interrupted'
             _job['note'] = 'Server restart ke waqt ye job chal raha tha'
-    # Update 79: 7 din se purani jobs khud saaf (chat bhi 7 din me saaf hoti hai)
+    # Update 109: 24 ghante se purani jobs khud saaf (chat bhi 24 ghante me saaf hoti hai)
     try:
-        _cut = time.time() - 7 * 24 * 3600
+        _cut = time.time() - 24 * 3600
         for _jid in list(ai_jobs.keys()):
             try:
                 _ts = datetime.fromisoformat(
@@ -8643,6 +8970,34 @@ def _ai_ctx_set(key, ctx):
         pass
 
 
+def _ai_age_str(ts):
+    # Update 109: epoch timestamp se '5h ago' / '2d ago' / '3w ago'
+    # jaisi mukhtasar age. Timestamp na ho to khali string — nakli
+    # time kabhi nahi lagta.
+    try:
+        ts = int(ts or 0)
+    except Exception:
+        ts = 0
+    if ts <= 0:
+        return ''
+    _s = int(time.time()) - ts
+    if _s < 0:
+        _s = 0
+    if _s < 90:
+        return 'just now'
+    if _s < 3600:
+        return f"{max(1, _s // 60)}m ago"
+    if _s < 86400:
+        return f"{_s // 3600}h ago"
+    if _s < 7 * 86400:
+        return f"{_s // 86400}d ago"
+    if _s < 30 * 86400:
+        return f"{_s // (7 * 86400)}w ago"
+    if _s < 365 * 86400:
+        return f"{_s // (30 * 86400)}mo ago"
+    return f"{_s // (365 * 86400)}y ago"
+
+
 def _ai_candidates(parsed, query=None):
     """Update 102/105: naam se top-20 umeedwar videos — user khud
     chunta hai, AI khud se koi video download nahi karta."""
@@ -8654,7 +9009,7 @@ def _ai_candidates(parsed, query=None):
             query = f"{title} episode {eps[0]}"
     try:
         info = _extract_with_clients(
-            f"ytsearch30:{query}",
+            f"ytsearch60:{query}",
             {'quiet': True, 'no_warnings': True,
              'no_check_certificate': True, 'extract_flat': True,
              'skip_download': True, 'ignoreerrors': True,
@@ -8681,8 +9036,10 @@ def _ai_candidates(parsed, query=None):
                     'duration': e.get('duration'),
                     'view_count': e.get('view_count'),
                     'timestamp': (e.get('timestamp')
-                                  or e.get('release_timestamp') or 0)})
-        if len(out) >= 20:
+                                  or e.get('release_timestamp') or 0),
+                    'age': _ai_age_str(e.get('timestamp')
+                                       or e.get('release_timestamp') or 0)})
+        if len(out) >= 50:
             break
     if eps:
         _pat = f"episode {eps[0]}"
@@ -8730,7 +9087,7 @@ def _ai_episode_candidates(parsed):
             out.append({'video_id': _v,
                         'title': _t or f"{title} Episode {_ep}",
                         'channel': '', 'duration': None,
-                        'view_count': None, 'timestamp': 0})
+                        'view_count': None, 'timestamp': 0, 'age': ''})
     return out
 
 
@@ -8889,9 +9246,227 @@ def api_ai_episodes():
                     'episodes': _ai_episode_list(show)})
 
 
+# Update 109: ready channel lists (Mere Shows / Channel Mode / Taza)
+_AI_CHANNELS_PK = ['ARY Digital', 'Hum TV', 'Geo TV', 'Har Pal Geo',
+                   'Green TV', 'Express Entertainment', 'PTV Home',
+                   'Urdu1', 'ARY Zindagi', 'Bol Entertainment', 'Aan TV']
+_AI_CHANNELS_IN = ['Star Plus', 'Colors TV', 'Zee TV', 'Dangal TV',
+                   'Sony SAB']
+_AI_CHANNELS_YT = ['Coke Studio', '8XM', 'T-Series', 'ARY Musik']
+_AI_CHANNELS_ALL = _AI_CHANNELS_PK + _AI_CHANNELS_IN + _AI_CHANNELS_YT
+
+
+def _ai_cand_from_entries(entries, cap=50):
+    # yt-dlp flat entries -> candidate dicts (age ke sath)
+    out = []
+    for e in entries or []:
+        if not e or not e.get('id'):
+            continue
+        _ts = e.get('timestamp') or e.get('release_timestamp') or 0
+        out.append({'video_id': e['id'],
+                    'title': e.get('title') or '',
+                    'channel': e.get('channel') or e.get('uploader') or '',
+                    'duration': e.get('duration'),
+                    'view_count': e.get('view_count'),
+                    'timestamp': _ts,
+                    'age': _ai_age_str(_ts)})
+        if len(out) >= cap:
+            break
+    return out
+
+
+def _ai_channel_candidates(channel):
+    # Update 109: Channel Mode — channel ki latest videos (nayi pehle)
+    try:
+        info = _extract_with_clients(
+            f"ytsearch60:{channel}",
+            {'quiet': True, 'no_warnings': True,
+             'no_check_certificate': True, 'extract_flat': True,
+             'skip_download': True, 'ignoreerrors': True,
+             'socket_timeout': 20, 'retries': 2,
+             'extractor_retries': 2})
+    except Exception:
+        return []
+    entries = [e for e in ((info or {}).get('entries') or [])
+               if e and e.get('id')]
+    out = _ai_cand_from_entries(entries, 50)
+    out.sort(key=lambda x: -(x.get('timestamp') or 0))
+    return out
+
+
+def _ai_similar_candidates(sim):
+    # Update 109: 'Isi jaisi aur' — channel + title keywords se milti
+    # julti videos; asal video khud list se bahar rehti hai.
+    _sid = (sim or {}).get('id') or ''
+    _chan = ((sim or {}).get('channel') or '').strip()
+    _title = ((sim or {}).get('title') or '').strip()
+    _clean = re.sub(r'\b(episode|ep)\s*#?\s*\d+\b', ' ', _title.lower())
+    _clean = re.sub(r'[\[\](){}|.,:;!?/\\-]+', ' ', _clean)
+    _stop = {'tv', 'hd', 'full', 'new', 'official', 'the', 'a', 'an',
+             'hai', 'aur', 'video', 'videos', 'part', 'ost'}
+    _kws = [w for w in re.findall(r'[a-z0-9]+', _clean)
+            if len(w) >= 3 and w not in _stop][:5]
+    _q = ' '.join(([_chan] if _chan else []) + _kws).strip() \
+        or (_title or _chan)
+    if not _q:
+        return []
+    try:
+        info = _extract_with_clients(
+            f"ytsearch40:{_q}",
+            {'quiet': True, 'no_warnings': True,
+             'no_check_certificate': True, 'extract_flat': True,
+             'skip_download': True, 'ignoreerrors': True,
+             'socket_timeout': 20, 'retries': 2,
+             'extractor_retries': 2})
+    except Exception:
+        return []
+    entries = [e for e in ((info or {}).get('entries') or [])
+               if e and e.get('id') and e.get('id') != _sid]
+    out = _ai_cand_from_entries(entries, 50)
+    out.sort(key=lambda x: -(x.get('view_count') or 0))
+    return out
+
+
+@app.route('/api/ai/show-check', methods=['POST'])
+def api_ai_show_check():
+    # Update 109: Nayi Episode Check — har save show ki sab se bari
+    # episode number wali video. Ek show fail ho to baqi phir bhi
+    # ate hain; poora endpoint kabhi 500 nahi hota.
+    if not feature_enabled('ai_enabled'):
+        return jsonify({'error': 'AI Assistant abhi band hai',
+                        'ai_disabled': True}), 403
+    data = request.json or {}
+    shows = [str(s).strip()[:80] for s in (data.get('shows') or [])
+             if str(s).strip()][:8]
+    results = []
+    _lock = threading.Lock()
+
+    def _one(_show):
+        try:
+            info = _extract_with_clients(
+                f"ytsearch10:{_show} latest episode",
+                {'quiet': True, 'no_warnings': True,
+                 'no_check_certificate': True, 'extract_flat': True,
+                 'skip_download': True, 'ignoreerrors': True,
+                 'socket_timeout': 15, 'retries': 1,
+                 'extractor_retries': 1})
+        except Exception:
+            return
+        _best = None
+        for _e in ((info or {}).get('entries') or []):
+            if not _e or not _e.get('id'):
+                continue
+            _m = re.search(r'episode\s*#?\s*(\d{1,3})',
+                           (_e.get('title') or '').lower())
+            if not _m:
+                continue
+            _n = int(_m.group(1))
+            if _best is None or _n > _best[0]:
+                _ts = (_e.get('timestamp')
+                       or _e.get('release_timestamp') or 0)
+                _best = (_n, {'show': _show, 'ep': _n,
+                              'id': _e['id'],
+                              'title': _e.get('title') or '',
+                              'thumb': ('https://i.ytimg.com/vi/'
+                                        + _e['id'] + '/mqdefault.jpg'),
+                              'duration': _e.get('duration'),
+                              'views': _e.get('view_count'),
+                              'age': _ai_age_str(_ts)})
+        if _best:
+            with _lock:
+                results.append(_best[1])
+
+    _ths = [threading.Thread(target=_one, args=(s,), daemon=True)
+            for s in shows]
+    for _t in _ths:
+        _t.start()
+    _deadline = time.time() + 25
+    for _t in _ths:
+        _left = _deadline - time.time()
+        if _left <= 0:
+            break
+        _t.join(timeout=_left)
+    return jsonify({'success': True, 'results': results})
+
+
+@app.route('/api/ai/taza', methods=['POST'])
+def api_ai_taza():
+    # Update 109: Aaj Ki Taza — pichle ~30 ghante ki nayi uploads
+    # (drama / songs / mere save channels / mix). Candidate dicts
+    # wapas jate hain taake aam select -> quality -> download flow
+    # hi chale.
+    if not feature_enabled('ai_enabled'):
+        return jsonify({'error': 'AI Assistant abhi band hai',
+                        'ai_disabled': True}), 403
+    data = request.json or {}
+    kind = (data.get('kind') or 'mix').strip().lower()
+    _mine = [str(s).strip()[:80] for s in (data.get('shows') or [])
+             if str(s).strip()][:8]
+    _queries = []
+    if kind in ('drama', 'mix'):
+        _queries += [f"{c} new episode" for c in
+                     ['ARY Digital', 'Hum TV', 'Geo TV', 'Har Pal Geo',
+                      'Star Plus', 'Colors TV']]
+    if kind in ('songs', 'mix'):
+        _queries += [f"{c} new song" for c in
+                     ['Coke Studio', 'T-Series', '8XM', 'ARY Musik']]
+    if kind == 'mine':
+        _queries += [f"{s} new" for s in _mine]
+    if not _queries:
+        return jsonify({'success': True, 'kind': kind, 'candidates': []})
+    _found = {}
+    _lock = threading.Lock()
+
+    def _one(_q):
+        try:
+            _items = _dated_search_items(_q, 20)
+        except Exception:
+            return
+        with _lock:
+            for _it in _items or []:
+                _am = _it.get('age_min')
+                if _am is None or _am > 30 * 60:
+                    continue
+                _vid = ((_it.get('id') or {}).get('videoId') or '')
+                if not _vid or _vid in _found:
+                    continue
+                _sn = _it.get('snippet') or {}
+                _found[_vid] = {
+                    'video_id': _vid,
+                    'title': _sn.get('title') or '',
+                    'channel': _sn.get('channelTitle') or '',
+                    'duration': _it.get('duration'),
+                    'view_count': _it.get('view_count'),
+                    'timestamp': 0,
+                    'age': _it.get('age_text') or '',
+                    '_amin': _am}
+
+    _ths = [threading.Thread(target=_one, args=(q,), daemon=True)
+            for q in _queries]
+    for _t in _ths:
+        _t.start()
+    for _t in _ths:
+        _t.join(timeout=20)
+    _out = sorted(_found.values(), key=lambda x: x.get('_amin') or 0)[:50]
+    for _o in _out:
+        _o.pop('_amin', None)
+    return jsonify({'success': True, 'kind': kind, 'candidates': _out})
+
+
 @app.route('/api/ai/command', methods=['POST'])
 def api_ai_command():
     data = request.json or {}
+    # Update 109: '↗ Isi jaisi aur' — text command nahi, seedha data
+    if data.get('similar'):
+        if not feature_enabled('ai_enabled'):
+            return jsonify({'error': 'AI Assistant abhi band hai (admin ne off kiya hai)',
+                            'ai_disabled': True}), 403
+        _sc = _ai_similar_candidates(data.get('similar') or {})
+        return jsonify({'success': True, 'intent': 'candidates',
+                        'parsed': {'quality': '360p', 'format': 'mp4',
+                                   'category': ''},
+                        'candidates': _sc, 'qexp': False, 'show': '',
+                        'message': 'Milti julti videos:'})
     text = data.get('command') or data.get('text') or ''
     if not text.strip():
         return jsonify({'error': 'Command required'}), 400
@@ -8934,6 +9509,29 @@ def api_ai_command():
             return jsonify({'error': f'Guest ke {_gl} free downloads pure ho gaye — ab account banayein!',
                             'login_required': True, 'guest_limit': True,
                             'limit': _gl}), 403
+
+    # Update 109: Channel Mode — 'channel:<naam>' ya ready list ke
+    # channel ka EXACT naam = us channel ki latest 50 ki list.
+    _ch_name = None
+    if text.lower().startswith('channel:'):
+        _ch_name = text.split(':', 1)[1].strip()
+    elif text.strip().lower() in {c.lower() for c in _AI_CHANNELS_ALL}:
+        _ch_name = text.strip()
+    if _ch_name:
+        _cc = _ai_channel_candidates(_ch_name)
+        if _cc:
+            return jsonify({
+                'success': True, 'intent': 'candidates',
+                'parsed': {'quality': '360p', 'format': 'mp4',
+                           'category': '', 'title': _ch_name},
+                'candidates': _cc, 'qexp': False, 'show': '',
+                'message': (f"📂 {_ch_name} — latest {len(_cc)} videos "
+                            f"— jin par ✓ select karein ge, sirf wahi "
+                            f"download hongi:")})
+        return jsonify({'success': False,
+                        'message': (f"😔 '{_ch_name}' ki videos abhi nahi "
+                                    f"mil sakein — thodi dair baad try "
+                                    f"karein.")})
 
     # Update 43: AI ko LINK do to search ghumaye baghair seedha download —
     # video link = wohi video, playlist link = poori playlist (pehli 50)
