@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 25  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 26  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1459,7 +1459,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">25</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">26</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2269,7 +2269,7 @@ function v4FriendlyErr(e){ const s = String(e || ''); if(/sign in to confirm|not
 function v4NativeMode(){ try{ return !!(window.PlayTubeApp && PlayTubeApp.nativeAvailable && PlayTubeApp.nativeAvailable()); }catch(e){ return false; } }
 let v4NativeFmtWait = null;
 function v4NativeFormatsResult(jsonStr, errStr){ window._v4NativeErr = errStr || ''; const w = v4NativeFmtWait; v4NativeFmtWait = null; if(!w) return; if(!jsonStr){ w(null); return; } try{ w(JSON.parse(jsonStr)); }catch(e){ w(null); } }
-function v4NativeFormats(id){ return new Promise(function(res){ v4NativeFmtWait = res; try{ PlayTubeApp.nativeFormats(id); }catch(e){ v4NativeFmtWait = null; res(null); return; } setTimeout(function(){ if(v4NativeFmtWait === res){ v4NativeFmtWait = null; res(null); } }, 45000); }); }
+function v4NativeFormats(id){ return new Promise(function(res){ v4NativeFmtWait = res; try{ PlayTubeApp.nativeFormats(id); }catch(e){ v4NativeFmtWait = null; res(null); return; } setTimeout(function(){ if(v4NativeFmtWait === res){ v4NativeFmtWait = null; res(null); } }, 25000); }); }
 async function v4OpenSheet(id, audioOnly){
   const v = v4Videos[id] || {videoId:id, title:'', channel:''};
   v4Sheet = {id:id, sel:null, audioOnly: !!audioOnly};
@@ -2292,7 +2292,13 @@ async function v4OpenSheet(id, audioOnly){
   if(v4NativeMode()){ d = await v4NativeFormats(id); if(d && !d.error){ d.nativeMode = true; } else d = null; }
   if(!d){
     const r = await v4Fetch('/api/formats/' + id);
-    if(!r.ok || !r.data || r.data.error){ list.innerHTML = '<p class="v4-muted">Formats nahi mil sake: ' + v4Esc(v4FriendlyErr((r.data && r.data.error) || 'error')) + '</p>'; return; }
+    if(!r.ok || !r.data || r.data.error){
+      const why = (r.data && r.data.error) ? v4FriendlyErr(r.data.error) : 'Server se jawab nahi aya — net bohat slow hai ya server busy hai';
+      const nerr = window._v4NativeErr ? ' Phone se bhi nahi mila: ' + v4Esc(window._v4NativeErr) : '';
+      list.innerHTML = '<p class="v4-muted">Formats nahi mil sake: ' + v4Esc(why) + nerr + '</p>' +
+        '<button data-id="' + id + '" onclick="v4OpenSheet(this.dataset.id)" style="margin-top:10px;padding:10px 22px;border:none;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#06b6d4);color:#fff;font-weight:700;font-size:15px;cursor:pointer">↻ Dobara try karein</button>';
+      return;
+    }
     d = r.data;
     if(window._v4NativeErr) d.nativeErr = window._v4NativeErr;
   }
