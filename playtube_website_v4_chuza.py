@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 23  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 24  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1164,10 +1164,12 @@ HTML = '''
   .v4-menurow{display:flex;align-items:center;gap:12px;width:100%;padding:13px 4px;background:none;border:none;border-bottom:1px solid var(--v4border);color:var(--v4text);font-size:14px;cursor:pointer;text-align:left;text-decoration:none;box-sizing:border-box}
   /* Playza ka apna player frame (Update 59) */
   /* Shorts — Reels style, Playza design (Update 65) */
-#v4-shorts{position:fixed;top:0;left:0;right:0;bottom:0;background:#000;z-index:1200;display:none;overscroll-behavior:contain}
+#v4-shorts{position:fixed;top:0;left:0;right:0;bottom:62px;background:#000;z-index:1200;display:none;overscroll-behavior:contain}
 #v4-shorts.open{display:block}
-#v4-shorts-track{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior:contain;touch-action:pan-y}
+#v4-shorts-track{height:100%;background:#000;overflow-y:auto;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior:contain;touch-action:pan-y}
 #v4-shorts-track::-webkit-scrollbar{display:none}
+#v4app{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#v4app input,#v4app textarea{-webkit-user-select:text;user-select:text}
 .v4-short{position:relative;height:100%;max-width:430px;margin:0 auto;scroll-snap-align:start;scroll-snap-stop:always;background:#000;overflow:hidden}
 .v4-short img.bg,.v4-short video,.v4-short iframe{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border:0}
 .v4-shorts-top{position:absolute;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;display:flex;align-items:center;padding:12px 14px;z-index:5;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent);box-sizing:border-box}
@@ -1457,7 +1459,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">23</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">24</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -1495,10 +1497,11 @@ HTML = '''
         <button class="v4-searchbtn" type="button"><i class="fa-solid fa-magnifying-glass"></i></button>
       </div>
       <div id="v4-dl-stats" class="v4-dlstats" style="display:none"></div>
-      <div id="v4-phone-dl"></div>
+      <div id="v4-phone-active"></div>
       <div class="v4-sect">DOWNLOADING <span id="v4-dl-actcount"></span></div>
       <div id="v4-dl-active"><p class="v4-muted">Koi download nahi chal raha</p></div>
       <div class="v4-sect">DOWNLOADED</div>
+      <div id="v4-phone-done"></div>
       <div id="v4-dl-done"><p class="v4-muted">Abhi tak koi download nahi</p></div>
     </section>
 
@@ -1876,7 +1879,7 @@ function v4PlayAudio(id){
   v4$('v4-abtn').textContent = '❚❚';
   if(v4NativeAudio()){
     v4NaActive = true;
-    try{ PlayTubeApp.playAudio(location.origin + '/api/stream/' + id, v.title || 'Audio song'); }catch(e){}
+    try{ const _su = location.origin + '/api/stream/' + id; const _st = 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg'; if(PlayTubeApp.playAudio2) PlayTubeApp.playAudio2(_su, v.title || 'Audio song', _st); else PlayTubeApp.playAudio(_su, v.title || 'Audio song'); }catch(e){}
     v4NaStartPoll();
     return;
   }
@@ -1947,8 +1950,8 @@ function v4RenderCards(elId, items){
 /* ---------- infinite feed (Update 33): scroll = nayi videos ---------- */
 /* ---------- v9: global seen — jo dikh/dekh liya wo dobara nahi ---------- */
 function v4SeenGet(){ try{ return JSON.parse(localStorage.getItem('pt_seen') || '[]'); }catch(e){ return []; } }
-function v4SeenAdd(ids){ if(!ids || !ids.length) return; const now = Date.now(); const drop = {}; ids.forEach(function(id){ if(id) drop[id] = 1; }); const cur = v4SeenGet().filter(function(x){ return x && x.id && !drop[x.id]; }); ids.forEach(function(id){ if(id) cur.unshift({id:id, ts:now}); }); try{ localStorage.setItem('pt_seen', JSON.stringify(cur.slice(0, 600))); }catch(e){} }
-function v4SeenParam(){ return v4SeenGet().slice(0, 250).map(function(x){ return x.id; }).join(','); }
+function v4SeenAdd(ids){ if(!ids || !ids.length) return; const now = Date.now(); const drop = {}; ids.forEach(function(id){ if(id) drop[id] = 1; }); const cur = v4SeenGet().filter(function(x){ return x && x.id && !drop[x.id]; }); ids.forEach(function(id){ if(id) cur.unshift({id:id, ts:now}); }); try{ localStorage.setItem('pt_seen', JSON.stringify(cur.slice(0, 1200))); }catch(e){} }
+function v4SeenParam(){ return v4SeenGet().slice(0, 400).map(function(x){ return x.id; }).join(','); }
 const v4FeedState = {};
 let v4FeedSession = Math.random().toString(36).slice(2, 10);
 /* ---------- personalization (Update 34): jo zyada search/watch, waisa feed ---------- */
@@ -2161,6 +2164,7 @@ function v4ShortsLoad(){
         const sec = div.firstChild; track.appendChild(sec);
         if(v4ShortsObs) v4ShortsObs.observe(sec);
       });
+      v4SeenAdd(items.map(function(it){ return it.id.videoId; }));
       v4ShortsPage++;
       if(!d.has_more) v4ShortsDone = true;
     })
@@ -2332,8 +2336,66 @@ async function v4StartDownload(params){
 /* ---------- downloads view (unified registry — Bug #3/#9) ---------- */
 function v4PhonePollStart(){ v4PhonePollStop(); window._v4phPoll = setInterval(function(){ try{ v4PhoneDlRender(); }catch(e){} }, 2500); }
 function v4PhonePollStop(){ if(window._v4phPoll){ clearInterval(window._v4phPoll); window._v4phPoll = null; } }
+function v4PhoneRowHtml(p){
+  const th = p.videoId ? v4Img(p.videoId) : '<span style="width:64px;text-align:center;font-size:22px">📱</span>';
+  let t2 = '', btns = '';
+  const pid = v4Esc(p.id || '');
+  if(p.status === 'running'){
+    t2 = '<span data-pdmb>' + v4Esc(p.doneMB || '0') + ' / ' + v4Esc(p.totalMB || '?') + ' MB</span> • <span data-pdsp>' + v4Esc(p.speed || '') + '</span> • <span data-pdpct>' + (p.percent || 0) + '%</span>' + (p.quality ? ' • ' + v4Esc(p.quality) : '');
+    btns = '<button class="v4-roundbtn" title="Pause" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="pause">❚❚</button><button class="v4-roundbtn" title="Band karein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="cancel">✕</button>';
+  } else if(p.status === 'paused'){
+    t2 = '⏸ Pause hai — ' + v4Esc(p.doneMB || '0') + ' / ' + v4Esc(p.totalMB || '?') + ' MB' + (p.quality ? ' • ' + v4Esc(p.quality) : '');
+    btns = '<button class="v4-roundbtn teal" title="Dobara chalayein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="resume">▶</button><button class="v4-roundbtn" title="Hata dein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="remove">🗑</button>';
+  } else if(p.status === 'failed'){
+    t2 = '<span style="color:var(--v4danger)">Fail ho gaya — sheet se dobara try karein</span>';
+    btns = '<button class="v4-roundbtn" title="Hata dein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="remove">🗑</button>';
+  } else {
+    t2 = 'Band kar diya';
+    btns = '<button class="v4-roundbtn" title="Hata dein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="remove">🗑</button>';
+  }
+  const bar = (p.status === 'running' || p.status === 'paused') ? '<div class="v4-bar"><i data-pdbar style="width:' + (p.percent || 0) + '%"></i></div>' : '';
+  return '<div class="v4-dlrow" data-prow="' + pid + '">' + th + '<div class="tt"><div class="t1">' + v4Esc(p.title || '') + '</div>' + bar + '<div class="t2">' + t2 + '</div></div>' + btns + '</div>';
+}
+function v4PhoneStoredRow(s){
+  const th = s.videoId ? v4Img(s.videoId) : '<span style="width:64px;text-align:center;font-size:22px">📱</span>';
+  const meta = [s.quality || '', s.totalMB ? s.totalMB + ' MB' : '', '✓ Phone ke Playza folder mein hai'].filter(Boolean).join(' • ');
+  return '<div class="v4-dlrow">' + th + '<div class="tt"><div class="t1">' + v4Esc(s.title || '') + '</div><div class="t2">' + v4Esc(meta) + '</div></div><button class="v4-roundbtn" title="List se hata dein" data-t="' + v4Esc(s.title || '') + '" data-q="' + v4Esc(s.quality || '') + '" onclick="v4PhoneStoredDel(this)">🗑</button></div>';
+}
+function v4PhoneAct(btn){
+  const id = btn.getAttribute('data-pid'), act = btn.getAttribute('data-act');
+  if(!id || !window.PlayTubeApp) return;
+  try{
+    if(act === 'pause' && PlayTubeApp.phoneDlPause) PlayTubeApp.phoneDlPause(id);
+    else if(act === 'resume' && PlayTubeApp.phoneDlResume) PlayTubeApp.phoneDlResume(id);
+    else if(act === 'cancel' && PlayTubeApp.phoneDlCancel) PlayTubeApp.phoneDlCancel(id);
+    else if(act === 'remove' && PlayTubeApp.phoneDlRemove) PlayTubeApp.phoneDlRemove(id);
+  }catch(e){}
+  window._v4phSig = '';
+  setTimeout(function(){ try{ v4PhoneDlRender(); }catch(e){} }, 400);
+}
+function v4PhoneStoredDel(btn){
+  const t = btn.getAttribute('data-t') || '', q = btn.getAttribute('data-q') || '';
+  try{
+    if(window.PlayTubeApp && PlayTubeApp.phoneDlState && PlayTubeApp.phoneDlRemove){
+      const live = JSON.parse(PlayTubeApp.phoneDlState() || '[]');
+      live.forEach(function(p){ if(p.status === 'done' && (p.title || '') === t && (p.quality || '') === q){ try{ PlayTubeApp.phoneDlRemove(p.id); }catch(e){} } });
+    }
+  }catch(e){}
+  let stored = []; try{ stored = JSON.parse(localStorage.getItem('pt_phone_dl') || '[]'); }catch(e){}
+  stored = stored.filter(function(s){ return !((s.title || '') === t && (s.quality || '') === q); });
+  try{ localStorage.setItem('pt_phone_dl', JSON.stringify(stored)); }catch(e){}
+  window._v4phSig = '';
+  v4PhoneDlRender();
+}
+function v4DlEmptyFix(){
+  const pa = v4$('v4-phone-active'), pdn = v4$('v4-phone-done');
+  const da = v4$('v4-dl-active'), dd = v4$('v4-dl-done');
+  if(da && pa && pa.children.length && da.querySelector('.v4-muted')) da.innerHTML = '';
+  if(dd && pdn && pdn.children.length && (dd.querySelector('.v4-muted') || dd.querySelector('.v4-empty'))) dd.innerHTML = '';
+}
 function v4PhoneDlRender(){
-  const box = v4$('v4-phone-dl'); if(!box) return;
+  const boxA = v4$('v4-phone-active'); if(!boxA) return;
+  const boxD = v4$('v4-phone-done'); if(!boxD) return;
   let live = [];
   if(v4NativeMode() && window.PlayTubeApp && PlayTubeApp.phoneDlState){
     try{ live = JSON.parse(PlayTubeApp.phoneDlState() || '[]'); }catch(e){}
@@ -2343,21 +2405,33 @@ function v4PhoneDlRender(){
   live.forEach(function(p){
     if(p.status === 'done'){
       const k = (p.title || '') + '|' + (p.quality || '');
-      if(!stored.some(function(s){ return ((s.title || '') + '|' + (s.quality || '')) === k; })){ stored.unshift({title: p.title || '', quality: p.quality || '', ts: Date.now()}); changed = true; }
+      if(!stored.some(function(s){ return ((s.title || '') + '|' + (s.quality || '')) === k; })){ stored.unshift({title: p.title || '', quality: p.quality || '', videoId: p.videoId || '', totalMB: p.totalMB || '', ts: Date.now()}); changed = true; }
     }
   });
   if(changed){ try{ localStorage.setItem('pt_phone_dl', JSON.stringify(stored.slice(0, 50))); }catch(e){} }
   const liveKeys = {}; live.forEach(function(p){ liveKeys[(p.title || '') + '|' + (p.quality || '')] = 1; });
-  const running = live.filter(function(p){ return p.status === 'running'; });
-  const failed = live.filter(function(p){ return p.status === 'failed'; });
-  let html = '';
-  if(running.length || failed.length || stored.length){
-    html += '<div class="v4-sect">📱 PHONE PAR DOWNLOADS</div>';
-    running.forEach(function(p){ html += '<div class="v4-dlrow"><span style="width:64px;text-align:center;font-size:22px">📱</span><div class="tt"><div class="t1">' + v4Esc(p.title || '') + '</div><div class="v4-bar"><i style="width:' + (p.percent || 0) + '%"></i></div><div class="t2">Phone par download ho raha hai — ' + (p.percent || 0) + '%' + (p.quality ? ' • ' + v4Esc(p.quality) : '') + '</div></div></div>'; });
-    failed.forEach(function(p){ html += '<div class="v4-dlrow"><span style="width:64px;text-align:center;font-size:22px">📱</span><div class="tt"><div class="t1">' + v4Esc(p.title || '') + '</div><div class="t2" style="color:var(--v4danger)">Phone download fail ho gaya — sheet se dobara try karein</div></div></div>'; });
-    stored.forEach(function(s){ if(liveKeys[(s.title || '') + '|' + (s.quality || '')]) return; html += '<div class="v4-dlrow"><span style="width:64px;text-align:center;font-size:22px">📱</span><div class="tt"><div class="t1">' + v4Esc(s.title || '') + '</div><div class="t2">✓ Phone ke Playza folder mein hai' + (s.quality ? ' • ' + v4Esc(s.quality) : '') + '</div></div></div>'; });
+  const active = live.filter(function(p){ return p.status === 'running' || p.status === 'paused'; });
+  const bad = live.filter(function(p){ return p.status === 'failed' || p.status === 'stopped'; });
+  const sig = live.map(function(p){ return p.id + ':' + p.status; }).join(',') + '#' + stored.length;
+  if(sig !== window._v4phSig){
+    window._v4phSig = sig;
+    boxA.innerHTML = active.map(v4PhoneRowHtml).join('');
+    let doneHtml = bad.map(v4PhoneRowHtml).join('');
+    stored.forEach(function(s){ if(liveKeys[(s.title || '') + '|' + (s.quality || '')]) return; doneHtml += v4PhoneStoredRow(s); });
+    boxD.innerHTML = doneHtml;
+  } else {
+    live.forEach(function(p){
+      if(p.status !== 'running') return;
+      const row = boxA.querySelector('[data-prow="' + p.id + '"]'); if(!row) return;
+      const b = row.querySelector('[data-pdbar]'); if(b) b.style.width = (p.percent || 0) + '%';
+      const m = row.querySelector('[data-pdmb]'); if(m) m.textContent = (p.doneMB || '0') + ' / ' + (p.totalMB || '?') + ' MB';
+      const sp = row.querySelector('[data-pdsp]'); if(sp) sp.textContent = p.speed || '';
+      const pc = row.querySelector('[data-pdpct]'); if(pc) pc.textContent = (p.percent || 0) + '%';
+    });
   }
-  box.innerHTML = html;
+  const acEl2 = v4$('v4-dl-actcount');
+  if(acEl2){ const tot = (window._v4srvAct || 0) + active.length; acEl2.textContent = tot ? '(' + tot + ')' : ''; }
+  v4DlEmptyFix();
 }
 async function v4LoadDownloads(){
   try{
@@ -2508,7 +2582,7 @@ function v4RenderDownloads(){
     const rowClk = v4DlSel.on ? ' data-id="' + a.id + '" onclick="v4DlToggleSel(this.dataset.id)"' : '';
     return '<div class="v4-dlrow' + (isSelA ? ' sel' : '') + '"' + rowClk + '>' + chk + (vid ? v4Img(vid) : '<span style="width:64px"></span>') + '<div class="tt"><div class="t1">' + v4Esc(title) + '</div><div class="v4-bar"><i style="width:' + pct + '%"></i></div><div class="t2">' + v4Esc(meta) + '</div></div>' + btn + rst + del + '</div>';
   };
-  const acEl = v4$('v4-dl-actcount'); if(acEl) acEl.textContent = act.length ? '(' + act.length + ')' : '';
+  const acEl = v4$('v4-dl-actcount'); if(acEl) acEl.textContent = act.length ? '(' + act.length + ')' : ''; window._v4srvAct = act.length;
   v4$('v4-dl-active').innerHTML = act.length ? act.map(rowAct).join('') : '<p class="v4-muted">Koi download nahi chal raha</p>';
   const rowDone = function(d){
     const title = d.title || ''; if(f && title.toLowerCase().indexOf(f) < 0) return '';
@@ -2530,6 +2604,7 @@ function v4RenderDownloads(){
   else if(f || v4DlType !== 'all') v4$('v4-dl-done').innerHTML = '<p class="v4-muted">Is filter mein koi download nahi mili</p>';
   else if(act.length) v4$('v4-dl-done').innerHTML = '<p class="v4-muted">Abhi tak koi download mukammal nahi</p>';
   else v4$('v4-dl-done').innerHTML = '<div class="v4-empty"><div class="v4-empty-ic">🎬</div><div class="v4-empty-t">Abhi tak koi download nahi</div><p class="v4-muted">Jo videos aap download karein ge, wo yahan mehfooz milengi — baghair internet ke dekhne ke liye.</p><button class="v4-bigbtn" style="max-width:240px;margin:10px auto 0" data-v="home" onclick="v4Show(this.dataset.v)">Videos dekhein</button></div>';
+  v4DlEmptyFix();
 }
 let v4AutoSaveBase = false;
 function v4SaveFileName(it){
@@ -3702,6 +3777,25 @@ def _feed_search_items(query, n=30):
         except Exception:
             items = []
     if items:
+        try:
+            _q = (query or '').strip().lower()
+            _words = [w for w in _q.split() if len(w) > 2]
+            if len(_words) >= 2:
+                def _rel_score(_it):
+                    _t = ((_it.get('snippet') or {}).get('title') or '').lower()
+                    return sum(1 for _w in _words if _w in _t)
+                _sc = [(_it, _rel_score(_it)) for _it in items]
+                if sum(1 for _x in _sc if _x[1] >= 1) >= 5:
+                    _sc = [_x for _x in _sc if _x[1] >= 1]
+                _sc.sort(key=lambda _x: (
+                    0 if _q in ((_x[0].get('snippet') or {}).get('title') or '').lower() else 1,
+                    -_x[1]))
+                items = [_it for _it, _s in _sc]
+            elif len(_words) == 1:
+                items = sorted(items, key=lambda _it: (
+                    0 if _q in ((_it.get('snippet') or {}).get('title') or '').lower() else 1))
+        except Exception:
+            pass
         search_cache[cache_key] = (items, time.time())
     return items
 
