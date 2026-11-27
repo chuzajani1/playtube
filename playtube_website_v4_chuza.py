@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 67  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 68  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">67</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">68</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -4087,6 +4087,20 @@ async function v4AiSend(e, _sendText, _dispText){
       btn.onclick = function(ev){ v4DlClick(ev, v.videoId); };
       row.appendChild(btn); b.appendChild(row);
     });
+    return;
+  }
+  if(d.intent === 'playlists'){
+    const b = v4AiBubble(d.message || 'Playlists mil gayin — jo wali chahiye us par tap karein:');
+    (d.playlists || []).forEach(function(p){
+      const row = document.createElement('div'); row.className = 'v4-ep'; row.style.cssText = 'align-items:center;gap:8px;cursor:pointer';
+      const nm = document.createElement('span'); nm.style.flex = '1'; nm.style.fontSize = '13px';
+      nm.textContent = '📋 ' + (p.title || 'Playlist') + (p.channel ? ' • ' + p.channel : '') + (p.count ? ' • ' + p.count + ' videos' : '');
+      row.appendChild(nm);
+      const ar = document.createElement('span'); ar.textContent = '›'; ar.style.cssText = 'font-size:19px;opacity:.7'; row.appendChild(ar);
+      row.onclick = function(){ v4AiSend(null, 'https://www.youtube.com/playlist?list=' + p.playlist_id, '📋 ' + (p.title || 'Playlist')); };
+      b.appendChild(row);
+    });
+    setTimeout(function(){ window.scrollTo(0, document.body.scrollHeight); }, 60);
     return;
   }
   if(d.intent === 'candidates'){
@@ -11565,6 +11579,147 @@ def _ai_cand_from_entries(entries, cap=50):
     return out
 
 
+def _ai_playlist_search(query, n=12):
+    """Update 157 (#96): '<show> playlist' par asal YouTube
+    playlists ki list — naam, channel, kitni videos.
+    Filter ka sahi code EgIQAw hai aur playlists naye
+    nakshay mein lockupViewModel (contentType PLAYLIST)
+    ki shakal mein ati hain — dono nakshay parhe jate
+    hain (purana playlistRenderer bhi)."""
+    cache_key = f"plsearch_{query}_{n}"
+    if cache_key in search_cache:
+        _cd, _ts = search_cache[cache_key]
+        if time.time() - _ts < CACHE_DURATION:
+            return _cd
+    items = []
+    _seen = set()
+
+    def _push(_pid, _title, _chan, _cnt):
+        if not _pid or _pid in _seen or len(items) >= n:
+            return
+        _seen.add(_pid)
+        items.append({'playlist_id': _pid,
+                      'title': _title or 'Playlist',
+                      'channel': _chan or '', 'count': _cnt})
+
+    try:
+        import urllib.parse as _up
+        _url = ("https://www.youtube.com/results?search_query="
+                + _up.quote(query) + "&sp=EgIQAw%3D%3D")
+        _headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                          'AppleWebKit/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+        _html = requests.get(_url, headers=_headers, timeout=10).text
+        _m = re.search(r'var ytInitialData = (\{.*?\});</script>',
+                       _html, re.S)
+        if _m:
+            _data = json.loads(_m.group(1))
+
+            def _walk(_o):
+                if len(items) >= n:
+                    return
+                if isinstance(_o, dict):
+                    _pr = _o.get('playlistRenderer')
+                    if isinstance(_pr, dict):
+                        _tt = _pr.get('title', {}) or {}
+                        _title = _tt.get('simpleText') or ''.join(
+                            _r.get('text', '')
+                            for _r in _tt.get('runs', []))
+                        _chan = ''
+                        for _bk in ('longBylineText',
+                                    'shortBylineText'):
+                            _runs = (_pr.get(_bk, {}) or {}).get(
+                                'runs', [])
+                            if _runs:
+                                _chan = _runs[0].get('text', '')
+                                break
+                        _cnt = None
+                        _vct = (_pr.get('videoCountText', {})
+                                or {}).get('simpleText')
+                        if _vct:
+                            try:
+                                _cnt = int(re.sub(r'[^0-9]', '',
+                                                  _vct) or 0) or None
+                            except Exception:
+                                _cnt = None
+                        _push(_pr.get('playlistId'), _title,
+                              _chan, _cnt)
+                    _lv = _o.get('lockupViewModel')
+                    if isinstance(_lv, dict) and \
+                            _lv.get('contentType') == \
+                            'LOCKUP_CONTENT_TYPE_PLAYLIST':
+                        _md = (_lv.get('metadata', {})
+                               or {}).get(
+                                   'lockupMetadataViewModel', {}) or {}
+                        _title = (_md.get('title', {})
+                                  or {}).get('content', '')
+                        _rows = ((_md.get('metadata', {}) or {})
+                                 .get('contentMetadataViewModel', {})
+                                 or {}).get('metadataRows', []) or []
+                        _parts = []
+                        for _r in _rows:
+                            for _p in (_r.get('metadataParts')
+                                       or []):
+                                _tx = ((_p.get('text', {}) or {})
+                                       .get('content')) or ''
+                                if _tx:
+                                    _parts.append(_tx)
+                        _chan = _parts[0] if _parts else ''
+                        _cnt = None
+                        for _tx in _parts:
+                            _cm = re.match(r'([0-9][0-9,]*)\s+videos',
+                                           _tx)
+                            if _cm:
+                                try:
+                                    _cnt = int(_cm.group(1).replace(
+                                        ',', ''))
+                                except Exception:
+                                    _cnt = None
+                                break
+                        _push(_lv.get('contentId'), _title,
+                              _chan, _cnt)
+                    for _v in _o.values():
+                        _walk(_v)
+                elif isinstance(_o, list):
+                    for _v in _o:
+                        _walk(_v)
+
+            _walk(_data)
+    except Exception:
+        items = []
+    if not items:
+        try:
+            import urllib.parse as _up2
+            _url2 = ("https://www.youtube.com/results?search_query="
+                     + _up2.quote(query) + "&sp=EgIQAw%3D%3D")
+            _info = _extract_with_clients(
+                _url2,
+                {'quiet': True, 'no_warnings': True,
+                 'no_check_certificate': True, 'extract_flat': True,
+                 'skip_download': True, 'ignoreerrors': True,
+                 'socket_timeout': 20})
+            for _e in ((_info or {}).get('entries') or [])[:n * 2]:
+                if not _e:
+                    continue
+                _u = _e.get('url') or ''
+                _lm = re.search(r'list=([A-Za-z0-9_-]+)', _u)
+                if not _lm and _e.get('ie_key') != 'YoutubePlaylist':
+                    continue
+                _pid2 = _lm.group(1) if _lm else _e.get('id')
+                _push(_pid2, _e.get('title'),
+                      _e.get('uploader') or _e.get('channel'),
+                      _e.get('playlist_count'))
+                if len(items) >= n:
+                    break
+        except Exception:
+            items = items or []
+    if items:
+        search_cache[cache_key] = (items, time.time())
+    return items
+
+
 def _ai_playlist_candidates(pid, vid=None):
     """Update 113: playlist ki videos CANDIDATES ki shakal mein —
     user khud select karega, auto-download NAHI hoga."""
@@ -11928,6 +12083,35 @@ def api_ai_command():
                             'message': (f"🔗 Link mil gaya! '{parsed['title']}' ki "
                                         f"{len(_direct)} video(s) {_q} me download start kar di hain. "
                                         f"Background me one by one hongi. Job ID: {_jid}")})
+
+    # Update 157 (#96): 'X playlist' likha ho (bina link) to
+    # pehle ASAL playlists ki list — kai milen to list dikhao,
+    # ek mile to seedha usi ki videos wali list kholo. Kuch na
+    # mile to purana flow (neeche) chalta rehta hai.
+    if not _urlm and 'playlist' in text.lower():
+        _plq = re.sub(r'(?i)\bplaylist\b', '',
+                      parsed.get('title') or '').strip(' -—,') or \
+            re.sub(r'(?i)\bplaylist\b', '', text).strip()
+        _pls = _ai_playlist_search(_plq)
+        if len(_pls) == 1:
+            _pl1 = _ai_playlist_candidates(_pls[0]['playlist_id'])
+            if _pl1:
+                _c1, _t1 = _pl1
+                return jsonify({'success': True, 'intent': 'candidates',
+                                'parsed': parsed, 'candidates': _c1,
+                                'qexp': False, 'show': '', 'kind': 'playlist',
+                                'src': '📋 ' + (_t1 or _pls[0]['title']),
+                                'message': (f"📋 Playlist '{_t1 or _pls[0]['title']}' — "
+                                            f"{len(_c1)} videos mil gayin. "
+                                            f"Jin par ✓ select karein ge, sirf "
+                                            f"wahi download hongi:")})
+        elif len(_pls) > 1:
+            return jsonify({'success': True, 'intent': 'playlists',
+                            'parsed': parsed, 'playlists': _pls,
+                            'message': (f"📋 '{_plq}' ki {len(_pls)} playlists "
+                                        f"mili hain — jo wali chahiye us par "
+                                        f"tap karein, us ki saari videos ki "
+                                        f"list khul jayegi:")})
 
     # Non-download intents handled instantly
     if parsed['intent'] == 'search':
