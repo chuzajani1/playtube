@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 52  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 53  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">52</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">53</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -2344,17 +2344,33 @@ function v4ShowKey(v){
 }
 function v4Diverse(list){
   if(!list || list.length < 3) return list || [];
-  const rest = list.slice(), out = [];
-  let lk = null, lc = null;
-  while(rest.length){
-    let idx = -1;
-    for(let i = 0; i < rest.length; i++){ const k = v4ShowKey(rest[i]); if(k !== lk && (rest[i].channel || '').toLowerCase() !== lc){ idx = i; break; } }
-    if(idx < 0) for(let i = 0; i < rest.length; i++){ if(v4ShowKey(rest[i]) !== lk){ idx = i; break; } }
-    if(idx < 0) idx = 0;
-    const v = rest.splice(idx, 1)[0];
-    out.push(v); lk = v4ShowKey(v); lc = (v.channel || '').toLowerCase();
-  }
-  return out;
+  /* Update 142: sliding window — ek show ya channel ki
+     item pichli 4 mein dobara nahi aati; jo takraye wo
+     peeche chali jati hai (list ke aakhir mein). */
+  const out = [], hold = [], win = [];
+  list.forEach(function(v){
+    const k = v4ShowKey(v), c = (v.channel || '').toLowerCase();
+    let clash = false;
+    for(let i = Math.max(0, win.length - 4); i < win.length; i++){
+      if(win[i].k === k || (c && win[i].c === c)){ clash = true; break; }
+    }
+    if(clash) hold.push(v);
+    else { out.push(v); win.push({k:k, c:c}); }
+  });
+  return out.concat(hold);
+}
+/* Update 142: app khulne par pehli video pichli dafa
+   wali na ho — wahi first item ho to list ghuma do. */
+function v4RotateFirst(elId, list){
+  if(!list || list.length < 5) return list;
+  try{
+    const key = 'pt_last_first_' + elId;
+    const last = localStorage.getItem(key) || '';
+    let out = list;
+    if(last && list[0].videoId === last) out = list.slice(3).concat(list.slice(0, 3));
+    localStorage.setItem(key, out[0].videoId);
+    return out;
+  }catch(e){ return list; }
 }
 function v4FilterSyncUI(){
   document.querySelectorAll('.v4-fchip2').forEach(function(b){
@@ -2484,7 +2500,7 @@ function v4FloatResult(ok){ if(!ok) v4Toast('Is video ka floating player nahi ba
 let _v4HiddenAt = 0;
 document.addEventListener('visibilitychange', function(){
   if(document.hidden){ _v4HiddenAt = Date.now(); return; }
-  if(_v4HiddenAt && Date.now() - _v4HiddenAt > 180000){
+  if(_v4HiddenAt && Date.now() - _v4HiddenAt > 60000){
     _v4HiddenAt = 0;
     const vw = v4State.view;
     if(vw === 'home' || vw === 'youtube' || vw === 'music'){
@@ -2592,12 +2608,20 @@ async function v4PhoneFeedFallback(elId, st){
       /* Trending satahein: Home = asal YouTube trending; YouTube
          tab ki pehli list pool-rotation se — warna dono par wahi
          pehli video khadi rehti thi. */
-      /* Update 140: Home ki pehli list bhi rotation/mix
-         se — YouTube ki global trending chart (wahi
-         Spanish shows) har install/update par sar par
-         nahi aati; chart sirf aakhri fallback hai. */
-      items = await v4PhoneBridge('phoneSearch', v4PhoneRotQuery(st));
-      if((!items || !items.length) && PlayTubeApp.phoneTrending) items = await v4PhoneBridge('phoneTrending', null);
+      /* Update 142: pehli list TEEN alag rotation queries
+         se (parallel) — ek hi topic (bayan/cartoon/drama)
+         ki poori list nahi banti; global chart sirf
+         aakhri fallback hai. */
+      const _r0 = st.phoneRot || 0;
+      const _qs = [v4PhoneRotQuery(st)];
+      st.phoneRot = _r0 + 1; _qs.push(v4PhoneRotQuery(st));
+      st.phoneRot = _r0 + 2; _qs.push(v4PhoneRotQuery(st));
+      st.phoneRot = _r0 + 2;
+      const _rs = await Promise.all(_qs.map(function(x){ return v4PhoneBridge('phoneSearch', x); }));
+      items = [];
+      const _seenQ = {};
+      _rs.forEach(function(r){ (r || []).forEach(function(it){ if(it && it.id && !_seenQ[it.id]){ _seenQ[it.id] = 1; items.push(it); } }); });
+      if(!items.length && PlayTubeApp.phoneTrending) items = await v4PhoneBridge('phoneTrending', null);
     }
     if(!items || !items.length) items = await v4PhoneBridge('phoneSearch', q || 'trending');
     if(!items || !items.length) return false;
@@ -2637,9 +2661,18 @@ async function v4PhoneFeedFallback(elId, st){
       ordered = _add.concat(ordered);
       _unseen += _add.length;
     }
+    if(!ordered.length && (!st.q || /trend/i.test(st.q))){
+      /* Update 142: browse feed KABHI 'khatam' nahi —
+         dekhi-hui window chhoti karke dobara; phir bhi
+         na mile to jo hasil hai wahi dikha do. */
+      const seen40 = v4RecentSet(40);
+      ordered = norm.filter(function(v){ return !st.seen[v.videoId] && !seen40[v.videoId]; });
+      if(!ordered.length) ordered = norm.filter(function(v){ return !st.seen[v.videoId]; });
+    }
     ordered = v4ApplyFilters(ordered, st);
     ordered = v4ApplySearchOpts(ordered, st);
     if(st.sort !== 'date') ordered = v4Diverse(ordered);
+    if(!st.q || /trend/i.test(st.q)) ordered = v4RotateFirst(elId, ordered);
     if(!ordered.length) return false;
     let html = '', n = 0;
     ordered.forEach(function(v){
@@ -2692,8 +2725,14 @@ async function v4PhoneFeedMore(elId, st){
         if(PlayTubeApp.phoneSearchMore) items = await v4PhoneBridge('phoneSearchMore', st.phoneQ);
         if(!items || !items.length){ st.phoneRot = (st.phoneRot || 0) + 1; items = await v4PhoneBridge('phoneSearch', st.phoneQ + v4_FEED_VARIANTS[st.phoneRot % v4_FEED_VARIANTS.length]); }
       } else {
+        /* Update 142: agli page bhi DO alag topics se —
+           ek hi search ki gehrai nahi. */
         st.phoneRot = (st.phoneRot || 0) + 1;
-        items = await v4PhoneBridge('phoneSearch', v4PhoneRotQuery(st));
+        const _q1 = v4PhoneRotQuery(st);
+        st.phoneRot = (st.phoneRot || 0) + 1;
+        const _q2 = v4PhoneRotQuery(st);
+        const _rr = await Promise.all([v4PhoneBridge('phoneSearch', _q1), v4PhoneBridge('phoneSearch', _q2)]);
+        items = (_rr[0] || []).concat(_rr[1] || []);
       }
       if(!items || !items.length) continue;
       let batch = [];
@@ -2801,7 +2840,7 @@ async function v4FeedMore(elId, first){
       const okF = await v4PhoneFeedFallback(elId, st);
       if(okF) return;
     }
-    el.innerHTML = failed ? '<p class="v4-muted">Results load nahi ho sake — net check karke dobara try karein.</p><div style="text-align:center;padding:6px"><button class="v4-btn2" data-feed="' + elId + '" onclick="v4FeedRetry(this)">↻ Dobara try karein</button></div>' : (st.sort === 'date' ? '<p class="v4-muted">Is topic par nayi (haal ki) videos nahi milin — Sab wale option par saari results hain.</p>' : '<p class="v4-muted">Is topic ki saari videos aap pehle dekh chuke hain — is liye dobara nahi dikhayi gayin. Koi aur topic ya search try karein 🌟</p>');
+    el.innerHTML = failed ? '<p class="v4-muted">Results load nahi ho sake — net check karke dobara try karein.</p><div style="text-align:center;padding:6px"><button class="v4-btn2" data-feed="' + elId + '" onclick="v4FeedRetry(this)">↻ Dobara try karein</button></div>' : (v4FilterActive() ? '<p class="v4-muted">In filters ke sath nayi videos nahi milin.</p><div style="text-align:center;padding:6px"><button class="v4-btn2" onclick="v4FilterClearAll();v4FilterApply()">Filters hatayein</button></div>' : (st.sort === 'date' ? '<p class="v4-muted">Is topic par nayi (haal ki) videos nahi milin — Sab wale option par saari results hain.</p>' : ((!st.q || /trend/i.test(st.q)) ? '<p class="v4-muted">Videos load nahi ho sakin — dobara try karein.</p><div style="text-align:center;padding:6px"><button class="v4-btn2" data-feed="' + elId + '" onclick="v4FeedRetry(this)">↻ Dobara try karein</button></div>' : '<p class="v4-muted">Is topic ki saari videos aap pehle dekh chuke hain — is liye dobara nahi dikhayi gayin. Koi aur topic ya search try karein 🌟</p>')));
     return;
   }
   if(st.done){
@@ -2913,10 +2952,31 @@ function v4ShortCard(it){
     '<div class="v4-short-meta"><div class="v4-short-chan"><span class="v4-short-ava">' + v4Esc(ava) + '</span>' + v4Esc(sn.channelTitle || '') + '</div>' +
     '<div class="v4-short-title">' + v4Esc(sn.title || '') + '</div></div></section>';
 }
+/* Update 142: shorts ka embed fallback — enablejsapi ke
+   sath, playVideo command se khud chal pare (tap na
+   karna pare). */
+function v4ShortForceEmbed(sec, v, spin){
+  if(!sec || sec.dataset.fbk) return;
+  sec.dataset.fbk = '1';
+  const vid = sec.getAttribute('data-vid');
+  try{ if(v) v.pause(); }catch(e){}
+  if(v && v.parentNode) v.remove();
+  const ifr = document.createElement('iframe');
+  ifr.src = 'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&enablejsapi=1&rel=0&playsinline=1&modestbranding=1';
+  ifr.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
+  ifr.setAttribute('allowfullscreen', '');
+  ifr.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0';
+  sec.insertBefore(ifr, sec.children[1] || null);
+  const kick = function(){ try{ ifr.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*'); }catch(e){} };
+  ifr.addEventListener('load', function(){ kick(); setTimeout(kick, 1200); });
+  if(spin) spin.style.display = 'none';
+  const bg2 = sec.querySelector('img.bg'); if(bg2) bg2.style.display = 'none';
+}
 function v4ShortActivate(sec){
   const vid = sec.getAttribute('data-vid');
   if(vid) v4SeenAdd([vid]);
   const _sit = v4ShortsItems[vid]; if(_sit && _sit.snippet && _sit.snippet.title) v4InterestAdd(_sit.snippet.title.replace(/[^a-zA-Z0-9 ]/g, ' ').split(/\s+/).filter(function(w){ return w.length > 2; }).slice(0, 3).join(' '), 1);
+  if(sec.dataset.fbk) return;
   if(sec.querySelector('video')) return;
   const spin = sec.querySelector('.v4-short-spin'); if(spin){ if(spin.dataset.fail){ spin.innerHTML = ''; delete spin.dataset.fail; } spin.style.display = 'flex'; }
   const v = document.createElement('video');
@@ -2929,21 +2989,22 @@ function v4ShortActivate(sec){
   const _cachedUrl = v4StreamCache[vid];
   if(_cachedUrl){ v.src = _cachedUrl; }
   else if(window.PlayTubeApp && PlayTubeApp.phoneStream){
-    /* Update 127: phone stream 6 second mein na aye to server
-       wali stream foran — 25s spinner NAHI. Fail hui video par
-       agli dafa phone ka intezar hi nahi hota. */
-    if(v4StreamFail[vid] && (Date.now() - v4StreamFail[vid] < 120000)){ v.src = '/api/stream/' + vid; }
-    else {
+    /* Update 142: phone stream 4s mein na aye to SEEDHA
+       embed — beech wala sust server-stream intezar
+       khatam. Fail-cache wali par intezar hi nahi. */
+    if(v4StreamFail[vid] && (Date.now() - v4StreamFail[vid] < 120000)){
+      setTimeout(function(){ if(sec.contains(v)) v4ShortForceEmbed(sec, v, spin); }, 60);
+    } else {
       let _got = false;
       v4PhoneStreamGet(vid).then(function(url){
         if(!sec.contains(v)) return;
         if(url){ _got = true; if(!(v.getAttribute('src') && v.readyState >= 2)){ v.src = url; const p3 = v.play(); if(p3 && p3.catch) p3.catch(function(){ v.muted = true; const p4 = v.play(); if(p4 && p4.catch) p4.catch(function(){}); }); } }
-        else if(!v.getAttribute('src')){ v.src = '/api/stream/' + vid; }
+        else if(!v.getAttribute('src')){ v4ShortForceEmbed(sec, v, spin); }
       });
-      setTimeout(function(){ if(sec.contains(v) && !_got && !v.getAttribute('src')) v.src = '/api/stream/' + vid; }, 6000);
+      setTimeout(function(){ if(sec.contains(v) && !_got && !v.getAttribute('src')) v4ShortForceEmbed(sec, v, spin); }, 4000);
     }
   }
-  else v.src = '/api/stream/' + vid;
+  else { setTimeout(function(){ if(sec.contains(v)) v4ShortForceEmbed(sec, v, spin); }, 60); }
   /* Update 139: latki hui stream par pehle watchdog ek
      hi dafa chalta tha — ab har koshish ki apni 7s ghari
      hai aur 16s ki HARD deadline par embed lazmi khulta
@@ -2967,16 +3028,12 @@ function v4ShortActivate(sec){
   const retry = function(){
     if(!sec.contains(v) || dead) return;
     attempts++;
-    if(attempts >= 2){ dead = true; clearTimeout(wdT); forceEmbed(); return; }
-    if(spin) spin.style.display = 'flex';
-    v.src = '/api/stream/' + vid + '?retry=' + attempts;
-    const p2 = v.play(); if(p2 && p2.catch) p2.catch(function(){});
-    armWd();
+    dead = true; clearTimeout(wdT); v4ShortForceEmbed(sec, v, spin);
   };
   armWd();
-  setTimeout(function(){ if(sec.contains(v) && !dead && v.readyState < 3){ dead = true; clearTimeout(wdT); forceEmbed(); } }, 16000);
+  setTimeout(function(){ if(sec.contains(v) && v.readyState < 3) v4ShortForceEmbed(sec, v, spin); }, 10000);
   v.addEventListener('playing', function(){ clearTimeout(wdT); if(spin) spin.style.display = 'none'; const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none'; });
-  v.addEventListener('error', function(){ retry(); });
+  v.addEventListener('error', function(){ if(sec.contains(v)) v4ShortForceEmbed(sec, v, spin); });
   const prog = sec.querySelector('.v4-short-prog');
   v.addEventListener('timeupdate', function(){ if(v.duration) prog.style.width = (v.currentTime / v.duration * 100) + '%'; });
   sec.insertBefore(v, sec.children[1] || null);
@@ -3004,12 +3061,22 @@ function v4ShortsRenderItems(items, hasMore){
   v4ShortsSeenAdd(items.map(function(it){ return it.id.videoId; }));
   v4ShortsPage++;
   if(!hasMore) v4ShortsDone = true;
+  /* Update 142: pehli 3 shorts ki stream pehle se garam —
+     khulte/swipe par intezar nahi. */
+  items.slice(0, 3).forEach(function(it){ if(it.id && it.id.videoId) v4PhoneStreamGet(it.id.videoId); });
 }
 /* Update 125: Shorts bhi har dafa NAYI — dikhi hui shorts
    localStorage mein yaad (500 tak), agli list un ke baghair;
    seeds (server wale FEED_SHORTS_POOL ki copy) rotation se. */
 const v4_SHORTS_SEEDS = ['trending shorts #shorts', 'viral shorts #shorts', 'funny shorts #shorts', 'comedy shorts hindi #shorts', 'cricket shorts #shorts', 'pakistani drama shorts #shorts', 'dance shorts #shorts', 'naat shorts #shorts', 'motu patlu shorts #shorts', 'pubg shorts #shorts', 'movie shorts #shorts', 'poetry shorts #shorts'];
 let v4ShortsRot = (Math.random() * 12) | 0;
+function v4ShortsSeenParam(){
+  const a = v4SeenParam() ? v4SeenParam().split(',') : [];
+  const b = v4ShortsSeenGet().slice(-200);
+  const seen = {}; const out = [];
+  a.concat(b).forEach(function(x){ if(x && !seen[x]){ seen[x] = 1; out.push(x); } });
+  return out.join(',');
+}
 function v4ShortsSeenGet(){ try{ return JSON.parse(localStorage.getItem('pt_shorts_seen') || '[]'); }catch(e){ return []; } }
 function v4ShortsSeenAdd(ids){
   try{
@@ -3068,7 +3135,7 @@ async function v4ShortsLoad(){
     v4ShortsLoading = false;
     if(okP) return;
   }
-  v4FetchT('/api/feed?q=' + encodeURIComponent(v4ShortsQuery) + '&type=shorts&page=' + v4ShortsPage + '&r=sh' + v4ShortsSeq + '&seen=' + encodeURIComponent(v4SeenParam()) + '&int=' + encodeURIComponent(v4InterestTop(5).join('|')), 30000)
+  v4FetchT('/api/feed?q=' + encodeURIComponent(v4ShortsQuery) + '&type=shorts&page=' + v4ShortsPage + '&r=sh' + v4ShortsSeq + '&seen=' + encodeURIComponent(v4ShortsSeenParam()) + '&int=' + encodeURIComponent(v4InterestTop(5).join('|')), 30000)
     .then(function(x){ return x.json(); })
     .then(function(d){
       v4ShortsLoading = false;
