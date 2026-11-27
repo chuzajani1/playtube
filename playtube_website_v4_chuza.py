@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 65  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 66  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">65</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">66</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -2463,8 +2463,10 @@ async function v4SyncFeedTry(elId, st, gen){
     if(!(window.PlayTubeApp && PlayTubeApp.ytHomeFeed)) return false;
     let data = null;
     if(window._v4YtSyncData && (Date.now() - (window._v4YtSyncAt || 0)) < 300000) data = window._v4YtSyncData;
-    else { data = await v4YtHomeCall(); if(data){ window._v4YtSyncData = data; window._v4YtSyncAt = Date.now(); } }
+    else if(window._v4SyncErr && (Date.now() - (window._v4SyncErrAt || 0)) < 60000) return false;
+    else { data = await v4YtHomeCall(); if(data && !data.error){ window._v4YtSyncData = data; window._v4YtSyncAt = Date.now(); window._v4SyncErr = ''; } }
     if(v4FeedGen[elId] !== gen || v4FeedState[elId] !== st) return true;
+    if(data && data.error){ window._v4SyncErr = data.error; window._v4SyncErrAt = Date.now(); return false; }
     if(!data || !data.videos || !data.videos.length) return false;
     const el = v4$(elId); if(!el) return false;
     let html = '';
@@ -3281,6 +3283,7 @@ async function v4ShortsSyncTry(){
     if(!(window.PlayTubeApp && PlayTubeApp.ytHomeFeed)) return;
     let data = window._v4YtSyncData;
     if(!data || (Date.now() - (window._v4YtSyncAt || 0)) >= 300000){ data = await v4YtHomeCall(); if(data){ window._v4YtSyncData = data; window._v4YtSyncAt = Date.now(); } }
+    if(data && data.error){ window._v4SyncErr = data.error; window._v4SyncErrAt = Date.now(); return; }
     if(!data || !data.shorts || !data.shorts.length) return;
     const ov = v4$('v4-shorts'); if(!ov || !ov.classList.contains('open')) return;
     if(v4ShortsQuery !== 'trending shorts') return;
@@ -5392,6 +5395,7 @@ function v4RenderYtAccount(){
     '<div style="font-weight:700;margin-top:8px">Mera YouTube account</div>' +
     '<div style="background:#123a34;border:1px solid #1f8a70;color:#4ade80;font-size:11.5px;font-weight:700;border-radius:999px;padding:5px 12px;margin-top:8px">✓ Link hai</div></div>' +
     '<p class="v4-muted" style="text-align:center;margin:2px 0 4px">Aap ke YouTube home ki videos aur shorts ab Playza ke <b>Home</b>, <b>YouTube</b> aur <b>Shorts</b> mein sync ho kar ati hain — har khulne par taza. Bahir wala YouTube yahan nahi khulta.</p>' +
+    (window._v4SyncErr ? '<p style="text-align:center;color:#f59e0b;font-size:12.5px;margin:4px 0">⚠ Sync ki aakhri koshish na-kamyab rahi (wajah: ' + (({no_cookies:'account ki login nahi mili — Sign out karke dobara link karein', no_data:'YouTube ne home wala page nahi diya', no_videos:'page mila lekin us mein videos nahi milen', exception:'page uthane mein kharabi ayi'})[window._v4SyncErr] || window._v4SyncErr) + ')<br>Home kholne par dobara koshish hogi.</p>' : '<p style="text-align:center;color:#4ade80;font-size:12.5px;margin:4px 0">✓ Sync tayyar hai — Home kholein, aap ki videos wahan hongi.</p>') +
     '<div style="margin-top:12px">' +
     '<div class="v4-row" data-url="https://accounts.google.com/AccountChooser?continue=https%3A%2F%2Fwww.youtube.com%2F" onclick="v4YtOpenEl(this)"><span>🔄</span><div class="grow">Switch Account</div><span>›</span></div>' +
     '<div class="v4-row" onclick="v4YtSignOut()"><span>🚪</span><div class="grow" style="color:#ff8fa8">Sign out</div></div>' +
