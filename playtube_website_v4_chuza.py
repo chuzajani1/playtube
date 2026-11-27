@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 41  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 42  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -906,9 +906,44 @@ def _storage_info():
             except Exception:
                 pass
     pct = round(used * 100.0 / total, 1) if total else 0.0
+    # Update 123: asal hisaab — volume par hai kya, folder/file ke
+    # hisaab se; taake "0 downloads par itne MB kyun" khud dikh jaye.
+    _bd = []
+    _disk_dl_bytes = 0
+    _disk_dl_files = 0
+    try:
+        for _name in os.listdir(DATA_DIR):
+            _p = os.path.join(DATA_DIR, _name)
+            _sz = 0
+            if os.path.isfile(_p):
+                try:
+                    _sz = os.path.getsize(_p)
+                except Exception:
+                    _sz = 0
+            elif os.path.isdir(_p):
+                for _root, _dirs, _files in os.walk(_p):
+                    for _f in _files:
+                        try:
+                            _sz += os.path.getsize(os.path.join(_root, _f))
+                        except Exception:
+                            pass
+            if _name == 'downloads':
+                _disk_dl_bytes = _sz
+            if _sz > 0:
+                _bd.append({'name': _name, 'mb': round(_sz / 1048576, 1)})
+        _bd.sort(key=lambda x: -x['mb'])
+        if os.path.isdir(DOWNLOAD_DIR):
+            for _root, _dirs, _files in os.walk(DOWNLOAD_DIR):
+                for _f in _files:
+                    if not _f.endswith('.json'):
+                        _disk_dl_files += 1
+    except Exception:
+        pass
     return {'total_mb': round(total / 1048576, 1), 'used_mb': round(used / 1048576, 1),
             'free_mb': round(free / 1048576, 1), 'used_pct': pct,
-            'downloads_mb': round(dl_bytes / 1048576, 1), 'downloads_count': dl_count}
+            'downloads_mb': round(dl_bytes / 1048576, 1), 'downloads_count': dl_count,
+            'disk_downloads_mb': round(_disk_dl_bytes / 1048576, 1),
+            'disk_files': _disk_dl_files, 'breakdown': _bd[:8]}
 
 
 def _storage_cleanup(force=False):
@@ -996,6 +1031,91 @@ def _storage_cleanup(force=False):
                   % (removed, round(freed / 1048576, 1)))
     except Exception as _e:
         print('[Playza] Storage cleanup error: %s' % _e)
+    return (round(freed / 1048576, 1), removed)
+
+
+def _storage_deep_clean():
+    """Manual 'Abhi safai karein' (Update 123): jo kuch saaf ho
+    sakta hai SAB — downloads ki files (Private aur chal rahi
+    downloads ke siwa), bina-record files (har umar ki), purani
+    versions ki bachi-khuchi media/temp files, OCR temp. Lazmi
+    data (accounts DB, settings, cookies) ko haath nahi lagta.
+    (freed_mb, removed)."""
+    freed = 0
+    removed = 0
+    try:
+        for _did in list(downloaded_files.keys()):
+            _v = downloaded_files.get(_did) or {}
+            if _v.get('private'):
+                continue
+            if str(_v.get('status', 'completed')).lower() in (
+                    'downloading', 'processing', 'pending', 'queued'):
+                continue
+            _fp = _v.get('file_path')
+            if _fp and os.path.exists(_fp):
+                try:
+                    freed += os.path.getsize(_fp)
+                    os.remove(_fp)
+                    removed += 1
+                except Exception:
+                    pass
+            downloaded_files.pop(_did, None)
+            download_progress.pop(_did, None)
+            if _did in download_meta:
+                del download_meta[_did]
+        _known = set()
+        for _v2 in downloaded_files.values():
+            if _v2.get('file_path'):
+                _known.add(os.path.abspath(_v2['file_path']))
+        _media = ('.mp4', '.mkv', '.webm', '.mp3', '.m4a', '.3gp',
+                  '.mov', '.avi', '.part', '.ytdl', '.tmp', '.opus',
+                  '.ogg', '.wav', '.flac')
+        if os.path.isdir(DOWNLOAD_DIR):
+            for _root, _dirs, _files in os.walk(DOWNLOAD_DIR):
+                for _f in _files:
+                    if _f.endswith('.json'):
+                        continue
+                    _fp2 = os.path.join(_root, _f)
+                    if os.path.abspath(_fp2) in _known:
+                        continue
+                    try:
+                        freed += os.path.getsize(_fp2)
+                        os.remove(_fp2)
+                        removed += 1
+                    except Exception:
+                        pass
+        _keep = {'playtube_users.db', 'playtube_settings.json',
+                 'yt_cookies.txt', 'ai_context.json'}
+        for _name in os.listdir(DATA_DIR):
+            if _name in _keep or _name == 'downloads':
+                continue
+            _p = os.path.join(DATA_DIR, _name)
+            try:
+                if os.path.isfile(_p):
+                    if _name.lower().endswith(_media):
+                        freed += os.path.getsize(_p)
+                        os.remove(_p)
+                        removed += 1
+                elif os.path.isdir(_p):
+                    _img_ok = (_name == 'ocr_tmp')
+                    for _root, _dirs, _files in os.walk(_p):
+                        for _f in _files:
+                            _low = _f.lower()
+                            if _low.endswith(_media) or (
+                                    _img_ok and _low.endswith(
+                                        ('.png', '.jpg', '.jpeg'))):
+                                _fp3 = os.path.join(_root, _f)
+                                freed += os.path.getsize(_fp3)
+                                os.remove(_fp3)
+                                removed += 1
+            except Exception:
+                pass
+        save_downloads_db()
+        _save_download_meta()
+        print('[Playza] Deep clean: %d files delete, %s MB khaali'
+              % (removed, round(freed / 1048576, 1)))
+    except Exception as _e:
+        print('[Playza] Deep clean error: %s' % _e)
     return (round(freed / 1048576, 1), removed)
 
 
@@ -1526,7 +1646,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">41</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">42</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2088,6 +2208,10 @@ function v4FeedSentinelHTML(elId){
   return '<div class="v4-more" data-feed="' + elId + '" style="grid-column:1 / -1;text-align:center;padding:16px"><span class="v4-muted">Aur videos load ho rahi hain...</span></div>';
 }
 const v4FeedGen = {};
+/* Update 123: is session mein kisi bhi feed ke pehle page par
+   dikh chuki videos — dusri tab/chip par wahi video dobara sab se
+   pehle nahi ayegi ('baar baar same video' wala masla). */
+const v4FeedShown = {};
 /* Update 116: APK mein server fail ho to PHONE se search/trending —
    NewPipe bridge (phoneSearch/phoneTrending). Browser mein bridge
    nahi hota, wahan purana flow hi chalta hai. */
@@ -2124,6 +2248,7 @@ function v4FeedQuery(st){
   if(t === 'naat') return trend ? 'naat sharif' : q;
   if(t === 'shorts') return trend ? 'trending shorts' : (q + ' shorts');
   if(t === 'live') return trend ? 'live stream' : (q + ' live stream');
+  if(/^trending songs/i.test(q)) return 'latest songs official video';
   if(trend) return '';
   return q;
 }
@@ -2137,10 +2262,24 @@ async function v4PhoneFeedFallback(elId, st){
     if(!items || !items.length) items = await v4PhoneBridge('phoneSearch', q || 'trending');
     if(!items || !items.length) return false;
     const el = v4$(elId); if(!el) return false;
-    let html = '', n = 0;
+    const norm = [];
     items.forEach(function(it){
       const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || ''});
-      if(v.videoId && !st.seen[v.videoId]){ st.seen[v.videoId] = 1; v4Videos[v.videoId] = v; html += v4CardHTML(v); n++; v4SeenAdd([v.videoId]); }
+      if(v.videoId) norm.push(v);
+    });
+    if(!norm.length) return false;
+    /* Pehle wo videos jo na is feed mein aayi hon, na is session
+       mein kisi aur tab par, na pichli dafaon mein (pt_seen) —
+       teeno filter se kam az kam 4 na bachein to qadmon mein
+       narmi: pehle session wala, phir sirf is-feed wala dedupe. */
+    const seenP = {}; v4SeenGet().forEach(function(x){ if(x && x.id) seenP[x.id] = 1; });
+    let fresh = norm.filter(function(v){ return !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]; });
+    if(fresh.length < 4) fresh = norm.filter(function(v){ return !st.seen[v.videoId] && !v4FeedShown[v.videoId]; });
+    if(fresh.length < 4) fresh = norm.filter(function(v){ return !st.seen[v.videoId]; });
+    if(!fresh.length) return false;
+    let html = '', n = 0;
+    fresh.forEach(function(v){
+      st.seen[v.videoId] = 1; v4FeedShown[v.videoId] = 1; v4Videos[v.videoId] = v; html += v4CardHTML(v); n++; v4SeenAdd([v.videoId]);
     });
     if(!n) return false;
     el.innerHTML = html;
@@ -2249,7 +2388,7 @@ function v4FrameSetup(id){
   const fr = v4$('v4-player');
   if(fr) fr.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1&modestbranding=1&enablejsapi=1';
   const note = v4$('v4-frame-note');
-  if(note){ note.style.display = 'none'; const lk = v4$('v4-frame-yt'); if(lk) lk.href = 'https://www.youtube.com/watch?v=' + id; const nb = v4$('v4-frame-native'); if(nb) nb.style.display = v4NativeMode() ? '' : 'none'; }
+  if(note){ note.style.display = 'none'; const lk = v4$('v4-frame-yt'); if(lk){ lk.href = 'https://www.youtube.com/watch?v=' + id; lk.style.display = window.PlayTubeApp ? 'none' : ''; } const nb = v4$('v4-frame-native'); if(nb) nb.style.display = v4NativeMode() ? '' : 'none'; }
   if(window._v4ft) clearTimeout(window._v4ft);
   if(fr) fr.onload = function(){ if(window._v4ft){ clearTimeout(window._v4ft); window._v4ft = null; } };
   window._v4ft = setTimeout(function(){ const n2 = v4$('v4-frame-note'); if(n2 && v4FrameId === id) n2.style.display = ''; }, 15000);
@@ -2330,14 +2469,14 @@ function v4ShortActivate(sec){
   else if(window.PlayTubeApp && PlayTubeApp.phoneStream){
     v4PhoneStreamGet(vid).then(function(url){
       if(!sec.contains(v)) return;
-      if(url){ v.src = url; const p3 = v.play(); if(p3 && p3.catch) p3.catch(function(){}); }
+      if(url){ v.src = url; const p3 = v.play(); if(p3 && p3.catch) p3.catch(function(){ v.muted = true; const p4 = v.play(); if(p4 && p4.catch) p4.catch(function(){}); }); }
       else if(!v.getAttribute('src')){ v.src = '/api/stream/' + vid; }
     });
   }
   else v.src = '/api/stream/' + vid;
   let retried = 0;
   const retry = function(){ if(!sec.contains(v)) return; if(retried >= 2){ if(!sec.dataset.fbk){ sec.dataset.fbk = '1'; try{ v.pause(); }catch(e){} if(v.parentNode) v.remove(); const ifr = document.createElement('iframe'); ifr.src = 'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&rel=0&playsinline=1&modestbranding=1'; ifr.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen'); ifr.setAttribute('allowfullscreen', ''); ifr.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0'; sec.insertBefore(ifr, sec.children[1] || null); if(spin) spin.style.display = 'none'; const bg2 = sec.querySelector('img.bg'); if(bg2) bg2.style.display = 'none'; } return; } retried++; if(spin) spin.style.display = 'flex'; v.src = '/api/stream/' + vid + '?retry=' + retried; const p2 = v.play(); if(p2 && p2.catch) p2.catch(function(){}); };
-  const wd = setTimeout(function(){ if(v.readyState < 3 && sec.contains(v)) retry(); }, 7000);
+  const wd = setTimeout(function(){ if(v.readyState < 3 && sec.contains(v)) retry(); }, 9000);
   v.addEventListener('playing', function(){ clearTimeout(wd); if(spin) spin.style.display = 'none'; const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none'; });
   v.addEventListener('error', function(){ retry(); });
   const prog = sec.querySelector('.v4-short-prog');
@@ -4730,10 +4869,10 @@ async function v4RenderAdmin(){
   body.innerHTML = h;
   v4LoadStorage(); v4LoadCookies();
 }
-async function v4LoadStorage(){ const box = v4$('v4-storage-box'); if(!box) return; const r = await v4Fetch('/api/admin/storage'); if(!r.ok || !r.data){ box.textContent = 'Storage ki maloomat nahi mil sakin'; return; } const d = r.data; const pct = Math.min(100, d.used_pct || 0); const col = pct >= 80 ? '#f87171' : (pct >= 60 ? '#fbbf24' : '#14b8a6'); let h = '<div class="v4-row"><div class="grow">Istemaal shuda jagah</div><b>' + d.used_mb + ' / ' + d.total_mb + ' MB (' + pct + '%)</b></div>'; h += '<div style="height:10px;border-radius:99px;background:var(--v4border);overflow:hidden;margin:6px 0"><div style="height:100%;width:' + pct + '%;background:' + col + '"></div></div>'; h += '<div class="v4-muted">Khaali jagah: ' + d.free_mb + ' MB - Downloads: ' + d.downloads_count + ' files (' + d.downloads_mb + ' MB)</div>'; h += '<div class="v4-muted" style="margin-top:4px">Auto rule: jagah 80% bharne par sab se purani downloads khud delete hoti hain jab tak 40% na reh jaye (Private folder wali kabhi nahi) — storage kabhi full nahi hota.</div>'; h += '<button class="v4-btn2" style="margin-top:8px" onclick="v4AdminCleanup()">Abhi safai karein</button>'; box.innerHTML = h; }
+async function v4LoadStorage(){ const box = v4$('v4-storage-box'); if(!box) return; const r = await v4Fetch('/api/admin/storage'); if(!r.ok || !r.data){ box.textContent = 'Storage ki maloomat nahi mil sakin'; return; } const d = r.data; const pct = Math.min(100, d.used_pct || 0); const col = pct >= 80 ? '#f87171' : (pct >= 60 ? '#fbbf24' : '#14b8a6'); let h = '<div class="v4-row"><div class="grow">Istemaal shuda jagah</div><b>' + d.used_mb + ' / ' + d.total_mb + ' MB (' + pct + '%)</b></div>'; h += '<div style="height:10px;border-radius:99px;background:var(--v4border);overflow:hidden;margin:6px 0"><div style="height:100%;width:' + pct + '%;background:' + col + '"></div></div>'; h += '<div class="v4-muted">Khaali jagah: ' + d.free_mb + ' MB - Downloads folder: ' + (d.disk_files || 0) + ' files (' + (d.disk_downloads_mb != null ? d.disk_downloads_mb : d.downloads_mb) + ' MB)</div>'; if(d.breakdown && d.breakdown.length){ h += '<div class="v4-muted" style="margin-top:4px">Volume par hai kya:<br>' + d.breakdown.map(function(b){ return '• ' + b.name + ': ' + b.mb + ' MB'; }).join('<br>') + '</div>'; } h += '<div class="v4-muted" style="margin-top:4px">Auto rule: jagah 80% bharne par sab se purani downloads khud delete hoti hain jab tak 40% na reh jaye (Private folder wali kabhi nahi) — storage kabhi full nahi hota.</div>'; h += '<button class="v4-btn2" style="margin-top:8px" onclick="v4AdminCleanup()">Abhi safai karein</button>'; box.innerHTML = h; }
 async function v4LoadCookies(){ const box = v4$('v4-cookies-box'); if(!box) return; const r = await v4Fetch('/api/admin/cookies-status'); const on = r.ok && r.data && r.data.active; box.innerHTML = '<div class="v4-muted">' + (on ? '✅ Cookies lagi hui hain' + (r.data.size_kb ? ' (' + r.data.size_kb + ' KB)' : '') + ' — downloads mazboot hain, bot-check wala issue nahi ayega.' : '⚠ Cookies nahi lagin — YouTube kabhi kabhi server ko rok deta hai (bot-check), tab downloads fail hoti hain. Spare Google account ki cookies.txt yahan lagayein to ye rukawat khatam ho jayegi.') + '</div><label class="v4-btn2" style="display:inline-block;margin-top:8px;cursor:pointer">🍪 Cookies file chunein<input type="file" accept=".txt" style="display:none" onchange="v4AdminCookiesUpload(this)"></label>'; }
 async function v4AdminCookiesUpload(inp){ const f = inp.files && inp.files[0]; if(!f) return; const fd = new FormData(); fd.append('file', f); v4Toast('Cookies lag rahi hain...'); try{ const r = await fetch('/api/admin/cookies', {method:'POST', body:fd}); const d = await r.json(); if(d && d.success){ v4Toast('✅ Cookies lag gayin'); v4LoadCookies(); } else v4Toast((d && d.error) || 'Cookies nahi lag sakin'); }catch(e){ v4Toast('Upload fail ho gaya'); } }
-async function v4AdminCleanup(){ const r = await v4Post('/api/admin/storage-cleanup', {}); if(r.ok && r.data){ if(r.data.removed) v4Toast(r.data.removed + ' purani downloads delete - ' + r.data.freed_mb + ' MB khaali'); else v4Toast('Safai ki zaroorat nahi - jagah 80% se kam bhari hai'); v4LoadStorage(); } else v4Toast('Safai nahi ho saki'); }
+async function v4AdminCleanup(){ const r = await v4Post('/api/admin/storage-cleanup', {}); if(r.ok && r.data){ if(r.data.removed) v4Toast(r.data.removed + ' files delete — ' + r.data.freed_mb + ' MB khaali; ab sirf website ka apna data bacha hai'); else v4Toast('Sab pehle se saaf hai — saaf karne ko kuch nahi bacha'); v4LoadStorage(); } else v4Toast('Safai nahi ho saki'); }
 function v4DealRowDel(btn){ const r = btn.closest('.v4-dealrow'); if(r) r.remove(); }
 function v4DealRow(d){
   d = d || {};
@@ -11634,7 +11773,7 @@ def api_admin_storage_cleanup():
     guard = _v4_admin_guard()
     if guard:
         return guard
-    freed, removed = _storage_cleanup(force=True)
+    freed, removed = _storage_deep_clean()
     info = _storage_info()
     info.update({'success': True, 'freed_mb': freed, 'removed': removed})
     return jsonify(info)
