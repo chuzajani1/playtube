@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 43  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 44  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1646,7 +1646,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">43</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">44</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2258,7 +2258,13 @@ async function v4PhoneFeedFallback(elId, st){
     const q = v4FeedQuery(st);
     if(q === null) return false;
     let items = null;
-    if(q === '' && PlayTubeApp.phoneTrending) items = await v4PhoneBridge('phoneTrending', null);
+    if(q === ''){
+      /* Trending satahein: Home = asal YouTube trending; YouTube
+         tab ki pehli list pool-rotation se — warna dono par wahi
+         pehli video khadi rehti thi. */
+      if(elId === 'v4-youtube-feed'){ st.phoneRot = 1; items = await v4PhoneBridge('phoneSearch', v4PhoneRotQuery(st)); }
+      else if(PlayTubeApp.phoneTrending) items = await v4PhoneBridge('phoneTrending', null);
+    }
     if(!items || !items.length) items = await v4PhoneBridge('phoneSearch', q || 'trending');
     if(!items || !items.length) return false;
     const el = v4$(elId); if(!el) return false;
@@ -2273,18 +2279,90 @@ async function v4PhoneFeedFallback(elId, st){
        teeno filter se kam az kam 4 na bachein to qadmon mein
        narmi: pehle session wala, phir sirf is-feed wala dedupe. */
     const seenP = {}; v4SeenGet().forEach(function(x){ if(x && x.id) seenP[x.id] = 1; });
-    let fresh = norm.filter(function(v){ return !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]; });
-    if(fresh.length < 4) fresh = norm.filter(function(v){ return !st.seen[v.videoId] && !v4FeedShown[v.videoId]; });
-    if(fresh.length < 4) fresh = norm.filter(function(v){ return !st.seen[v.videoId]; });
-    if(!fresh.length) return false;
+    let ordered;
+    if(q === ''){
+      /* Trending par tartib: pehle kabhi-na-dekhi, phir is session
+         mein na-dekhi, aakhir mein purani — sar hamesha naya. */
+      const A = [], B = [], C = [];
+      norm.forEach(function(v){
+        if(st.seen[v.videoId]) return;
+        if(!v4FeedShown[v.videoId] && !seenP[v.videoId]) A.push(v);
+        else if(!v4FeedShown[v.videoId]) B.push(v);
+        else C.push(v);
+      });
+      ordered = A.concat(B, C);
+    } else {
+      ordered = norm.filter(function(v){ return !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]; });
+      if(ordered.length < 4) ordered = norm.filter(function(v){ return !st.seen[v.videoId] && !v4FeedShown[v.videoId]; });
+      if(ordered.length < 4) ordered = norm.filter(function(v){ return !st.seen[v.videoId]; });
+    }
+    if(!ordered.length) return false;
     let html = '', n = 0;
-    fresh.forEach(function(v){
+    ordered.forEach(function(v){
       st.seen[v.videoId] = 1; v4FeedShown[v.videoId] = 1; v4Videos[v.videoId] = v; html += v4CardHTML(v); n++; v4SeenAdd([v.videoId]);
     });
     if(!n) return false;
     el.innerHTML = html;
-    st.done = true;
+    /* Update 124: phone wali feed bhi UNLIMITED — done NAHI;
+       scroll par v4FeedMore phone ki agli page layega, phone
+       thak jaye to server wala rasta. */
+    st.phonePg = 0;
+    st.phoneQ = q;
+    if(st.phoneRot == null) st.phoneRot = 0;
+    st.done = false;
+    v4FeedArm(elId);
     return true;
+  }catch(e){ return false; }
+}
+/* Update 124: server wale FEED_TRENDING_POOL ki copy — trending
+   satahon ki agli pages inhi seeds ko ghuma kar aati hain, user ki
+   pasand (interests) beech mein mili hui. Khatam honay ka sawal
+   hi nahi: seeds x variants x agli search pages. */
+const v4_TREND_POOL = ['trending videos', 'viral videos today', 'trending naat', 'pakistani drama latest episode', 'funny comedy videos', 'trending songs', 'kids cartoon hindi', 'cricket highlights', 'motu patlu new episode', 'pubg gameplay', 'cooking recipes viral', 'tech news today', 'islamic bayan', 'punjabi songs new', 'bollywood songs', 'pakistan vlogs'];
+const v4_FEED_VARIANTS = [' latest', ' new', '', ' viral', ' best', ' 2026'];
+function v4PhoneRotQuery(st){
+  const ints = v4InterestTop(3);
+  const mixed = [];
+  v4_TREND_POOL.forEach(function(s, i){ mixed.push(s); if(ints.length && i % 5 === 2) mixed.push(ints[((i / 5) | 0) % ints.length]); });
+  const idx = st.phoneRot || 0;
+  return mixed[idx % mixed.length] + v4_FEED_VARIANTS[((idx / mixed.length) | 0) % v4_FEED_VARIANTS.length];
+}
+function v4FeedArm(elId){
+  const el = v4$(elId); if(!el) return;
+  const old = el.querySelector('.v4-more'); if(old) old.remove();
+  el.insertAdjacentHTML('beforeend', v4FeedSentinelHTML(elId));
+  const s = el.querySelector('.v4-more');
+  if(s && v4FeedObs) v4FeedObs.observe(s);
+  if(s){ const rc = s.getBoundingClientRect(); if(rc.top < window.innerHeight + 700){ const st = v4FeedState[elId]; if(st && !st.loading && !st.done) v4FeedMore(elId); } }
+}
+async function v4PhoneFeedMore(elId, st){
+  try{
+    if(!(window.PlayTubeApp && PlayTubeApp.phoneSearch)) return false;
+    const el = v4$(elId); if(!el) return false;
+    for(let attempt = 0; attempt < 2; attempt++){
+      let items = null;
+      if(st.phoneQ){
+        /* Asal search: extractor ki agli page (APK v3.3 bridge);
+           na mile to usi query ka variant — nayi list. */
+        if(PlayTubeApp.phoneSearchMore) items = await v4PhoneBridge('phoneSearchMore', st.phoneQ);
+        if(!items || !items.length){ st.phoneRot = (st.phoneRot || 0) + 1; items = await v4PhoneBridge('phoneSearch', st.phoneQ + v4_FEED_VARIANTS[st.phoneRot % v4_FEED_VARIANTS.length]); }
+      } else {
+        st.phoneRot = (st.phoneRot || 0) + 1;
+        items = await v4PhoneBridge('phoneSearch', v4PhoneRotQuery(st));
+      }
+      if(!items || !items.length) continue;
+      let html = '', n = 0;
+      items.forEach(function(it){
+        const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || ''});
+        if(v.videoId && !st.seen[v.videoId]){ st.seen[v.videoId] = 1; v4FeedShown[v.videoId] = 1; v4Videos[v.videoId] = v; html += v4CardHTML(v); n++; v4SeenAdd([v.videoId]); }
+      });
+      if(!n) continue;
+      const old = el.querySelector('.v4-more'); if(old) old.remove();
+      el.insertAdjacentHTML('beforeend', html);
+      v4FeedArm(elId);
+      return true;
+    }
+    return false;
   }catch(e){ return false; }
 }
 function v4FeedRetry(btn){ const elId = btn.getAttribute('data-feed'); const st = v4FeedState[elId]; if(!st) return; v4LoadFeed(elId, st.q, st.type, st.sub, {sort: st.sort, minDur: st.minDur}); }
@@ -2309,6 +2387,14 @@ async function v4FeedMore(elId, first){
   if(!st || !el || st.loading || st.done) return;
   st.loading = true;
   const gen = st.gen || 0;
+  /* Update 124: APK mein pehle PHONE ki agli page — feed khatam
+     nahi hoti; phone thak jaye to neeche server wala rasta hai. */
+  if(st.phonePg != null && window.PlayTubeApp && PlayTubeApp.phoneSearch){
+    const okM = await v4PhoneFeedMore(elId, st);
+    if(v4FeedGen[elId] !== gen || v4FeedState[elId] !== st){ st.loading = false; return; }
+    if(okM){ st.loading = false; return; }
+    st.phonePg = null;
+  }
   let added = 0, tries = 0, failed = false;
   let stripHtml = '';
   while(tries < 5 && added < 8 && !st.done){
