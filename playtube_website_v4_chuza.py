@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 56  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 58  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">56</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">58</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -2754,10 +2754,37 @@ async function v4PhoneFeedMore(elId, st){
   }catch(e){ return false; }
 }
 function v4FeedRetry(btn){ const elId = btn.getAttribute('data-feed'); const st = v4FeedState[elId]; if(!st) return; v4LoadFeed(elId, st.q, st.type, st.sub, {sort: st.sort, minDur: st.minDur}); }
+/* Update 147: feed cache — pichli dafa ki list FORAN
+   dikhti hai, taza peeche se aati hai (YouTube wala
+   tareeqa); baghair cache ke 20 second ki sakht hadd —
+   'Load ho raha hai' par latakna khatam. */
 async function v4LoadFeed(elId, q, type, sub, opts){
+  const el = v4$(elId); if(!el) return;
+  const key = 'pt_fc_' + elId + '|' + (q || '') + '|' + (type || 'videos') + '|' + (sub || '');
+  let cached = '';
+  try{ cached = localStorage.getItem(key) || ''; }catch(e){}
+  const o2 = {}; if(opts) Object.keys(opts).forEach(function(k){ o2[k] = opts[k]; });
+  if(cached) o2._cached = 1;
+  const p = v4LoadFeedInner(elId, q, type, sub, o2);
+  if(cached){
+    if(!el.querySelector('.v4-card')) el.innerHTML = cached;
+  } else {
+    const g0 = v4FeedGen[elId];
+    setTimeout(function(){
+      if(v4FeedGen[elId] === g0 && el.isConnected && el.textContent.indexOf('Load ho raha hai') >= 0){
+        v4FeedGen[elId] = g0 + 1;
+        el.innerHTML = '<p class="v4-muted">Load honay mein dair ho rahi hai — dobara try karein.</p><div style="text-align:center;padding:6px"><button class="v4-btn2" data-feed="' + elId + '" onclick="v4FeedRetry(this)">↻ Dobara try karein</button></div>';
+      }
+    }, 20000);
+  }
+  await p;
+  try{ if(el.querySelector('.v4-card') && el.innerHTML.length < 150000) localStorage.setItem(key, el.innerHTML); }catch(e){}
+}
+async function v4LoadFeedInner(elId, q, type, sub, opts){
   const el = v4$(elId); if(!el) return;
   const gen = (v4FeedGen[elId] = (v4FeedGen[elId] || 0) + 1);
   v4FeedState[elId] = {q:q, type:(type || 'videos'), sub:(sub || ''), page:0, seen:{}, loading:false, done:false, sort:(opts && opts.sort) || '', minDur:(opts && opts.minDur) || 0, gen:gen, _retry:(opts && opts._retry) || 0};
+  v4FeedState[elId]._cached = !!(opts && opts._cached);
   el.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
   /* Update 130: account link ho to pehle UN KE YouTube home
      ki sync list (Home/YouTube ke All par) — na mile to neeche
@@ -2770,7 +2797,7 @@ async function v4LoadFeed(elId, q, type, sub, opts){
     const okP = await v4PhoneFeedFallback(elId, v4FeedState[elId]);
     if(okP) return;
     if(v4FeedGen[elId] !== gen) return;
-    el.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
+    if(!(opts && opts._cached)) el.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
   }
   await v4FeedMore(elId, true);
 }
@@ -2833,6 +2860,9 @@ async function v4FeedMore(elId, first){
   st.loading = false;
   if(added > 0){ st.empty = 0; st._cycled = 0; } else { st.empty = (st.empty || 0) + 1; if(st.empty >= 2) st.done = true; }
   if(first && !added){
+    /* Update 147: cache wali list dikh rahi ho to use
+       rehne do — error paigham list ko gayab na kare. */
+    if(st._cached && el.querySelector('.v4-card')) return;
     /* Update 121: 'Server slow hai' wala khud-bakhud loop KHATAM.
        Pehle phone fallback (asal query ke sath), warna khamosh msg
        aur hath se dobara wala button — baar baar wahi error nahi. */
@@ -3046,6 +3076,13 @@ function v4ShortsRenderItems(items, hasMore){
   /* Update 142: pehli 3 shorts ki stream pehle se garam —
      khulte/swipe par intezar nahi. */
   items.slice(0, 3).forEach(function(it){ if(it.id && it.id.videoId) v4PhoneStreamGet(it.id.videoId); });
+  /* Update 147: shorts ki list mehfooz — agli dafa
+     khulte hi foran dikhegi, kaali screen nahi. */
+  try{
+    const secs = track.querySelectorAll('.v4-short'); const snap = [];
+    secs.forEach(function(s){ const it2 = v4ShortsItems[s.getAttribute('data-vid')]; if(it2) snap.push(it2); });
+    if(snap.length) localStorage.setItem('pt_shorts_cache', JSON.stringify(snap.slice(0, 20)));
+  }catch(e){}
 }
 /* Update 125: Shorts bhi har dafa NAYI — dikhi hui shorts
    localStorage mein yaad (500 tak), agli list un ke baghair;
@@ -3198,6 +3235,9 @@ function v4OpenShorts(query){
       }
     });
   }
+  /* Update 147: mehfooz shorts hon to pehle wo — screen
+     khaali/kaali nahi rehti, taza peeche aati rahengi. */
+  try{ const _sc = JSON.parse(localStorage.getItem('pt_shorts_cache') || '[]'); const _tr0 = v4$('v4-shorts-track'); if(_sc.length && _tr0 && !_tr0.querySelector('.v4-short')) v4ShortsRenderItems(_sc, true); }catch(e){}
   if(!ov.getAttribute('data-init')){ ov.setAttribute('data-init', '1'); v4ShortsSeq = Date.now(); v4ShortsLoad(); }
   /* Update 139: list bilkul khali rahe to kaali screen
      nahi — saaf paigham + dobara wala button. */
@@ -3394,7 +3434,53 @@ function v4PhonePollStop(){ if(window._v4phPoll){ clearInterval(window._v4phPoll
 /* Update 135: Downloads page par bhi EK folder — head
    (pic/name) par click se khulta/band hota hai; andar
    downloading pehle, waiting (paused) neeche. */
-function v4PhoneFolderHtml(active){
+/* Update 146: AI ki queue wali items — jo abhi phone
+   mein start nahi huin (waiting / ruki hui) — Downloads
+   folder mein bhi dikhti hain. AI folder aur Downloads
+   tab: dono jagah same time par mukammal list. */
+function v4AiQueueList(live){
+  const liveVids = {}; (live || []).forEach(function(p){ if(p.videoId) liveVids[p.videoId] = 1; });
+  const out = [];
+  const jobs = window._v4PhoneJobs || {};
+  Object.keys(jobs).forEach(function(jk){
+    const job = jobs[jk]; if(!job || !job.items) return;
+    job.items.forEach(function(it, i){
+      if(!it || it._st === 'deleted' || it._st === 'done') return;
+      if(it.video_id && liveVids[it.video_id]) return;
+      let st = 'waiting';
+      if(it._st === 'failed') st = 'failed';
+      else if(it._st === 'ustop' || it._hold || job.userStopped) st = 'held';
+      out.push({title: it.title || '', st: st, jobKey: jk, idx: i, quality: job.quality || '', err: it._err || ''});
+    });
+  });
+  return out;
+}
+function v4QueueRowHtml(q){
+  let t2 = '', btns = '';
+  if(q.st === 'failed'){
+    t2 = '<span style="color:var(--v4danger)">Fail ho gaya — AI folder se dobara try karein</span>' + (q.err ? ' • ' + v4Esc(q.err) : '');
+  } else if(q.st === 'held'){
+    t2 = '⏸ Ruki hui hai — AI wali download' + (q.quality ? ' • ' + v4Esc(q.quality) : '');
+    btns = '<button class="v4-roundbtn teal" title="Chalayein" data-job="' + v4Esc(q.jobKey) + '" data-idx="' + q.idx + '" onclick="v4QueueToggle(this, false)">▶</button>';
+  } else {
+    t2 = '⏳ Waiting — bari aane par start hogi (AI wali)' + (q.quality ? ' • ' + v4Esc(q.quality) : '');
+    btns = '<button class="v4-roundbtn" title="Rok dein" data-job="' + v4Esc(q.jobKey) + '" data-idx="' + q.idx + '" onclick="v4QueueToggle(this, true)">❚❚</button>';
+  }
+  return '<div class="v4-dlrow"><span style="width:64px;text-align:center;font-size:22px">🤖</span><div class="tt"><div class="t1">' + v4Esc(q.title || '') + '</div><div class="t2">' + t2 + '</div></div>' + btns + '</div>';
+}
+function v4QueueToggle(el, hold){
+  const job = (window._v4PhoneJobs || {})[el.getAttribute('data-job')]; if(!job) return;
+  const it = (job.items || [])[Number(el.getAttribute('data-idx'))]; if(!it) return;
+  if(hold){ it._hold = true; }
+  else {
+    it._hold = false; it._wantStop = false; if(it._st === 'ustop') it._st = undefined;
+    if(job.userStopped){ job.userStopped = false; (job.items || []).forEach(function(o){ if(o !== it && !o._st) o._hold = true; }); }
+  }
+  try{ v4PhoneJobRender(job); }catch(e){}
+  try{ v4FolderSched(); }catch(e){}
+  window._v4phSig = ''; v4PhoneDlRender();
+}
+function v4PhoneFolderHtml(active, queue){
   const run = active.filter(function(p){ return p.status === 'running' || p.status === 'starting'; });
   const wait = active.filter(function(p){ return p.status === 'paused'; });
   const ordered = run.concat(wait);
@@ -3402,9 +3488,9 @@ function v4PhoneFolderHtml(active){
   const open = window._v4DlFolderOpen !== false;
   return '<div class="v4-dlfolder"><div class="v4-dlf-head" onclick="v4DlFolderToggle()">'
     + (first.videoId ? '<span class="v4-dlf-th">' + v4Img(first.videoId) + '</span>' : '<span style="font-size:22px">📥</span>')
-    + '<div class="tt"><div class="t1">📥 Downloads</div><div class="t2">' + run.length + ' downloading • ' + wait.length + ' waiting — kul ' + active.length + '</div></div>'
+    + '<div class="tt"><div class="t1">📥 Downloads</div><div class="t2">' + run.length + ' downloading • ' + (wait.length + ((queue || []).length)) + ' waiting — kul ' + (active.length + ((queue || []).length)) + '</div></div>'
     + '<span style="margin-left:auto;font-size:15px">' + (open ? '▾' : '▸') + '</span></div>'
-    + (open ? '<div class="v4-dlf-body">' + ordered.map(v4PhoneRowHtml).join('') + '</div>' : '')
+    + (open ? '<div class="v4-dlf-body">' + ordered.map(v4PhoneRowHtml).join('') + (queue || []).map(v4QueueRowHtml).join('') + '</div>' : '')
     + '</div>';
 }
 function v4DlFolderToggle(){ window._v4DlFolderOpen = (window._v4DlFolderOpen === false); window._v4phSig = ''; v4PhoneDlRender(); }
@@ -3501,18 +3587,20 @@ function v4PhoneDlRender(){
   });
   if(changed){ try{ localStorage.setItem('pt_phone_dl', JSON.stringify(stored.slice(0, 50))); }catch(e){} }
   const liveKeys = {}; live.forEach(function(p){ if(p.status !== 'done') liveKeys[(p.title || '') + '|' + (p.quality || '')] = 1; });
-  /* Update 145: Downloads tab par sirf web (Home/
-     YouTube/sheet) wali — AI wali sirf AI folder mein. */
-  const active = live.filter(function(p){ return p.src !== 'ai' && (p.status === 'running' || p.status === 'paused' || p.status === 'starting'); });
-  const bad = live.filter(function(p){ return p.src !== 'ai' && (p.status === 'failed' || p.status === 'stopped'); });
-  const sig = live.map(function(p){ return p.id + ':' + p.status; }).join(',') + '#' + stored.length + (window._v4DlFolderOpen === false ? '#c' : '#o');
+  /* Update 146 (user ka hukum badla): Downloads tab
+     par SAB — AI wali bhi, Home/YouTube wali bhi, aur
+     AI ki waiting queue bhi; dono jagah same list. */
+  const active = live.filter(function(p){ return p.status === 'running' || p.status === 'paused' || p.status === 'starting'; });
+  const bad = live.filter(function(p){ return p.status === 'failed' || p.status === 'stopped'; });
+  const queue = v4AiQueueList(live);
+  const sig = live.map(function(p){ return p.id + ':' + p.status; }).join(',') + '#' + stored.length + '#' + queue.map(function(q){ return q.jobKey + ':' + q.idx + ':' + q.st; }).join(',') + (window._v4DlFolderOpen === false ? '#c' : '#o');
   if(sig !== window._v4phSig){
     window._v4phSig = sig;
-    boxA.innerHTML = active.length ? v4PhoneFolderHtml(active) : '';
+    boxA.innerHTML = (active.length || queue.length) ? v4PhoneFolderHtml(active, queue) : '';
     const boxF = v4$('v4-phone-failed');
     if(boxF) boxF.innerHTML = bad.map(v4PhoneRowHtml).join('');
     let doneHtml = '';
-    stored.forEach(function(s){ if(s.src === 'ai') return; if(liveKeys[(s.title || '') + '|' + (s.quality || '')]) return; doneHtml += v4PhoneStoredRow(s); });
+    stored.forEach(function(s){ if(liveKeys[(s.title || '') + '|' + (s.quality || '')]) return; doneHtml += v4PhoneStoredRow(s); });
     boxD.innerHTML = doneHtml;
   } else {
     live.forEach(function(p){
@@ -3525,7 +3613,7 @@ function v4PhoneDlRender(){
     });
   }
   const acEl2 = v4$('v4-dl-actcount');
-  if(acEl2){ const tot = (window._v4srvAct || 0) + active.length; acEl2.textContent = tot ? '(' + tot + ')' : ''; }
+  if(acEl2){ const tot = (window._v4srvAct || 0) + active.length + queue.length; acEl2.textContent = tot ? '(' + tot + ')' : ''; }
   v4DlEmptyFix();
   v4FailSectSync();
   const _fb1 = boxA.querySelector('.v4-dlf-body'); if(_fb1 && _svF) _fb1.scrollTop = _svF;
@@ -5839,8 +5927,22 @@ function v4AfterAuth(){
 }
 
 /* ---------- shared link + clipboard (Update 25) ---------- */
+/* Update 147: handle-shuda links ki pehchan hamesha ke
+   liye mehfooz (localStorage) — app band/dobara khulne
+   par wahi link dobara sheet nahi kholega. */
+function v4MarkHandled(url){
+  if(!url) return;
+  try{
+    let a = JSON.parse(localStorage.getItem('pt_handled') || '[]');
+    if(a.indexOf(url) < 0){ a.push(url); if(a.length > 30) a = a.slice(a.length - 30); localStorage.setItem('pt_handled', JSON.stringify(a)); }
+  }catch(e){}
+}
+function v4WasHandled(url){
+  try{ return (JSON.parse(localStorage.getItem('pt_handled') || '[]')).indexOf(url) >= 0; }catch(e){ return false; }
+}
 async function v4HandleShared(url){
   if(!url) return;
+  v4MarkHandled(url);
   /* Update 134: YouTube link ki pehchan LOCAL hai — share karte
      hi download sheet foran khulti hai, server ke jawab ka
      intezar nahi (Snaptube wali tez flow). */
@@ -5871,10 +5973,11 @@ async function v4ClipCheck(){
     if(!t) return;
     const url = v4FindUrl(t);
     if(!url) return;
-    let seen = '';
-    try{ seen = sessionStorage.getItem('pt_clip_seen') || ''; }catch(e){}
-    if(seen === url) return;
-    try{ sessionStorage.setItem('pt_clip_seen', url); }catch(e){}
+    /* Update 147: pehchan ab hamesha ke liye mehfooz —
+       sessionStorage wala purana tareeqa app band hote
+       hi bhool jata tha. */
+    if(v4WasHandled(url)) return;
+    v4MarkHandled(url);
     v4HandleShared(url);
   }catch(e){}
 }
