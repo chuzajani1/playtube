@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 62  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 63  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">62</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">63</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -2886,6 +2886,16 @@ async function v4FeedMore(elId, first){
       const okF = await v4PhoneFeedFallback(elId, st);
       if(okF) return;
     }
+    /* Update 152: asal fail par EK dafa khamosh dobara
+       koshish (3s baad) — rukawat aksar chand second ki
+       hoti hai. Loop nahi: _retry nishan ke sath sirf
+       ek dafa, aur sirf asal failure par. */
+    if(failed && !st._retry){
+      el.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
+      const _aq = st.q, _at = st.type, _as = st.sub, _aso = st.sort, _amd = st.minDur;
+      setTimeout(function(){ v4LoadFeed(elId, _aq, _at, _as, {sort: _aso, minDur: _amd, _retry: 1}); }, 3000);
+      return;
+    }
     el.innerHTML = failed ? '<p class="v4-muted">Results load nahi ho sake — net check karke dobara try karein.</p><div style="text-align:center;padding:6px"><button class="v4-btn2" data-feed="' + elId + '" onclick="v4FeedRetry(this)">↻ Dobara try karein</button></div>' : (v4FilterActive() ? '<p class="v4-muted">In filters ke sath nayi videos nahi milin.</p><div style="text-align:center;padding:6px"><button class="v4-btn2" onclick="v4FilterClearAll();v4FilterApply()">Filters hatayein</button></div>' : (st.sort === 'date' ? '<p class="v4-muted">Is topic par nayi (haal ki) videos nahi milin — Sab wale option par saari results hain.</p>' : ((!st.q || /trend/i.test(st.q)) ? '<p class="v4-muted">Videos load nahi ho sakin — dobara try karein.</p><div style="text-align:center;padding:6px"><button class="v4-btn2" data-feed="' + elId + '" onclick="v4FeedRetry(this)">↻ Dobara try karein</button></div>' : '<p class="v4-muted">Is topic ki saari videos aap pehle dekh chuke hain — is liye dobara nahi dikhayi gayin. Koi aur topic ya search try karein 🌟</p>')));
     return;
   }
@@ -3049,7 +3059,7 @@ function v4ShortActivate(sec){
           if(!sec.contains(v)) return;
           if(url){ _got = true; if(!(v.getAttribute('src') && v.readyState >= 2)){ v.src = url; const p3 = v.play(); if(p3 && p3.catch) p3.catch(function(){ v.muted = true; const p4 = v.play(); if(p4 && p4.catch) p4.catch(function(){}); }); } }
           else if(!again){ setTimeout(function(){ if(sec.contains(v) && !_got) _tryStream(true); }, 1500); }
-          else if(!v.getAttribute('src')){ v4ShortSkip(sec, v, spin); }
+          else if(!v.getAttribute('src')){ /* Update 152: phone ki stream do dafa fail — aakhri koshish Playza ke apne saaf player mein SERVER ki stream (YouTube wala player nahi, koi branding nahi); ye bhi na chale to timer/error khud skip kar denge. */ v.src = '/api/stream/' + vid; const p5 = v.play(); if(p5 && p5.catch) p5.catch(function(){}); }
         });
       };
       _tryStream(false);
@@ -3100,9 +3110,12 @@ function v4ShortsRenderItems(items, hasMore){
       track.querySelectorAll('.v4-short').forEach(function(s, i){ if(i > 0){ try{ v4ShortDeactivate(s); }catch(e){} s.remove(); } });
     }
   }
+  const _titleSet = {};
+  track.querySelectorAll('.v4-short').forEach(function(s){ const _oi = v4ShortsItems[s.getAttribute('data-vid')]; if(_oi && _oi.snippet) _titleSet[v4TitleKey(_oi.snippet.title)] = 1; });
   items.forEach(function(it){
     v4ShortsItems[it.id.videoId] = it;
     if(track.querySelector('[data-vid="' + it.id.videoId + '"]')) return;
+    const _tk2 = v4TitleKey(it.snippet && it.snippet.title); if(_tk2 && _titleSet[_tk2]) return; if(_tk2) _titleSet[_tk2] = 1;
     const div = document.createElement('div'); div.innerHTML = v4ShortCard(it);
     const sec = div.firstChild; track.appendChild(sec);
     if(v4ShortsObs) v4ShortsObs.observe(sec);
@@ -3151,6 +3164,10 @@ function v4ShortsSeedNext(){
   v4ShortsRot++;
   return mixed[v4ShortsRot % mixed.length];
 }
+/* Update 152: ek hi video kai channels par dobara
+   upload hoti hai — Shorts mein wahi cheez baar baar
+   na aye, is liye TITLE se pehchan: har title ek dafa. */
+function v4TitleKey(t){ return (t || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 45); }
 async function v4ShortsPhoneLoad(){
   try{
     if(!(window.PlayTubeApp && PlayTubeApp.phoneSearch)) return false;
@@ -3162,6 +3179,8 @@ async function v4ShortsPhoneLoad(){
        dobara nahi, list khatam bhi nahi (hasMore=true). */
     const got = [];
     const have = {};
+    const haveT = {};
+    const _tr9 = v4$('v4-shorts-track'); if(_tr9) _tr9.querySelectorAll('.v4-short').forEach(function(s){ const _it9 = v4ShortsItems[s.getAttribute('data-vid')]; if(_it9 && _it9.snippet) haveT[v4TitleKey(_it9.snippet.title)] = 1; });
     for(let round = 0; round < 3 && got.length < 10; round++){
       let items = null;
       if(round === 0){
@@ -3173,6 +3192,7 @@ async function v4ShortsPhoneLoad(){
       if(!items || !items.length) continue;
       items.forEach(function(it){
         if(!it.id || have[it.id] || seenS[it.id]) return;
+        const _tk = v4TitleKey(it.title); if(_tk && haveT[_tk]) return; if(_tk) haveT[_tk] = 1;
         const _sd = it.duration || 0; if(_sd <= 0 || _sd > 70) return;
         have[it.id] = 1;
         got.push({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, view_count: (it.views != null && it.views >= 0) ? it.views : 0, duration: it.duration || 0});
@@ -7022,6 +7042,7 @@ def api_feed():
         # compilations nahi. Kai seeds mila kar dhoondte hain.
         merged = []
         seen_ids = set()
+        _stitle = set()
         tries = 6 if shorts_pool_mode else 4
         _sqs = []
         for k in range(tries):
@@ -7036,8 +7057,15 @@ def api_feed():
                                         _shorts_feed_items):
                 for it in _lst:
                     vid = (it.get('id') or {}).get('videoId')
-                    if vid and vid not in seen_ids:
+                    _tt = (((it.get('snippet') or {}).get('title')
+                            or '').lower())
+                    _tt = re.sub(r'[^a-z0-9 ]', ' ', _tt)
+                    _tt = re.sub(r'\s+', ' ', _tt).strip()[:45]
+                    if vid and vid not in seen_ids and \
+                            (not _tt or _tt not in _stitle):
                         seen_ids.add(vid)
+                        if _tt:
+                            _stitle.add(_tt)
                         merged.append(it)
             real_so_far = [it for it in merged
                            if it.get('duration') is None or it['duration'] <= 65]
