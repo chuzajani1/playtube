@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 66  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 67  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">66</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">67</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -4177,6 +4177,16 @@ function v4RenderCandidates(b, candidates, opts){
   go.onclick = function(){ window._v4CandCtx = ctx; v4CandGo(this); };
   ctx.goBtn = go;
   b.appendChild(go);
+  /* Update 156: drama/show ki list mein neeche
+     'All episodes' wala option — ye pehle tha, kisi
+     safai mein gir gaya tha (v4AiEpisodes maujood
+     tha, use bulane wala button hi nahi raha tha). */
+  if(ctx.show){
+    const epb = document.createElement('button'); epb.className = 'v4-bigbtn'; epb.textContent = '📂 All episodes — ' + ctx.show; epb.style.marginTop = '8px';
+    epb.setAttribute('data-show', ctx.show);
+    epb.onclick = function(){ v4AiEpisodes(this); };
+    b.appendChild(epb);
+  }
   const hint = document.createElement('div'); hint.className = 'v4-muted'; hint.style.marginTop = '6px'; hint.textContent = 'Video par tap = select • pic par tap = wahin play • ↗ = isi jaisi aur videos';
   b.appendChild(hint);
   b._candCtx = ctx;
