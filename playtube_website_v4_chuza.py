@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 49  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 50  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1423,6 +1423,24 @@ HTML = '''
   body.v4-mini-on #v4-view-watch>#v4-frame{display:block !important;pointer-events:auto;margin-top:0}
   body.v4-mini-on #v4-mini-bar{display:flex !important}
   body.v4-mini-on #v4-view-watch .v4-fbadge{display:none !important}
+  /* Update 132: mini ki asal geometry — 224px chaura, 16:9
+     height fix; pehle frame lamba kala box banta tha aur
+     video upar chhoti strip mein fasi nazar ati thi. */
+  body.v4-mini-on #v4-view-watch{width:224px}
+  body.v4-mini-on #v4-frame{height:128px}
+  body.v4-mini-on #v4-frame .v4-framein{height:100%;aspect-ratio:auto}
+  .v4-frow{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .v4-fact{font-size:11px;color:var(--v4teal)}
+  .v4-fchip2{font-size:11px;background:var(--v4card);border:1px solid var(--v4border);color:var(--v4text);border-radius:999px;padding:6px 10px;cursor:pointer}
+  .v4-fchip2.on{background:linear-gradient(135deg,#7c5cff,#5a3ee0);color:#fff;border-color:transparent;font-weight:700}
+  .v4-fgroup{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--v4muted);margin:12px 0 7px}
+  .v4-dlfolder{border:1px solid var(--v4border);border-radius:14px;background:var(--v4card);overflow:hidden;margin-bottom:10px}
+  .v4-dlf-head{display:flex;gap:10px;align-items:center;padding:10px;cursor:pointer}
+  .v4-dlf-head .tt{flex:1;min-width:0}
+  .v4-dlf-head .t1{font-weight:700;font-size:14px}
+  .v4-dlf-head .t2{font-size:11px;color:var(--v4muted);margin-top:2px}
+  .v4-dlf-th img{width:64px;height:36px;object-fit:cover;border-radius:8px;display:block}
+  .v4-dlf-body{border-top:1px solid var(--v4border);padding:8px 10px 2px}
   .v4-framein{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:#000}
   .v4-frame video{position:absolute;inset:0;width:100%;height:100%;background:#000}
   .v4-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
@@ -1544,7 +1562,8 @@ HTML = '''
         <button class="v4-chip v4-mchip on" data-w="home" data-s="all" onclick="v4SetMovieSub(this)">All</button>
         <button class="v4-chip v4-mchip" data-w="home" data-s="indian" onclick="v4SetMovieSub(this)">🇮🇳 Indian</button>
         <button class="v4-chip v4-mchip" data-w="home" data-s="pakistani" onclick="v4SetMovieSub(this)">🇵🇰 Pakistani</button>
-        <button class="v4-chip v4-mchip" data-w="home" data-s="english" onclick="v4SetMovieSub(this)">🇬🇧 English</button>
+        <button class="v4-chip v4-mchip" data-w="home" data-s="punjabi" onclick="v4SetMovieSub(this)">🎬 Punjabi</button>
+        <button class="v4-chip v4-mchip" data-w="home" data-s="english" onclick="v4SetMovieSub(this)">🇬🇧 English Hindi Dubbed</button>
         <button class="v4-chip v4-mchip" data-w="home" data-s="dubbed" onclick="v4SetMovieSub(this)">🎙️ Hindi Dubbed</button>
         <button class="v4-chip v4-mchip" data-w="home" data-s="south" onclick="v4SetMovieSub(this)">🎬 South Indian</button>
       </div>
@@ -1556,6 +1575,7 @@ HTML = '''
         <button class="v4-chip v4-kchip" data-w="home" data-s="peppa" onclick="v4SetKidsSub(this)">🐷 Peppa Pig</button>
         <button class="v4-chip v4-kchip" data-w="home" data-s="tomjerry" onclick="v4SetKidsSub(this)">🐱 Tom & Jerry</button>
       </div>
+      <div class="v4-frow"><span class="v4-fact" id="v4-fact-home"></span><button class="v4-chip" style="margin-left:auto" onclick="v4OpenFilters('home')">⛃ Filters</button></div>
       <div class="v4-h" id="v4-home-heading">Trending Videos</div>
       <div id="v4-searchbar" style="display:none"></div>
       <div id="v4-home-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
@@ -1586,7 +1606,8 @@ HTML = '''
         <button class="v4-chip v4-mchip on" data-w="youtube" data-s="all" onclick="v4SetMovieSub(this)">All</button>
         <button class="v4-chip v4-mchip" data-w="youtube" data-s="indian" onclick="v4SetMovieSub(this)">🇮🇳 Indian</button>
         <button class="v4-chip v4-mchip" data-w="youtube" data-s="pakistani" onclick="v4SetMovieSub(this)">🇵🇰 Pakistani</button>
-        <button class="v4-chip v4-mchip" data-w="youtube" data-s="english" onclick="v4SetMovieSub(this)">🇬🇧 English</button>
+        <button class="v4-chip v4-mchip" data-w="youtube" data-s="punjabi" onclick="v4SetMovieSub(this)">🎬 Punjabi</button>
+        <button class="v4-chip v4-mchip" data-w="youtube" data-s="english" onclick="v4SetMovieSub(this)">🇬🇧 English Hindi Dubbed</button>
         <button class="v4-chip v4-mchip" data-w="youtube" data-s="dubbed" onclick="v4SetMovieSub(this)">🎙️ Hindi Dubbed</button>
         <button class="v4-chip v4-mchip" data-w="youtube" data-s="south" onclick="v4SetMovieSub(this)">🎬 South Indian</button>
       </div>
@@ -1598,6 +1619,7 @@ HTML = '''
         <button class="v4-chip v4-kchip" data-w="youtube" data-s="peppa" onclick="v4SetKidsSub(this)">🐷 Peppa Pig</button>
         <button class="v4-chip v4-kchip" data-w="youtube" data-s="tomjerry" onclick="v4SetKidsSub(this)">🐱 Tom & Jerry</button>
       </div>
+      <div class="v4-frow"><span class="v4-fact" id="v4-fact-youtube"></span><button class="v4-chip" style="margin-left:auto" onclick="v4OpenFilters('youtube')">⛃ Filters</button></div>
       <div class="v4-h">YouTube Videos</div>
       <div id="v4-youtube-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
     </section>
@@ -1614,6 +1636,7 @@ HTML = '''
         <button class="v4-chip v4-fchip" data-w="music" data-t="playlists" onclick="v4SetFilter(this)">Playlists</button>
         <button class="v4-chip v4-fchip" data-w="music" data-t="naat" onclick="v4SetFilter(this)">🌙 Naat</button>
       </div>
+      <div class="v4-frow"><span class="v4-fact" id="v4-fact-music"></span><button class="v4-chip" style="margin-left:auto" onclick="v4OpenFilters('music')">⛃ Filters</button></div>
       <div class="v4-h">Music</div>
       <div id="v4-music-feed" class="v4-feedgrid"><p class="v4-muted">Load ho raha hai...</p></div>
     </section>
@@ -1647,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">49</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">50</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -1669,8 +1692,8 @@ HTML = '''
       </div></div>
       <div class="v4-h" id="v4-watch-title" style="margin-top:12px"></div>
       <p class="v4-muted" id="v4-watch-channel"></p>
-      <div style="display:flex;gap:8px;align-items:stretch;margin-top:10px"><button class="v4-bigbtn" style="flex:1;margin:0" onclick="v4WatchDownload()">⬇ Download</button><button class="v4-iconbtn" id="v4-watch-fav" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchFav()">♡</button><button class="v4-iconbtn" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchShare()">↗</button></div>
-      <div id="v4-frame-note" class="v4-muted" style="display:none;margin-top:10px">Agar video 15 second mein na chale to net slow hai, ya is video ko bahir chalana band hai. <a id="v4-frame-yt" href="#" target="_blank" rel="noopener" style="color:var(--v4teal)">YouTube par kholein ↗</a> <button id="v4-frame-native" class="v4-btn2" style="display:none;margin-left:8px" onclick="v4NativePlay()">📱 Phone se play karein</button></div>
+      <div style="display:flex;gap:8px;align-items:stretch;margin-top:10px"><button class="v4-bigbtn" style="flex:1;margin:0" onclick="v4WatchDownload()">⬇ Download</button><button class="v4-iconbtn" id="v4-watch-fav" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchFav()">♡</button><button class="v4-iconbtn" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchShare()">↗</button><button class="v4-btn2" id="v4-watch-float" style="display:none;border-radius:999px" onclick="v4FloatPlay()">📺 Floating</button></div>
+      <div id="v4-watch-msg" class="v4-muted" style="display:none;margin-top:10px"></div>
       <div class="v4-h" style="margin-top:18px">Related Videos</div>
       <div id="v4-related" class="v4-feedgrid"></div>
     </section>
@@ -1939,6 +1962,53 @@ HTML = '''
   </div>
 </div>
 
+<div id="v4-filterwrap" class="v4-wrap">
+  <div class="v4-overlay" onclick="v4CloseFilters()"></div>
+  <div class="v4-sheet">
+    <div class="v4-h" style="margin-top:0">Filters</div>
+    <div class="v4-fgroup">Type</div>
+    <div class="v4-chips" style="margin-bottom:0">
+      <button class="v4-fchip2" data-fg="type" data-fv="all" onclick="v4FilterPick(this)">All</button>
+      <button class="v4-fchip2" data-fg="type" data-fv="videos" onclick="v4FilterPick(this)">Videos</button>
+      <button class="v4-fchip2" data-fg="type" data-fv="shorts" onclick="v4FilterPick(this)">Shorts</button>
+      <button class="v4-fchip2" data-fg="type" data-fv="playlists" onclick="v4FilterPick(this)">Playlists</button>
+      <button class="v4-fchip2" data-fg="type" data-fv="movies" onclick="v4FilterPick(this)">Movies</button>
+    </div>
+    <div class="v4-fgroup">Upload date</div>
+    <div class="v4-chips" style="margin-bottom:0">
+      <button class="v4-fchip2" data-fg="date" data-fv="any" onclick="v4FilterPick(this)">Anytime</button>
+      <button class="v4-fchip2" data-fg="date" data-fv="today" onclick="v4FilterPick(this)">Today</button>
+      <button class="v4-fchip2" data-fg="date" data-fv="week" onclick="v4FilterPick(this)">This week</button>
+      <button class="v4-fchip2" data-fg="date" data-fv="month" onclick="v4FilterPick(this)">This month</button>
+      <button class="v4-fchip2" data-fg="date" data-fv="year" onclick="v4FilterPick(this)">This year</button>
+    </div>
+    <div class="v4-fgroup">Duration</div>
+    <div class="v4-chips" style="margin-bottom:0">
+      <button class="v4-fchip2" data-fg="dur" data-fv="any" onclick="v4FilterPick(this)">Any</button>
+      <button class="v4-fchip2" data-fg="dur" data-fv="short" onclick="v4FilterPick(this)">Under 3 min</button>
+      <button class="v4-fchip2" data-fg="dur" data-fv="mid" onclick="v4FilterPick(this)">3–20 min</button>
+      <button class="v4-fchip2" data-fg="dur" data-fv="long" onclick="v4FilterPick(this)">Over 20 min</button>
+    </div>
+    <div class="v4-fgroup">Sort by</div>
+    <div class="v4-chips" style="margin-bottom:0">
+      <button class="v4-fchip2" data-fg="sort" data-fv="rel" onclick="v4FilterPick(this)">Relevance</button>
+      <button class="v4-fchip2" data-fg="sort" data-fv="pop" onclick="v4FilterPick(this)">Popularity</button>
+      <button class="v4-fchip2" data-fg="sort" data-fv="new" onclick="v4FilterPick(this)">Newest</button>
+    </div>
+    <div class="v4-fgroup">Features</div>
+    <div class="v4-chips" style="margin-bottom:0">
+      <button class="v4-fchip2" data-fg="feat" data-fv="live" onclick="v4FilterPick(this)">Live</button>
+      <button class="v4-fchip2" data-fg="feat" data-fv="4k" onclick="v4FilterPick(this)">4K</button>
+      <button class="v4-fchip2" data-fg="feat" data-fv="hd" onclick="v4FilterPick(this)">HD</button>
+      <button class="v4-fchip2" data-fg="feat" data-fv="cc" onclick="v4FilterPick(this)">Subtitles</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="v4-btn2" style="flex:1" onclick="v4FilterClear()">Clear</button>
+      <button class="v4-bigbtn" style="flex:2;margin:0" onclick="v4FilterApply()">Apply</button>
+    </div>
+  </div>
+</div>
+
 <div id="v4-sheetwrap" class="v4-wrap">
   <div class="v4-overlay" onclick="v4CloseSheet()"></div>
   <div class="v4-sheet">
@@ -2195,6 +2265,229 @@ function v4SeenParam(){ return v4SeenGet().slice(0, 200).map(function(x){ return
    aa sakti hain, is liye list kabhi khatam nahi hoti aur har
    refresh ka mix alag hota hai. */
 function v4RecentSet(n){ const s = {}; v4SeenGet().slice(0, n || 150).forEach(function(x){ if(x && x.id) s[x.id] = 1; }); return s; }
+/* ---------- Update 130: diversity + filters + sync ---------- */
+const v4Filters = {type:'all', date:'any', dur:'any', sort:'rel', feat:[]};
+let v4FilterView = 'home';
+function v4FilterActive(){ return v4Filters.type !== 'all' || v4Filters.date !== 'any' || v4Filters.dur !== 'any' || v4Filters.sort !== 'rel' || v4Filters.feat.length > 0; }
+function v4DurSec(v){
+  const d = v ? v.duration : '';
+  if(typeof d === 'number') return d;
+  if(!d) return 0;
+  const p = ('' + d).split(':').map(function(x){ return parseInt(x, 10) || 0; });
+  if(p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
+  if(p.length === 2) return p[0] * 60 + p[1];
+  return p[0] || 0;
+}
+function v4ViewsNum(v){
+  const x = v ? v.views : '';
+  if(typeof x === 'number') return x;
+  if(!x) return 0;
+  const m = ('' + x).replace(/,/g, '').match(/([\d.]+)\s*([MK])?/i);
+  if(!m) return 0;
+  let n = parseFloat(m[1]) || 0;
+  if(m[2]) n *= (m[2].toUpperCase() === 'M') ? 1e6 : 1e3;
+  return n;
+}
+function v4AgeDays(v){
+  const a = (v && v.age) ? ('' + v.age).toLowerCase() : '';
+  const m = a.match(/([\d.]+)\s*(minute|hour|day|week|month|year)/);
+  if(!m) return null;
+  const n = parseFloat(m[1]) || 0;
+  const u = m[2];
+  if(u === 'minute') return n / 1440;
+  if(u === 'hour') return n / 24;
+  if(u === 'day') return n;
+  if(u === 'week') return n * 7;
+  if(u === 'month') return n * 30;
+  return n * 365;
+}
+function v4FilterTest(v){
+  const F = v4Filters;
+  const d = v4DurSec(v);
+  if(F.type === 'videos' && d > 0 && d <= 70) return false;
+  if(F.type === 'movies' && d > 0 && d < 1500) return false;
+  if(F.date !== 'any'){
+    const days = v4AgeDays(v);
+    if(days != null){
+      if(F.date === 'today' && days >= 1) return false;
+      if(F.date === 'week' && days > 7) return false;
+      if(F.date === 'month' && days > 31) return false;
+      if(F.date === 'year' && days > 366) return false;
+    }
+  }
+  if(F.dur !== 'any' && d > 0){
+    if(F.dur === 'short' && d >= 180) return false;
+    if(F.dur === 'mid' && (d < 180 || d > 1200)) return false;
+    if(F.dur === 'long' && d <= 1200) return false;
+  }
+  if(F.feat.indexOf('live') >= 0 && !(/\blive\b/i.test(v.title || '') || (v.age || '').indexOf('watching') >= 0)) return false;
+  return true;
+}
+function v4ApplyFilters(list, st){
+  if(!v4FilterActive() || !list || !list.length) return list || [];
+  let out = list.filter(v4FilterTest);
+  if(v4Filters.sort === 'pop') out = out.slice().sort(function(a, b){ return v4ViewsNum(b) - v4ViewsNum(a); });
+  if(v4Filters.sort === 'new') out = out.slice().sort(function(a, b){ const x = v4AgeDays(a), y = v4AgeDays(b); return (x == null ? 9999 : x) - (y == null ? 9999 : y); });
+  return out;
+}
+/* Diversity: padosi videos ek jaisi NAHI — channel + show
+   dono pichli se alag hon to pehle wo; YouTube jaisa mix. */
+function v4ShowKey(v){
+  const t = (v.title || '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').split(/\s+/).filter(function(w){ return w.length > 2; }).slice(0, 2).join(' ');
+  return t + '|' + (v.channel || '').toLowerCase();
+}
+function v4Diverse(list){
+  if(!list || list.length < 3) return list || [];
+  const rest = list.slice(), out = [];
+  let lk = null, lc = null;
+  while(rest.length){
+    let idx = -1;
+    for(let i = 0; i < rest.length; i++){ const k = v4ShowKey(rest[i]); if(k !== lk && (rest[i].channel || '').toLowerCase() !== lc){ idx = i; break; } }
+    if(idx < 0) for(let i = 0; i < rest.length; i++){ if(v4ShowKey(rest[i]) !== lk){ idx = i; break; } }
+    if(idx < 0) idx = 0;
+    const v = rest.splice(idx, 1)[0];
+    out.push(v); lk = v4ShowKey(v); lc = (v.channel || '').toLowerCase();
+  }
+  return out;
+}
+function v4FilterSyncUI(){
+  document.querySelectorAll('.v4-fchip2').forEach(function(b){
+    const g = b.getAttribute('data-fg'), val = b.getAttribute('data-fv');
+    const on = (g === 'feat') ? (v4Filters.feat.indexOf(val) >= 0) : (v4Filters[g] === val);
+    b.classList.toggle('on', !!on);
+  });
+}
+function v4FilterBars(){
+  const L = {videos:'Videos', movies:'Movies', shorts:'Shorts', playlists:'Playlists', today:'Today', week:'This week', month:'This month', year:'This year', short:'Under 3 min', mid:'3-20 min', long:'Over 20 min', pop:'Popularity', new:'Newest', live:'Live', '4k':'4K', hd:'HD', cc:'Subtitles'};
+  const parts = [];
+  if(v4Filters.type !== 'all') parts.push(L[v4Filters.type] || v4Filters.type);
+  if(v4Filters.date !== 'any') parts.push(L[v4Filters.date] || v4Filters.date);
+  if(v4Filters.dur !== 'any') parts.push(L[v4Filters.dur] || v4Filters.dur);
+  if(v4Filters.sort !== 'rel') parts.push(L[v4Filters.sort] || v4Filters.sort);
+  v4Filters.feat.forEach(function(f){ parts.push(L[f] || f); });
+  ['home', 'youtube', 'music'].forEach(function(w){
+    const el = v4$('v4-fact-' + w); if(!el) return;
+    el.innerHTML = parts.length ? ('Filters: ' + parts.join(' • ') + ' &nbsp;<a href="#" onclick="v4FilterClearAll();return false" style="color:inherit;text-decoration:underline">✕ hatayein</a>') : '';
+  });
+}
+function v4OpenFilters(w){
+  v4FilterView = w || v4State.view || 'home';
+  v4FilterSyncUI();
+  const wr = v4$('v4-filterwrap'); if(wr) wr.classList.add('open');
+  v4Lock(true);
+}
+function v4CloseFilters(){ const wr = v4$('v4-filterwrap'); if(wr) wr.classList.remove('open'); v4Lock(false); }
+function v4FilterPick(btn){
+  const g = btn.getAttribute('data-fg'), val = btn.getAttribute('data-fv');
+  if(g === 'feat'){ const i = v4Filters.feat.indexOf(val); if(i >= 0) v4Filters.feat.splice(i, 1); else v4Filters.feat.push(val); }
+  else v4Filters[g] = val;
+  v4FilterSyncUI();
+}
+function v4FilterClear(){
+  v4Filters.type = 'all'; v4Filters.date = 'any'; v4Filters.dur = 'any'; v4Filters.sort = 'rel'; v4Filters.feat = [];
+  v4FilterSyncUI(); v4FilterBars();
+}
+function v4FilterClearAll(){
+  v4FilterClear();
+  const w = v4State.view;
+  if(w === 'home' || w === 'youtube' || w === 'music'){ const fid = 'v4-' + w + '-feed'; const st = v4FeedState[fid]; if(st) v4LoadFeed(fid, st.q, st.type, st.sub); }
+}
+function v4FilterApply(){
+  v4CloseFilters(); v4FilterBars();
+  const w = v4FilterView, fid = 'v4-' + w + '-feed';
+  const st = v4FeedState[fid];
+  const q = st ? st.q : (w === 'youtube' ? 'trending videos' : (w === 'music' ? 'trending songs' : 'trending'));
+  if(v4Filters.type === 'shorts'){ v4OpenShorts((q === 'trending' || q === 'trending videos' || q === 'trending songs') ? '' : q); return; }
+  if(v4Filters.type === 'playlists'){ v4LoadFeed(fid, q, 'playlists'); return; }
+  if(st) v4LoadFeed(fid, st.q, st.type, st.sub);
+  else v4LoadFeed(fid, q, 'all');
+}
+/* Account sync: YouTube account link ho to Home/YouTube ki
+   pehli list UN KE YouTube home jaisi (bridge ytHomeFeed —
+   un ke apne signed-in session se live). Na mile to aam
+   mix wala rasta khud chal jata hai. */
+let v4YtHomeWait = null;
+function v4YtHomeResult(jsonStr){ const w = v4YtHomeWait; v4YtHomeWait = null; if(!w) return; if(!jsonStr){ w(null); return; } try{ w(JSON.parse(jsonStr)); }catch(e){ w(null); } }
+function v4YtHomeCall(){
+  return new Promise(function(res){
+    if(!(window.PlayTubeApp && PlayTubeApp.ytHomeFeed)){ res(null); return; }
+    v4YtHomeWait = res;
+    try{ PlayTubeApp.ytHomeFeed(); }catch(e){ v4YtHomeWait = null; res(null); return; }
+    setTimeout(function(){ if(v4YtHomeWait === res){ v4YtHomeWait = null; res(null); } }, 9000);
+  });
+}
+async function v4SyncFeedTry(elId, st, gen){
+  try{
+    if(elId !== 'v4-home-feed' && elId !== 'v4-youtube-feed') return false;
+    if((st.type || 'videos') !== 'all') return false;
+    let linked = ''; try{ linked = localStorage.getItem('pt_yt_linked') || ''; }catch(e){}
+    if(linked !== '1') return false;
+    if(!(window.PlayTubeApp && PlayTubeApp.ytHomeFeed)) return false;
+    const data = await v4YtHomeCall();
+    if(v4FeedGen[elId] !== gen || v4FeedState[elId] !== st) return true;
+    if(!data || !data.videos || !data.videos.length) return false;
+    const el = v4$(elId); if(!el) return false;
+    let html = '';
+    const shorts = (data.shorts || []).map(function(s){ return {id:{videoId:s.id}, snippet:{title:s.title || '', channelTitle:s.channel || ''}, view_count:s.views || ''}; });
+    if(shorts.length >= 3) html += v4ShortStripHTML(shorts);
+    let n = 0;
+    data.videos.forEach(function(sv){
+      const v = {videoId:sv.id, title:sv.title || '', channel:sv.channel || '', duration:sv.dur || '', views:sv.views || '', age:sv.age || ''};
+      if(!v.videoId || st.seen[v.videoId]) return;
+      st.seen[v.videoId] = 1; v4FeedShown[v.videoId] = 1; v4Videos[v.videoId] = v; html += v4CardHTML(v); n++; v4SeenAdd([v.videoId]);
+    });
+    if(!n) return false;
+    el.innerHTML = html;
+    st.phonePg = null; st.done = false; st._sync = 1;
+    el.insertAdjacentHTML('beforeend', v4FeedSentinelHTML(elId));
+    const sn = el.querySelector('.v4-more'); if(sn && v4FeedObs) v4FeedObs.observe(sn);
+    return true;
+  }catch(e){ return false; }
+}
+/* Phone path par Shorts ki row (Home/YouTube ke andar, line
+   mein) — server path par ye pehle se ati hai. */
+async function v4StripPhone(elId, st){
+  try{
+    if(elId !== 'v4-home-feed' && elId !== 'v4-youtube-feed') return;
+    const t = st.type || 'videos';
+    if(t !== 'all' && t !== 'videos') return;
+    const items = await v4PhoneBridge('phoneSearch', 'trending shorts');
+    if(!items || !items.length) return;
+    const el = v4$(elId); if(!el || v4FeedState[elId] !== st) return;
+    if(el.querySelector('.v4-srow')) return;
+    const raw = [];
+    items.forEach(function(it){ if(it.duration > 0 && it.duration <= 70 && raw.length < 10) raw.push({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: it.duration, view_count: (it.views != null && it.views >= 0) ? it.views : ''}); });
+    if(raw.length < 3) return;
+    const strip = v4ShortStripHTML(raw);
+    const cards = el.querySelectorAll('.v4-vcard');
+    if(cards.length >= 5) cards[3].insertAdjacentHTML('afterend', strip);
+    else el.insertAdjacentHTML('afterbegin', strip);
+  }catch(e){}
+}
+/* Floating player (APK v3.5): phone stream wali video dusri
+   apps ke UPAR chhoti window mein — move/resize system PiP. */
+function v4FloatPlay(){
+  if(!v4FrameId) return;
+  if(!(window.PlayTubeApp && PlayTubeApp.openFloatPlayer)){ v4Toast('Floating player sirf nayi app (v3.5+) mein hai'); return; }
+  v4Toast('Floating player load ho raha hai...');
+  try{ PlayTubeApp.openFloatPlayer(v4FrameId, (v4Current && v4Current.title) || ''); }catch(e){ v4Toast('Floating player nahi khula'); }
+}
+function v4FloatResult(ok){ if(!ok) v4Toast('Is video ka floating player nahi ban saka — ye video phone stream se nahi mili'); }
+/* App wapas khule (kaafi der baad) to feed khud fresh —
+   24h sync wali feeling: har open par YouTube jaisa taza. */
+let _v4HiddenAt = 0;
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden){ _v4HiddenAt = Date.now(); return; }
+  if(_v4HiddenAt && Date.now() - _v4HiddenAt > 180000){
+    _v4HiddenAt = 0;
+    const vw = v4State.view;
+    if(vw === 'home' || vw === 'youtube' || vw === 'music'){
+      const fid = 'v4-' + vw + '-feed'; const st = v4FeedState[fid];
+      if(st && !st.loading) v4LoadFeed(fid, st.q, st.type, st.sub);
+    }
+  }
+});
+
 const v4FeedState = {};
 let v4FeedSession = Math.random().toString(36).slice(2, 10);
 /* ---------- personalization (Update 34): jo zyada search/watch, waisa feed ---------- */
@@ -2246,10 +2539,10 @@ function v4FeedQuery(st){
   const t = (st.type || 'videos'), sub = (st.sub || 'all');
   const trend = (!q || /^trend/i.test(q));
   const D = {pakistani:'pakistani drama episode', indian:'indian drama serial', turkish:'turkish drama in urdu', dubbed:'korean drama hindi dubbed', webseries:'web series hindi dubbed'};
-  const M = {indian:'indian full movie hindi', pakistani:'pakistani full movie', english:'english full movie', dubbed:'hollywood movie hindi dubbed full', south:'south indian movie hindi dubbed'};
+  const M = {indian:'indian full movie hindi', pakistani:'pakistani full movie', punjabi:'punjabi full movie', english:'hollywood hindi dubbed full movie', dubbed:'hollywood movie hindi dubbed full', south:'south indian movie hindi dubbed'};
   const K = {motupatlu:'motu patlu cartoon hindi', cocomelon:'cocomelon nursery rhymes', doraemon:'doraemon cartoon hindi', peppa:'peppa pig full episodes', tomjerry:'tom and jerry cartoon'};
   const DS = {pakistani:' pakistani drama', indian:' indian drama serial', turkish:' turkish drama urdu dubbed', dubbed:' hindi dubbed drama', webseries:' web series'};
-  const MS = {indian:' indian full movie', pakistani:' pakistani full movie', english:' english full movie', dubbed:' hindi dubbed full movie', south:' south indian hindi dubbed movie'};
+  const MS = {indian:' indian full movie', pakistani:' pakistani full movie', punjabi:' punjabi full movie', english:' hollywood hindi dubbed movie', dubbed:' hindi dubbed full movie', south:' south indian hindi dubbed movie'};
   const KS = {motupatlu:' motu patlu', cocomelon:' cocomelon', doraemon:' doraemon hindi', peppa:' peppa pig', tomjerry:' tom and jerry'};
   if(t === 'playlists') return null;
   if(t === 'dramas'){ if(!trend) return q + (DS[sub] || ' drama episode'); return D[sub] || 'pakistani drama episode'; }
@@ -2261,7 +2554,10 @@ function v4FeedQuery(st){
   if(t === 'live') return trend ? 'live stream' : (q + ' live stream');
   if(/^trending songs/i.test(q)) return 'latest songs official video';
   if(trend) return '';
-  return q;
+  /* Update 130: Features (4K/Subtitles) search mein query
+     hint ban kar jate hain — YouTube bhi aise hi talashta hai. */
+  const fh = (v4Filters.feat.indexOf('4k') >= 0 ? ' 4K' : '') + (v4Filters.feat.indexOf('cc') >= 0 ? ' subtitles' : '');
+  return q + fh;
 }
 async function v4PhoneFeedFallback(elId, st){
   try{
@@ -2284,7 +2580,7 @@ async function v4PhoneFeedFallback(elId, st){
     const el = v4$(elId); if(!el) return false;
     const norm = [];
     items.forEach(function(it){
-      const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || ''});
+      const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || '', age_ts: it.age_ts || 0});
       if(v.videoId) norm.push(v);
     });
     if(!norm.length) return false;
@@ -2308,13 +2604,14 @@ async function v4PhoneFeedFallback(elId, st){
       const _have = {}; ordered.forEach(function(v){ _have[v.videoId] = 1; });
       const _add = [];
       _more.forEach(function(it){
-        const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || ''});
+        const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || '', age_ts: it.age_ts || 0});
         if(v.videoId && !_have[v.videoId] && !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]){ _have[v.videoId] = 1; _add.push(v); }
       });
       if(!_add.length) continue;
       ordered = _add.concat(ordered);
       _unseen += _add.length;
     }
+    ordered = v4Diverse(v4ApplyFilters(ordered, st));
     if(!ordered.length) return false;
     let html = '', n = 0;
     ordered.forEach(function(v){
@@ -2322,6 +2619,7 @@ async function v4PhoneFeedFallback(elId, st){
     });
     if(!n) return false;
     el.innerHTML = html;
+    v4StripPhone(elId, st);
     /* Update 124: phone wali feed bhi UNLIMITED — done NAHI;
        scroll par v4FeedMore phone ki agli page layega, phone
        thak jaye to server wala rasta. */
@@ -2370,11 +2668,14 @@ async function v4PhoneFeedMore(elId, st){
         items = await v4PhoneBridge('phoneSearch', v4PhoneRotQuery(st));
       }
       if(!items || !items.length) continue;
-      let html = '', n = 0;
+      let batch = [];
       items.forEach(function(it){
-        const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || ''});
-        if(v.videoId && !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]){ st.seen[v.videoId] = 1; v4FeedShown[v.videoId] = 1; v4Videos[v.videoId] = v; html += v4CardHTML(v); n++; v4SeenAdd([v.videoId]); }
+        const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || '', age_ts: it.age_ts || 0});
+        if(v.videoId && !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]){ st.seen[v.videoId] = 1; batch.push(v); }
       });
+      batch = v4Diverse(v4ApplyFilters(batch, st));
+      let html = '', n = 0;
+      batch.forEach(function(v){ v4FeedShown[v.videoId] = 1; v4Videos[v.videoId] = v; html += v4CardHTML(v); n++; v4SeenAdd([v.videoId]); });
       if(!n) continue;
       const old = el.querySelector('.v4-more'); if(old) old.remove();
       el.insertAdjacentHTML('beforeend', html);
@@ -2390,6 +2691,10 @@ async function v4LoadFeed(elId, q, type, sub, opts){
   const gen = (v4FeedGen[elId] = (v4FeedGen[elId] || 0) + 1);
   v4FeedState[elId] = {q:q, type:(type || 'videos'), sub:(sub || ''), page:0, seen:{}, loading:false, done:false, sort:(opts && opts.sort) || '', minDur:(opts && opts.minDur) || 0, gen:gen, _retry:(opts && opts._retry) || 0};
   el.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
+  /* Update 130: account link ho to pehle UN KE YouTube home
+     ki sync list (Home/YouTube ke All par) — na mile to neeche
+     wala aam rasta khud chal jata hai. */
+  if(await v4SyncFeedTry(elId, v4FeedState[elId], gen)) return;
   /* Update 121: APK mein PHONE PEHLE — har chip/search ki asal
      talash phone se hoti hai; server sirf tab jab phone kuch na de.
      (Browser mein bridge nahi hota — wahan purana server flow hi.) */
@@ -2433,15 +2738,18 @@ async function v4FeedMore(elId, first){
     }
     v4AudioCards = (elId === 'v4-music-feed' && st.type === 'mp3');
     let pageHtml = '', pageCount = 0;
+    const pageVs = [];
     r.data.items.forEach(function(it){
       if(it.kind === 'playlist'){
         const pid = (it.id && it.id.playlistId) || '';
         if(pid && !st.seen['pl:' + pid]){ st.seen['pl:' + pid] = 1; pageHtml += v4PlaylistCardHTML(it); pageCount++; }
       } else {
         const v = v4Norm(it);
-        if(v.videoId && !st.seen[v.videoId]){ st.seen[v.videoId] = 1; v4Videos[v.videoId] = v; pageHtml += v4CardHTML(v); pageCount++; v4SeenAdd([v.videoId]); }
+        if(v.videoId && !st.seen[v.videoId]){ st.seen[v.videoId] = 1; pageVs.push(v); }
       }
     });
+    const pageVs2 = (st.type === 'playlists') ? pageVs : v4Diverse(v4ApplyFilters(pageVs, st));
+    pageVs2.forEach(function(v){ v4Videos[v.videoId] = v; pageHtml += v4CardHTML(v); pageCount++; v4SeenAdd([v.videoId]); });
     v4AudioCards = false;
     if(pageCount){
       if(first && added === 0) el.innerHTML = stripHtml + pageHtml;
@@ -2499,11 +2807,17 @@ function v4FrameSetup(id){
   v4FrameId = id;
   const fr = v4$('v4-player');
   if(fr) fr.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1&modestbranding=1&enablejsapi=1';
-  const note = v4$('v4-frame-note');
-  if(note){ note.style.display = 'none'; const lk = v4$('v4-frame-yt'); if(lk){ lk.href = 'https://www.youtube.com/watch?v=' + id; lk.style.display = window.PlayTubeApp ? 'none' : ''; } const nb = v4$('v4-frame-native'); if(nb) nb.style.display = v4NativeMode() ? '' : 'none'; }
+  const wm = v4$('v4-watch-msg'); if(wm){ wm.style.display = 'none'; wm.textContent = ''; }
   if(window._v4ft) clearTimeout(window._v4ft);
   if(fr) fr.onload = function(){ if(window._v4ft){ clearTimeout(window._v4ft); window._v4ft = null; } };
-  window._v4ft = setTimeout(function(){ const n2 = v4$('v4-frame-note'); if(n2 && v4FrameId === id) n2.style.display = ''; }, 15000);
+  /* Update 132: 'Phone se play karein' BUTTON khatam — embed
+     12s mein load na ho to phone wala rasta KHUD try hota
+     hai; wo bhi na mile to saaf message (net ka ilzaam nahi). */
+  window._v4ft = setTimeout(function(){
+    if(v4FrameId !== id) return;
+    if(v4NativeMode() && window.PlayTubeApp && PlayTubeApp.nativePlay) v4NativePlay(true);
+    else v4WatchMsg();
+  }, 12000);
   const fb = v4$('v4-watch-fav');
   if(fb){ let favs = []; try{ favs = JSON.parse(localStorage.getItem('pt_favs') || '[]'); }catch(e){} fb.textContent = favs.some(function(f){ return f.id === id; }) ? '♥' : '♡'; }
 }
@@ -2511,16 +2825,21 @@ function v4FrameStop(){
   const fr = v4$('v4-player');
   if(fr && v4FrameId){ fr.src = 'about:blank'; v4FrameId = ''; }
 }
-function v4NativePlay(){
-  if(!v4FrameId || !v4NativeMode() || !PlayTubeApp.nativePlay){ v4Toast('Ye option sirf naye APK (v2.1+) mein hai'); return; }
-  v4Toast('Phone se video load ho rahi hai...');
+function v4WatchMsg(){
+  const wm = v4$('v4-watch-msg'); if(!wm) return;
+  wm.innerHTML = 'Ye video filhal yahan nahi chal pa rahi — thodi der baad dobara try karein. <a href="https://www.youtube.com/watch?v=' + v4FrameId + '" target="_blank" rel="noopener" style="color:var(--v4teal)">YouTube par kholein ↗</a>';
+  wm.style.display = '';
+}
+function v4NativePlay(silent){
+  if(!v4FrameId || !v4NativeMode() || !PlayTubeApp.nativePlay){ if(!silent) v4Toast('Ye option sirf app mein hai'); return; }
+  if(!silent) v4Toast('Phone se video load ho rahi hai...');
   window._v4npWait = true;
-  try{ PlayTubeApp.nativePlay(v4FrameId); }catch(e){ window._v4npWait = false; v4Toast('Phone se play nahi ho saka'); return; }
-  setTimeout(function(){ if(window._v4npWait){ window._v4npWait = false; v4Toast('Phone se stream nahi mili — net check karke dobara try karein'); } }, 45000);
+  try{ PlayTubeApp.nativePlay(v4FrameId); }catch(e){ window._v4npWait = false; if(!silent) v4Toast('Phone se play nahi ho saka'); else v4WatchMsg(); return; }
+  setTimeout(function(){ if(window._v4npWait){ window._v4npWait = false; v4WatchMsg(); } }, 30000);
 }
 function v4NativePlayResult(url){
   window._v4npWait = false;
-  if(!url){ v4Toast('Phone se stream nahi mili'); return; }
+  if(!url){ v4WatchMsg(); return; }
   const vid = v4$('v4-filevideo'); if(!vid) return;
   v4$('v4-player-title').textContent = (v4Current && v4Current.title) || '';
   vid.src = url;
@@ -2799,6 +3118,7 @@ function v4OpenWatch(v){
   if(v.title) v4InterestAdd(v.title.replace(/[^\p{L}\p{N} ]/gu, ' ').split(/\s+/).filter(function(w){ return w.length > 2; }).slice(0, 3).join(' '), 1);
   if(v4State.view !== 'watch') v4PrevView = v4State.view;
   v4FrameSetup(v.videoId);
+  const _fl = v4$('v4-watch-float'); if(_fl) _fl.style.display = v4NativeMode() ? '' : 'none';
   v4$('v4-watch-title').textContent = v.title || '';
   v4$('v4-watch-channel').textContent = v.channel || '';
   v4Show('watch');
@@ -2921,6 +3241,24 @@ async function v4StartDownload(params){
 /* ---------- downloads view (unified registry — Bug #3/#9) ---------- */
 function v4PhonePollStart(){ v4PhonePollStop(); window._v4phPoll = setInterval(function(){ try{ v4PhoneDlRender(); }catch(e){} }, 2500); }
 function v4PhonePollStop(){ if(window._v4phPoll){ clearInterval(window._v4phPoll); window._v4phPoll = null; } }
+/* Update 135: Downloads page par bhi EK folder — head
+   (pic/name) par click se khulta/band hota hai; andar
+   downloading pehle, waiting (paused) neeche. */
+function v4PhoneFolderHtml(active){
+  const run = active.filter(function(p){ return p.status === 'running' || p.status === 'starting'; });
+  const wait = active.filter(function(p){ return p.status === 'paused'; });
+  const ordered = run.concat(wait);
+  const first = ordered[0] || {};
+  const open = window._v4DlFolderOpen !== false;
+  return '<div class="v4-dlfolder"><div class="v4-dlf-head" onclick="v4DlFolderToggle()">'
+    + (first.videoId ? '<span class="v4-dlf-th">' + v4Img(first.videoId) + '</span>' : '<span style="font-size:22px">📥</span>')
+    + '<div class="tt"><div class="t1">📥 Downloads</div><div class="t2">' + run.length + ' downloading • ' + wait.length + ' waiting — kul ' + active.length + '</div></div>'
+    + '<span style="margin-left:auto;font-size:15px">' + (open ? '▾' : '▸') + '</span></div>'
+    + (open ? '<div class="v4-dlf-body">' + ordered.map(v4PhoneRowHtml).join('') + '</div>' : '')
+    + '</div>';
+}
+function v4DlFolderToggle(){ window._v4DlFolderOpen = (window._v4DlFolderOpen === false); window._v4phSig = ''; v4PhoneDlRender(); }
+function v4SrvFolderToggle(){ window._v4SrvFolderOpen = (window._v4SrvFolderOpen === false); v4RenderDownloads(); }
 function v4PhoneRowHtml(p){
   const th = p.videoId ? v4Img(p.videoId) : '<span style="width:64px;text-align:center;font-size:22px">📱</span>';
   let t2 = '', btns = '';
@@ -2931,6 +3269,9 @@ function v4PhoneRowHtml(p){
   } else if(p.status === 'paused'){
     t2 = '⏸ Pause hai — ' + v4Esc(p.doneMB || '0') + ' / ' + v4Esc(p.totalMB || '?') + ' MB' + (p.quality ? ' • ' + v4Esc(p.quality) : '');
     btns = '<button class="v4-roundbtn teal" title="Dobara chalayein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="resume">▶</button><button class="v4-roundbtn" title="Hata dein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="remove">🗑</button>';
+  } else if(p.status === 'starting'){
+    t2 = 'Shuru ho raha hai...' + (p.quality ? ' • ' + v4Esc(p.quality) : '');
+    btns = '<button class="v4-roundbtn" title="Band karein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="cancel">✕</button>';
   } else if(p.status === 'failed'){
     t2 = '<span style="color:var(--v4danger)">Fail ho gaya — sheet se dobara try karein</span>';
     btns = '<button class="v4-roundbtn" title="Hata dein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="remove">🗑</button>';
@@ -2995,12 +3336,12 @@ function v4PhoneDlRender(){
   });
   if(changed){ try{ localStorage.setItem('pt_phone_dl', JSON.stringify(stored.slice(0, 50))); }catch(e){} }
   const liveKeys = {}; live.forEach(function(p){ if(p.status !== 'done') liveKeys[(p.title || '') + '|' + (p.quality || '')] = 1; });
-  const active = live.filter(function(p){ return p.status === 'running' || p.status === 'paused'; });
+  const active = live.filter(function(p){ return p.status === 'running' || p.status === 'paused' || p.status === 'starting'; });
   const bad = live.filter(function(p){ return p.status === 'failed' || p.status === 'stopped'; });
-  const sig = live.map(function(p){ return p.id + ':' + p.status; }).join(',') + '#' + stored.length;
+  const sig = live.map(function(p){ return p.id + ':' + p.status; }).join(',') + '#' + stored.length + (window._v4DlFolderOpen === false ? '#c' : '#o');
   if(sig !== window._v4phSig){
     window._v4phSig = sig;
-    boxA.innerHTML = active.map(v4PhoneRowHtml).join('');
+    boxA.innerHTML = active.length ? v4PhoneFolderHtml(active) : '';
     const boxF = v4$('v4-phone-failed');
     if(boxF) boxF.innerHTML = bad.map(v4PhoneRowHtml).join('');
     let doneHtml = '';
@@ -3176,7 +3517,13 @@ function v4RenderDownloads(){
     return '<div class="v4-dlrow' + (isSelA ? ' sel' : '') + '"' + rowClk + '>' + chk + (vid ? v4Img(vid) : '<span style="width:64px"></span>') + '<div class="tt"><div class="t1">' + v4Esc(title) + '</div><div class="v4-bar"><i style="width:' + pct + '%"></i></div><div class="t2">' + v4Esc(meta) + '</div></div>' + btn + rst + del + '</div>';
   };
   const acEl = v4$('v4-dl-actcount'); if(acEl) acEl.textContent = act.length ? '(' + act.length + ')' : ''; window._v4srvAct = act.length;
-  v4$('v4-dl-active').innerHTML = act.length ? act.map(rowAct).join('') : '<p class="v4-muted">Koi download nahi chal raha</p>';
+  if(act.length){
+    const sOpen = window._v4SrvFolderOpen !== false;
+    const sRun = act.filter(function(a){ return a.s.status !== 'paused'; }).length;
+    const sWait = act.length - sRun;
+    const fvid = (act[0].s && act[0].s.video_id) || '';
+    v4$('v4-dl-active').innerHTML = '<div class="v4-dlfolder"><div class="v4-dlf-head" onclick="v4SrvFolderToggle()">' + (fvid ? '<span class="v4-dlf-th">' + v4Img(fvid) + '</span>' : '<span style="font-size:22px">📥</span>') + '<div class="tt"><div class="t1">📥 Downloads</div><div class="t2">' + sRun + ' downloading • ' + sWait + ' waiting — kul ' + act.length + '</div></div><span style="margin-left:auto;font-size:15px">' + (sOpen ? '▾' : '▸') + '</span></div>' + (sOpen ? '<div class="v4-dlf-body">' + act.map(rowAct).join('') + '</div>' : '') + '</div>';
+  } else v4$('v4-dl-active').innerHTML = '<p class="v4-muted">Koi download nahi chal raha</p>';
   const rowDone = function(d){
     const title = d.title || ''; if(f && title.toLowerCase().indexOf(f) < 0) return '';
     v4DlMap[d.downloadId] = d;
@@ -4791,6 +5138,9 @@ async function v4OpenPlaylist(pid, title){
 function v4SetFilter(btn){
   const w = btn.getAttribute('data-w'), t = btn.getAttribute('data-t');
   document.querySelectorAll('.v4-fchip[data-w="' + w + '"]').forEach(function(b){ b.classList.toggle('on', b === btn); });
+  /* Update 130: Videos option ke andar 'Trending Videos'
+     NAHI — sirf 'Videos' (heading har chip ke naam par). */
+  if(w === 'home'){ const hd = v4$('v4-home-heading'); if(hd){ const names = {all:'Trending Videos', videos:'Videos', playlists:'Playlists', dramas:'Dramas', movies:'Movies', kids:'Kids'}; hd.textContent = names[t] || 'Trending Videos'; } }
   const feedId = 'v4-' + w + '-feed';
   const st = v4FeedState[feedId];
   const q = (st && st.q) || (w === 'youtube' ? 'trending videos' : (w === 'music' ? 'trending songs' : 'trending'));
@@ -5252,6 +5602,11 @@ function v4AfterAuth(){
 /* ---------- shared link + clipboard (Update 25) ---------- */
 async function v4HandleShared(url){
   if(!url) return;
+  /* Update 134: YouTube link ki pehchan LOCAL hai — share karte
+     hi download sheet foran khulti hai, server ke jawab ka
+     intezar nahi (Snaptube wali tez flow). */
+  const ym = url.match(/(?:youtube\.com\/(?:watch\?[^ ]*v=|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if(ym){ const v = {videoId: ym[1], title:'', channel:''}; v4Videos[v.videoId] = v; v4DlClick(null, v.videoId); return; }
   const r = await v4Post('/api/smart-link', {url:url});
   if(r.ok && r.data && r.data.type === 'youtube'){
     const v = {videoId:r.data.video_id, title:'', channel:''};
@@ -6288,8 +6643,9 @@ def api_feed():
         # English/Hindi Dubbed/South)
         _MOVIE_SUBS = {
             'indian': (['indian full movie hindi', 'bollywood full movie', 'hindi movie full hd', 'new indian movie full'], ' indian full movie'),
-            'pakistani': (['pakistani full movie', 'punjabi full movie', 'lollywood full movie', 'pakistani film full'], ' pakistani full movie'),
-            'english': (['english full movie', 'hollywood full movie english', 'action full movie english'], ' english full movie'),
+            'pakistani': (['pakistani full movie', 'lollywood full movie', 'pakistani film full'], ' pakistani full movie'),
+            'punjabi': (['punjabi full movie', 'new punjabi movie full', 'punjabi film full movie'], ' punjabi full movie'),
+            'english': (['hollywood hindi dubbed full movie', 'english movie hindi dubbed', 'hollywood movie hindi dubbed full'], ' hollywood hindi dubbed movie'),
             'dubbed': (['hollywood movie hindi dubbed full', 'english movie hindi dubbed', 'action movie hindi dubbed full'], ' hindi dubbed full movie'),
             'south': (['south indian movie hindi dubbed', 'south movie hindi dubbed full', 'allu arjun movie hindi dubbed'], ' south indian hindi dubbed movie'),
         }
