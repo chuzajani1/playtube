@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 40  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 41  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -619,7 +619,10 @@ def _rebuild_payment_accounts():
 FEATURE_DEFAULTS = {'ai_enabled': True, 'downloads_enabled': True,
                     'premium_enabled': True, 'social_enabled': True,
                     'signup_enabled': True, 'floating_enabled': True,
-                    'maintenance_mode': False, 'hd_premium_only': True}
+                    'maintenance_mode': False, 'hd_premium_only': True,
+                    'shorts_enabled': True, 'music_enabled': True,
+                    'guest_downloads_enabled': True,
+                    'storage_autoclean': True}
 
 
 def get_feature_toggles():
@@ -635,8 +638,13 @@ def feature_enabled(name):
 
 # ============ GUEST FREE DOWNLOADS (Update 44) ============
 def get_guest_limit():
-    """Bina account kitni free downloads — admin ki setting, default 10."""
+    """Bina account kitni free downloads — admin ki setting, default 10.
+    Update 122: Admin ka 'Guest downloads' master switch OFF ho to
+    limit 0 — bina account download bilkul band (sab checks isi
+    function se guzarte hain)."""
     try:
+        if not feature_enabled('guest_downloads_enabled'):
+            return 0
         return max(0, int(load_site_settings().get('guest_download_limit', 10)))
     except (TypeError, ValueError):
         return 10
@@ -903,11 +911,13 @@ def _storage_info():
             'downloads_mb': round(dl_bytes / 1048576, 1), 'downloads_count': dl_count}
 
 
-def _storage_cleanup():
+def _storage_cleanup(force=False):
     """80% se zyada bharne par sab se purani completed downloads delete
     karo jab tak istemal TARGET (40%) se neeche na aa jaye; sath mein
     record ke baghair padi purani files (orphans) bhi saaf hoti hain.
     (freed_mb, removed)."""
+    if not force and not feature_enabled('storage_autoclean'):
+        return (0, 0)
     freed = 0
     removed = 0
     try:
@@ -1516,7 +1526,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">40</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">41</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -3309,7 +3319,7 @@ function v4GuestPhoneUsed(){
 function v4GuestGate(){
   if(v4State.user) return true;
   const lim = (v4State.config && v4State.config.guest_limit != null) ? v4State.config.guest_limit : 10;
-  if(lim <= 0) return true;
+  if(lim <= 0) return false;
   return v4GuestPhoneUsed() < lim;
 }
 function v4GuestPhoneDone(vid){
@@ -4672,11 +4682,13 @@ async function v4RenderAdmin(){
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">💾 STORAGE (SERVER)</div><div id="v4-storage-box" class="v4-muted">Loading...</div></div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">🍪 YOUTUBE COOKIES</div><div id="v4-cookies-box" class="v4-muted">Loading...</div></div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">WEBSITE ON / OFF</div>';
-  h += tog('ai_enabled', 'AI Assistant') + tog('downloads_enabled', 'Downloads') + tog('premium_enabled', 'Premium System') + tog('social_enabled', 'Social Tab') + tog('signup_enabled', 'Naya Signup (registration)') + tog('floating_enabled', 'Floating Button (APK)') + tog('maintenance_mode', 'Maintenance (site band)') + '</div>';
+  h += tog('ai_enabled', 'AI Assistant') + tog('downloads_enabled', 'Downloads') + tog('premium_enabled', 'Premium System') + tog('social_enabled', 'Social Tab') + tog('shorts_enabled', 'Shorts') + tog('music_enabled', 'Music Tab') + tog('signup_enabled', 'Naya Signup (registration)') + tog('floating_enabled', 'Floating Button (APK)') + tog('maintenance_mode', 'Maintenance (site band)') + '</div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">ELAAN (ANNOUNCEMENT)</div><input class="v4-input" id="v4-adm-ann" placeholder="Home par sab ko dikhne wala message" value="' + v4Esc(cfg.announcement || '') + '"><button class="v4-btn2" onclick="v4AdminSaveAnn()">Save Elaan</button></div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">MAINTENANCE MESSAGE</div><input class="v4-input" id="v4-adm-maintmsg" placeholder="Maintenance on ho to ye message dikhe ga" value="' + v4Esc(cfg.maintenance_message || '') + '"><button class="v4-btn2" onclick="v4AdminSaveMaintMsg()">Message Save karein</button></div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">DOWNLOADS SETTING</div>';
   h += tog('hd_premium_only', 'HD (720p+) sirf Premium ke liye') + '<div class="v4-muted">Ye off karein to HD quality sab ke liye free ho jayegi</div>';
+  h += tog('guest_downloads_enabled', 'Guest downloads (bina account)') + '<div class="v4-muted">Off karein to bina account download bilkul band ho jayega — guest limit se alag ye master switch hai (website + APK dono par)</div>';
+  h += tog('storage_autoclean', 'Storage auto-safai') + '<div class="v4-muted">On ho to server ki jagah 80% bharne par purani downloads khud saaf hoti hain (40% tak) — storage kabhi full nahi hota</div>';
   h += '<div class="v4-row" style="margin-top:10px"><div class="grow">Guest free downloads (bina account)<div class="v4-muted">0 likhein to guest download band — sab ko account banana pare ga</div></div><input class="v4-input" style="width:110px;margin:0" id="v4-adm-guest-limit" type="number" min="0" max="1000" value="' + (cfg.guest_download_limit != null ? cfg.guest_download_limit : 10) + '"></div><button class="v4-btn2" onclick="v4AdminSaveGuestLimit()">Guest Limit Save karein</button></div>';
   const pr = cfg.prices || {};
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">PREMIUM PRICES (Rs)</div>';
@@ -4719,7 +4731,7 @@ async function v4RenderAdmin(){
   v4LoadStorage(); v4LoadCookies();
 }
 async function v4LoadStorage(){ const box = v4$('v4-storage-box'); if(!box) return; const r = await v4Fetch('/api/admin/storage'); if(!r.ok || !r.data){ box.textContent = 'Storage ki maloomat nahi mil sakin'; return; } const d = r.data; const pct = Math.min(100, d.used_pct || 0); const col = pct >= 80 ? '#f87171' : (pct >= 60 ? '#fbbf24' : '#14b8a6'); let h = '<div class="v4-row"><div class="grow">Istemaal shuda jagah</div><b>' + d.used_mb + ' / ' + d.total_mb + ' MB (' + pct + '%)</b></div>'; h += '<div style="height:10px;border-radius:99px;background:var(--v4border);overflow:hidden;margin:6px 0"><div style="height:100%;width:' + pct + '%;background:' + col + '"></div></div>'; h += '<div class="v4-muted">Khaali jagah: ' + d.free_mb + ' MB - Downloads: ' + d.downloads_count + ' files (' + d.downloads_mb + ' MB)</div>'; h += '<div class="v4-muted" style="margin-top:4px">Auto rule: jagah 80% bharne par sab se purani downloads khud delete hoti hain jab tak 40% na reh jaye (Private folder wali kabhi nahi) — storage kabhi full nahi hota.</div>'; h += '<button class="v4-btn2" style="margin-top:8px" onclick="v4AdminCleanup()">Abhi safai karein</button>'; box.innerHTML = h; }
-async function v4LoadCookies(){ const box = v4$('v4-cookies-box'); if(!box) return; const r = await v4Fetch('/api/admin/cookies-status'); const on = r.ok && r.data && r.data.active; box.innerHTML = '<div class="v4-muted">' + (on ? '✅ Cookies lagi hui hain — downloads mazboot hain.' : '⚠ Cookies nahi lagin — YouTube kabhi kabhi server ko rok deta hai (bot-check), tab downloads fail hoti hain. Spare Google account ki cookies.txt yahan lagayein to ye rukawat khatam ho jayegi.') + '</div><label class="v4-btn2" style="display:inline-block;margin-top:8px;cursor:pointer">🍪 Cookies file chunein<input type="file" accept=".txt" style="display:none" onchange="v4AdminCookiesUpload(this)"></label>'; }
+async function v4LoadCookies(){ const box = v4$('v4-cookies-box'); if(!box) return; const r = await v4Fetch('/api/admin/cookies-status'); const on = r.ok && r.data && r.data.active; box.innerHTML = '<div class="v4-muted">' + (on ? '✅ Cookies lagi hui hain' + (r.data.size_kb ? ' (' + r.data.size_kb + ' KB)' : '') + ' — downloads mazboot hain, bot-check wala issue nahi ayega.' : '⚠ Cookies nahi lagin — YouTube kabhi kabhi server ko rok deta hai (bot-check), tab downloads fail hoti hain. Spare Google account ki cookies.txt yahan lagayein to ye rukawat khatam ho jayegi.') + '</div><label class="v4-btn2" style="display:inline-block;margin-top:8px;cursor:pointer">🍪 Cookies file chunein<input type="file" accept=".txt" style="display:none" onchange="v4AdminCookiesUpload(this)"></label>'; }
 async function v4AdminCookiesUpload(inp){ const f = inp.files && inp.files[0]; if(!f) return; const fd = new FormData(); fd.append('file', f); v4Toast('Cookies lag rahi hain...'); try{ const r = await fetch('/api/admin/cookies', {method:'POST', body:fd}); const d = await r.json(); if(d && d.success){ v4Toast('✅ Cookies lag gayin'); v4LoadCookies(); } else v4Toast((d && d.error) || 'Cookies nahi lag sakin'); }catch(e){ v4Toast('Upload fail ho gaya'); } }
 async function v4AdminCleanup(){ const r = await v4Post('/api/admin/storage-cleanup', {}); if(r.ok && r.data){ if(r.data.removed) v4Toast(r.data.removed + ' purani downloads delete - ' + r.data.freed_mb + ' MB khaali'); else v4Toast('Safai ki zaroorat nahi - jagah 80% se kam bhari hai'); v4LoadStorage(); } else v4Toast('Safai nahi ho saki'); }
 function v4DealRowDel(btn){ const r = btn.closest('.v4-dealrow'); if(r) r.remove(); }
@@ -4964,6 +4976,9 @@ async function v4LoadConfig(){
   const t = r.data.toggles || {};
   if(t.social_enabled === false){ const b = v4$('v4-tt-social'); if(b) b.style.display = 'none'; }
   if(t.ai_enabled === false){ const b = v4$('v4-bn-ai'); if(b) b.style.display = 'none'; }
+  if(t.music_enabled === false){ const b = document.querySelector('#v4-toptabs [data-tt="music"]'); if(b) b.style.display = 'none'; }
+  if(t.shorts_enabled === false){ document.querySelectorAll('[data-t="shorts"]').forEach(function(b){ b.style.display = 'none'; }); try{ v4CloseShorts(); }catch(e){} }
+  v4PhoneSyncBg();
 }
 (function v4Init(){
   try{ const _th = localStorage.getItem('pt_theme'); if(_th) document.documentElement.setAttribute('data-theme', _th); }catch(e){}
@@ -5773,6 +5788,8 @@ def api_feed():
     ftype = (request.args.get('type', 'all') or 'all').strip().lower()
     if ftype not in ('all', 'videos', 'playlists', 'shorts', 'live', 'movies', 'mp3', 'naat', 'dramas', 'kids'):
         ftype = 'all'
+    if ftype == 'shorts' and not feature_enabled('shorts_enabled'):
+        return jsonify({'items': [], 'page': page, 'has_more': False})
     shorts_pool_mode = False
     # Update 79: TikTok / reels / shorts — ek hi matlab, vertical shorts
     _synq = ql.replace(' ', '')
@@ -11557,7 +11574,14 @@ def api_admin_cookies_status():
     _g = _v4_admin_guard()
     if _g:
         return _g
-    return jsonify({'active': bool(_yt_cookies_path())})
+    _p = _yt_cookies_path()
+    _kb = 0
+    if _p:
+        try:
+            _kb = int(os.path.getsize(_p) / 1024)
+        except Exception:
+            _kb = 0
+    return jsonify({'active': bool(_p), 'size_kb': _kb})
 
 
 @app.route('/api/system-clean', methods=['POST'])
@@ -11583,7 +11607,7 @@ def api_system_clean():
     except Exception:
         pass
     try:
-        _f2, _r2 = _storage_cleanup()
+        _f2, _r2 = _storage_cleanup(force=True)
         freed += int(_f2 * 1048576)
         removed += _r2
     except Exception:
@@ -11610,7 +11634,7 @@ def api_admin_storage_cleanup():
     guard = _v4_admin_guard()
     if guard:
         return guard
-    freed, removed = _storage_cleanup()
+    freed, removed = _storage_cleanup(force=True)
     info = _storage_info()
     info.update({'success': True, 'freed_mb': freed, 'removed': removed})
     return jsonify(info)
