@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 59  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 60  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">59</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">60</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -6293,7 +6293,7 @@ def _feed_search_items(query, n=30):
             items = []
     if items:
         try:
-            _age_th.join(timeout=6)
+            _age_th.join(timeout=2.5)
             if _age_holder:
                 for _it in items:
                     if not _it.get('age_text') and not _it.get('age_ts'):
@@ -6793,6 +6793,31 @@ def _enrich_channels(_items):
         pass
 
 
+def _parallel_lists(queries, n, fn):
+    """Update 149: kai search queries EK SATH — pehle ek
+    ke baad ek chalti theen (Movies feed 22 second). Order
+    wohi rehta hai jo queries ki hai; koi query fail ho to
+    us ki list khali, baqi phir bhi aati hain."""
+    if not queries:
+        return []
+    if len(queries) == 1:
+        try:
+            return [fn(queries[0], n)]
+        except Exception:
+            return [[]]
+    def _safe(_q):
+        try:
+            return fn(_q, n)
+        except Exception:
+            return []
+    try:
+        from concurrent.futures import ThreadPoolExecutor as _TPL
+        with _TPL(max_workers=min(4, len(queries))) as _ex:
+            return list(_ex.map(_safe, queries))
+    except Exception:
+        return [_safe(_q) for _q in queries]
+
+
 @app.route('/api/feed')
 def api_feed():
     q = (request.args.get('q', 'trending') or 'trending').strip()
@@ -6959,17 +6984,22 @@ def api_feed():
         merged = []
         seen_ids = set()
         tries = 6 if shorts_pool_mode else 4
+        _sqs = []
         for k in range(tries):
             s_k = pool[(eff + k) % len(pool)]
             if shorts_pool_mode:
-                q_k = s_k
+                _sqs.append(s_k)
             else:
-                q_k = (s_k + FEED_VARIANTS[k % len(FEED_VARIANTS)]).strip()
-            for it in _shorts_feed_items(q_k, 24):
-                vid = (it.get('id') or {}).get('videoId')
-                if vid and vid not in seen_ids:
-                    seen_ids.add(vid)
-                    merged.append(it)
+                _sqs.append((s_k + FEED_VARIANTS[k % len(FEED_VARIANTS)]).strip())
+        # Update 149: 3-3 ke group ek sath (pehle ek ek karke)
+        for _b0 in range(0, len(_sqs), 3):
+            for _lst in _parallel_lists(_sqs[_b0:_b0 + 3], 24,
+                                        _shorts_feed_items):
+                for it in _lst:
+                    vid = (it.get('id') or {}).get('videoId')
+                    if vid and vid not in seen_ids:
+                        seen_ids.add(vid)
+                        merged.append(it)
             real_so_far = [it for it in merged
                            if it.get('duration') is None or it['duration'] <= 65]
             if len(real_so_far) >= 24:
@@ -6982,16 +7012,16 @@ def api_feed():
         # videos pehle (duration None/0 ya title mein live)
         merged = []
         seen_ids = set()
+        _lqs = []
         for k in range(3):
             s_k = pool[(eff + k) % len(pool)]
-            q_k = s_k if 'live' in s_k.lower() else (s_k + ' live stream').strip()
-            for it in _feed_search_items(q_k, 20):
+            _lqs.append(s_k if 'live' in s_k.lower() else (s_k + ' live stream').strip())
+        for _lst in _parallel_lists(_lqs, 20, _feed_search_items):
+            for it in _lst:
                 vid = (it.get('id') or {}).get('videoId')
                 if vid and vid not in seen_ids:
                     seen_ids.add(vid)
                     merged.append(it)
-            if len(merged) >= 24:
-                break
 
         def _is_live(it):
             if it.get('duration') in (None, 0):
@@ -7019,17 +7049,17 @@ def api_feed():
             pool = list(_mp) if ('trend' in ql or not ql) else [q + _msuffix]
         merged = []
         seen_ids = set()
+        _mqs = []
         for k in range(3):
             s_k = pool[(eff + k) % len(pool)]
-            q_k = s_k if 'movie' in s_k.lower() else (s_k + ' full movie').strip()
-            for it in _feed_search_items(q_k, 20):
+            _mqs.append(s_k if 'movie' in s_k.lower() else (s_k + ' full movie').strip())
+        # Update 149: teeno searches ek sath (pehle 22s lagte thay)
+        for _lst in _parallel_lists(_mqs, 20, _feed_search_items):
+            for it in _lst:
                 vid = (it.get('id') or {}).get('videoId')
                 if vid and vid not in seen_ids:
                     seen_ids.add(vid)
                     merged.append(it)
-            longs = [it for it in merged if (it.get('duration') or 0) >= 2400]
-            if len(longs) >= 12:
-                break
         longs = [it for it in merged if (it.get('duration') or 0) >= 2400]
         items = longs if len(longs) >= 6 else sorted(
             merged, key=lambda x: -(x.get('duration') or 0))
@@ -7039,16 +7069,16 @@ def api_feed():
         # talash, kai seeds mila kar)
         merged = []
         seen_ids = set()
+        _aqs = []
         for k in range(3):
             s_k = pool[(eff + k) % len(pool)]
-            q_k = s_k if 'audio' in s_k.lower() else (s_k + ' official audio').strip()
-            for it in _feed_search_items(q_k, 20):
+            _aqs.append(s_k if 'audio' in s_k.lower() else (s_k + ' official audio').strip())
+        for _lst in _parallel_lists(_aqs, 20, _feed_search_items):
+            for it in _lst:
                 vid = (it.get('id') or {}).get('videoId')
                 if vid and vid not in seen_ids:
                     seen_ids.add(vid)
                     merged.append(it)
-            if len(merged) >= 24:
-                break
         return _R(merged[:30], page < total_pages - 1)
     if ftype in ('dramas', 'kids'):
         # Update 74: Dramas / Kids chips — generic feed par apna pool,
@@ -7085,19 +7115,19 @@ def api_feed():
                 base_pool = list(FEED_KIDS_POOL) if ('trend' in ql or not ql) else [q + ' for kids']
         merged = []
         seen_ids = set()
+        _dqs = []
         for k in range(3):
             s_k = base_pool[(eff + k) % len(base_pool)]
             if len(base_pool) <= 1:
-                q_k = (s_k + FEED_VARIANTS[(eff + k) % len(FEED_VARIANTS)]).strip()
+                _dqs.append((s_k + FEED_VARIANTS[(eff + k) % len(FEED_VARIANTS)]).strip())
             else:
-                q_k = s_k
-            for it in _feed_search_items(q_k, 20):
+                _dqs.append(s_k)
+        for _lst in _parallel_lists(_dqs, 20, _feed_search_items):
+            for it in _lst:
                 vid = (it.get('id') or {}).get('videoId')
                 if vid and vid not in seen_ids:
                     seen_ids.add(vid)
                     merged.append(it)
-            if len(merged) >= 24:
-                break
         return _R(merged[:30], page < total_pages - 1)
     has_more = page < (total_pages - 1)
     if len(pool) <= 1:
@@ -7172,8 +7202,9 @@ _SOCIAL_UA = ('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 '
 def _social_opts(extra=None):
     o = {'http_headers': {'User-Agent': _SOCIAL_UA},
          'extractor_retries': 3, 'socket_timeout': 25}
-    if _HAS_CFFI:
-        o['impersonate'] = 'chrome'
+    # Update 149: impersonate HATAYA — is server par
+    # yt-dlp ke sath ye andar se assert karke har social
+    # extract ko fail kar raha tha; saada rasta chalta hai.
     if extra:
         o.update(extra)
     return o
@@ -8565,34 +8596,48 @@ def _extract_with_clients(url, base_opts, download=False):
 def _extract_formats_info(url):
     """Formats ke liye: jo client SAB SE ZYADA asal qualities de, usi ka
     result — warna android client sirf 360p de kar baqi qualities chupa
-    deta tha. (Update 66)"""
-    _base = {'quiet': True, 'no_warnings': True,
-             'no_check_certificate': True, 'skip_download': True}
-    if _HAS_CFFI:
-        _base['impersonate'] = 'chrome'
-    _best = None
-    _best_score = (-1, -1)
-    _last_err = None
-    for _client in _YT_CLIENTS:
-        _opts = _ydl_opts_with_client(_base, _client)
-        try:
-            with yt_dlp.YoutubeDL(_opts) as _ydl:
-                _info = _ydl.extract_info(url, download=False)
-        except Exception as e:
-            # Formats ke liye har client try karna hai — ek fail ho to
-            # agla; sirf tab fail jab koi bhi info na de.
-            _last_err = e
-            continue
-        if not _info:
-            continue
-        _fmts = _info.get('formats', []) or []
-        _maxh = max([f.get('height') or 0 for f in _fmts] or [0])
-        _score = (_maxh, len(_fmts))
-        if _score > _best_score:
-            _best_score = _score
-            _best = _info
-        if _maxh >= 2160 or len(_fmts) >= 25:
-            break
+    deta tha. (Update 66)
+    Update 149: pehle BINA impersonation wala rasta — is server
+    par yt-dlp+impersonate khali AssertionError deta tha, is
+    liye formats har video par fail thay. Impersonate wala
+    rasta sirf fallback hai (jab saada rasta kuch na de)."""
+    def _run(_use_imp):
+        _base = {'quiet': True, 'no_warnings': True,
+                 'no_check_certificate': True, 'skip_download': True}
+        if _use_imp:
+            _base['impersonate'] = 'chrome'
+        _best = None
+        _best_score = (-1, -1)
+        _last_err = None
+        for _client in _YT_CLIENTS:
+            _opts = _ydl_opts_with_client(_base, _client)
+            try:
+                with yt_dlp.YoutubeDL(_opts) as _ydl:
+                    _info = _ydl.extract_info(url, download=False)
+            except Exception as e:
+                # Formats ke liye har client try karna hai — ek
+                # fail ho to agla; sirf tab fail jab koi bhi
+                # info na de.
+                _last_err = e
+                continue
+            if not _info:
+                continue
+            _fmts = _info.get('formats', []) or []
+            _maxh = max([f.get('height') or 0 for f in _fmts] or [0])
+            _score = (_maxh, len(_fmts))
+            if _score > _best_score:
+                _best_score = _score
+                _best = _info
+            if _maxh >= 2160 or len(_fmts) >= 25:
+                break
+        return _best, _last_err
+    _best, _last_err = _run(False)
+    if not _best and _HAS_CFFI:
+        _best2, _err2 = _run(True)
+        if _best2:
+            _best = _best2
+        elif _err2 is not None:
+            _last_err = _err2
     if _best:
         return _best
     if _last_err:
@@ -10155,6 +10200,11 @@ def api_formats(video_id):
             f"https://www.youtube.com/watch?v={video_id}")
     except Exception as e:
         _em = re.sub(r'\x1b\[[0-9;]*m', '', str(e))
+        if not _em.strip():
+            # Update 149: khali error kabhi wapas nahi
+            _em = ('Formats load nahi ho sake — dobara try '
+                   'karein; masla rahe to thodi dair baad '
+                   'dobara try karein')
         if 'Sign in to confirm' in _em or 'not a bot' in _em:
             _em = ('YouTube ne server ko kuch der ke liye roka hai — '
                    '10-15 minute baad dobara try karein')
