@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 45  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 46  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1646,7 +1646,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">45</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">46</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2182,8 +2182,8 @@ function v4RenderCards(elId, items){
 /* ---------- infinite feed (Update 33): scroll = nayi videos ---------- */
 /* ---------- v9: global seen — jo dikh/dekh liya wo dobara nahi ---------- */
 function v4SeenGet(){ try{ return JSON.parse(localStorage.getItem('pt_seen') || '[]'); }catch(e){ return []; } }
-function v4SeenAdd(ids){ if(!ids || !ids.length) return; const now = Date.now(); const drop = {}; ids.forEach(function(id){ if(id) drop[id] = 1; }); const cur = v4SeenGet().filter(function(x){ return x && x.id && !drop[x.id]; }); ids.forEach(function(id){ if(id) cur.unshift({id:id, ts:now}); }); try{ localStorage.setItem('pt_seen', JSON.stringify(cur.slice(0, 1200))); }catch(e){} }
-function v4SeenParam(){ return v4SeenGet().slice(0, 400).map(function(x){ return x.id; }).join(','); }
+function v4SeenAdd(ids){ if(!ids || !ids.length) return; const now = Date.now(); const drop = {}; ids.forEach(function(id){ if(id) drop[id] = 1; }); const cur = v4SeenGet().filter(function(x){ return x && x.id && !drop[x.id]; }); ids.forEach(function(id){ if(id) cur.unshift({id:id, ts:now}); }); try{ localStorage.setItem('pt_seen', JSON.stringify(cur.slice(0, 3000))); }catch(e){} }
+function v4SeenParam(){ return v4SeenGet().slice(0, 800).map(function(x){ return x.id; }).join(','); }
 const v4FeedState = {};
 let v4FeedSession = Math.random().toString(36).slice(2, 10);
 /* ---------- personalization (Update 34): jo zyada search/watch, waisa feed ---------- */
@@ -2277,34 +2277,20 @@ async function v4PhoneFeedFallback(elId, st){
       if(v.videoId) norm.push(v);
     });
     if(!norm.length) return false;
-    /* Pehle wo videos jo na is feed mein aayi hon, na is session
-       mein kisi aur tab par, na pichli dafaon mein (pt_seen) —
-       teeno filter se kam az kam 4 na bachein to qadmon mein
-       narmi: pehle session wala, phir sirf is-feed wala dedupe. */
+    /* Update 126 (user ka FINAL usool): jo video ek dafa dikh
+       gayi — is feed mein, kisi aur tab par, ya pichli dafaon
+       mein — wo DOBARA KABHI NAHI. Koi narmi/relaxation nahi:
+       sirf kabhi-na-dekhi videos hi list mein jati hain; kam
+       hon to neeche top-up aur agli pages se aur bhar li jati
+       hain. */
     const seenP = {}; v4SeenGet().forEach(function(x){ if(x && x.id) seenP[x.id] = 1; });
-    let ordered;
-    if(q === ''){
-      /* Trending par tartib: pehle kabhi-na-dekhi, phir is session
-         mein na-dekhi, aakhir mein purani — sar hamesha naya. */
-      const A = [], B = [], C = [];
-      norm.forEach(function(v){
-        if(st.seen[v.videoId]) return;
-        if(!v4FeedShown[v.videoId] && !seenP[v.videoId]) A.push(v);
-        else if(!v4FeedShown[v.videoId]) B.push(v);
-        else C.push(v);
-      });
-      ordered = A.concat(B, C);
-    } else {
-      ordered = norm.filter(function(v){ return !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]; });
-      if(ordered.length < 4) ordered = norm.filter(function(v){ return !st.seen[v.videoId] && !v4FeedShown[v.videoId]; });
-      if(ordered.length < 4) ordered = norm.filter(function(v){ return !st.seen[v.videoId]; });
-    }
+    let ordered = norm.filter(function(v){ return !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]; });
     /* Update 125: pehli list mein NAYI (kabhi na dekhi) videos
        6 se kam hon to phone se aur bharo — har open / refresh
        par har jagah sar naya, purani video kahin nahi. */
     let _unseen = 0;
     ordered.forEach(function(v){ if(!v4FeedShown[v.videoId] && !seenP[v.videoId]) _unseen++; });
-    for(let _tx = 0; _tx < 2 && _unseen < 6; _tx++){
+    for(let _tx = 0; _tx < 3 && _unseen < 8; _tx++){
       let _more = null;
       if(q !== '' && window.PlayTubeApp && PlayTubeApp.phoneSearchMore) _more = await v4PhoneBridge('phoneSearchMore', q);
       if(!_more || !_more.length){ st.phoneRot = (st.phoneRot || 0) + 1; _more = await v4PhoneBridge('phoneSearch', (q === '') ? v4PhoneRotQuery(st) : (q + v4_FEED_VARIANTS[st.phoneRot % v4_FEED_VARIANTS.length])); }
@@ -2361,6 +2347,7 @@ async function v4PhoneFeedMore(elId, st){
   try{
     if(!(window.PlayTubeApp && PlayTubeApp.phoneSearch)) return false;
     const el = v4$(elId); if(!el) return false;
+    const seenP = {}; v4SeenGet().forEach(function(x){ if(x && x.id) seenP[x.id] = 1; });
     for(let attempt = 0; attempt < 2; attempt++){
       let items = null;
       if(st.phoneQ){
@@ -2376,7 +2363,7 @@ async function v4PhoneFeedMore(elId, st){
       let html = '', n = 0;
       items.forEach(function(it){
         const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || ''});
-        if(v.videoId && !st.seen[v.videoId]){ st.seen[v.videoId] = 1; v4FeedShown[v.videoId] = 1; v4Videos[v.videoId] = v; html += v4CardHTML(v); n++; v4SeenAdd([v.videoId]); }
+        if(v.videoId && !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]){ st.seen[v.videoId] = 1; v4FeedShown[v.videoId] = 1; v4Videos[v.videoId] = v; html += v4CardHTML(v); n++; v4SeenAdd([v.videoId]); }
       });
       if(!n) continue;
       const old = el.querySelector('.v4-more'); if(old) old.remove();
@@ -2458,7 +2445,7 @@ async function v4FeedMore(elId, first){
       const okF = await v4PhoneFeedFallback(elId, st);
       if(okF) return;
     }
-    el.innerHTML = (failed ? '<p class="v4-muted">Results load nahi ho sake — net check karke dobara try karein.</p>' : '<p class="v4-muted">Kuch nahi mila — dobara try karein.</p>') + '<div style="text-align:center;padding:6px"><button class="v4-btn2" data-feed="' + elId + '" onclick="v4FeedRetry(this)">↻ Dobara try karein</button></div>';
+    el.innerHTML = failed ? '<p class="v4-muted">Results load nahi ho sake — net check karke dobara try karein.</p><div style="text-align:center;padding:6px"><button class="v4-btn2" data-feed="' + elId + '" onclick="v4FeedRetry(this)">↻ Dobara try karein</button></div>' : '<p class="v4-muted">Is topic ki saari videos aap pehle dekh chuke hain — is liye dobara nahi dikhayi gayin. Koi aur topic ya search try karein 🌟</p>';
     return;
   }
   if(st.done){
@@ -2835,18 +2822,36 @@ async function v4OpenSheet(id, audioOnly){
   const list = v4$('v4-sheet-list');
   let d = null;
   window._v4NativeErr = '';
-  if(v4NativeMode()){ d = await v4NativeFormats(id); if(d && !d.error){ d.nativeMode = true; } else d = null; }
-  if(!d){
+  let _srvWhy = '';
+  const tryServer = async function(){
     const r = await v4Fetch('/api/formats/' + id);
-    if(!r.ok || !r.data || r.data.error){
-      const why = (r.data && r.data.error) ? v4FriendlyErr(r.data.error) : 'Server se jawab nahi aya — net bohat slow hai ya server busy hai';
-      const nerr = window._v4NativeErr ? ' Phone se bhi nahi mila: ' + v4Esc(window._v4NativeErr) : '';
-      list.innerHTML = '<p class="v4-muted">Formats nahi mil sake: ' + v4Esc(why) + nerr + '</p>' +
-        '<button data-id="' + id + '" onclick="v4OpenSheet(this.dataset.id)" style="margin-top:10px;padding:10px 22px;border:none;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#06b6d4);color:#fff;font-weight:700;font-size:15px;cursor:pointer">↻ Dobara try karein</button>';
-      return;
-    }
-    d = r.data;
-    if(window._v4NativeErr) d.nativeErr = window._v4NativeErr;
+    if(r.ok && r.data && !r.data.error){ if(window._v4NativeErr) r.data.nativeErr = window._v4NativeErr; return r.data; }
+    _srvWhy = (r.data && r.data.error) ? v4FriendlyErr(r.data.error) : 'Server se jawab nahi aya — net bohat slow hai ya server busy hai';
+    return null;
+  };
+  const tryNative = async function(){
+    if(!v4NativeMode()) return null;
+    const nd = await v4NativeFormats(id);
+    if(nd && !nd.error){ nd.nativeMode = true; return nd; }
+    return null;
+  };
+  d = await tryNative();
+  if(!d) d = await tryServer();
+  if(!d){
+    /* Update 126: ek nakami par error NAHI — 2 second ruk kar
+       dono raste DOBARA try hote hain (server ki bot-lehar aur
+       phone ki UNPLAYABLE aksar kuch hi seconds mein theek ho
+       jati hai). Error sirf doosri nakami par. */
+    list.innerHTML = '<p class="v4-muted">Formats late a rahe hain — dobara koshish ho rahi hai...</p>';
+    await new Promise(function(res){ setTimeout(res, 2000); });
+    d = await tryNative();
+    if(!d) d = await tryServer();
+  }
+  if(!d){
+    const nerr = window._v4NativeErr ? ' Phone se bhi nahi mila: ' + v4Esc(window._v4NativeErr) : '';
+    list.innerHTML = '<p class="v4-muted">Formats nahi mil sake: ' + v4Esc(_srvWhy) + nerr + '</p>' +
+      '<button data-id="' + id + '" onclick="v4OpenSheet(this.dataset.id)" style="margin-top:10px;padding:10px 22px;border:none;border-radius:999px;background:linear-gradient(90deg,#7c3aed,#06b6d4);color:#fff;font-weight:700;font-size:15px;cursor:pointer">↻ Dobara try karein</button>';
+    return;
   }
   if(d.title) v4$('v4-sheet-title').textContent = d.title;
   if(d.channel) v4$('v4-sheet-channel').textContent = d.channel;
