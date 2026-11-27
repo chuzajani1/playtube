@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 63  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 65  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">63</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">65</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -2366,8 +2366,16 @@ function v4RotateFirst(elId, list){
   try{
     const key = 'pt_last_first_' + elId;
     const last = localStorage.getItem(key) || '';
-    let out = list;
-    if(last && list[0].videoId === last) out = list.slice(3).concat(list.slice(0, 3));
+    /* Update 153: pehle sirf tab ghumta tha jab sar
+       HU-BAHU wahi video ho — fresh install par
+       localStorage khali, kabhi nahi ghumta tha, is
+       liye har install par wahi pehli videos atin
+       theen. Ab browse ki pehli list HAR dafa random
+       jagah se ghumti hai, sar pichli dafa wala
+       kabhi nahi banta. */
+    const off = 1 + ((Math.random() * Math.min(8, list.length - 1)) | 0);
+    let out = list.slice(off).concat(list.slice(0, off));
+    if(last && out[0].videoId === last && list.length > 2) out = out.slice(1).concat(out.slice(0, 1));
     localStorage.setItem(key, out[0].videoId);
     return out;
   }catch(e){ return list; }
@@ -2435,17 +2443,27 @@ function v4YtHomeCall(){
     if(!(window.PlayTubeApp && PlayTubeApp.ytHomeFeed)){ res(null); return; }
     v4YtHomeWait = res;
     try{ PlayTubeApp.ytHomeFeed(); }catch(e){ v4YtHomeWait = null; res(null); return; }
-    setTimeout(function(){ if(v4YtHomeWait === res){ v4YtHomeWait = null; res(null); } }, 9000);
+    setTimeout(function(){ if(v4YtHomeWait === res){ v4YtHomeWait = null; res(null); } }, 15000);
   });
 }
 async function v4SyncFeedTry(elId, st, gen){
   try{
     if(elId !== 'v4-home-feed' && elId !== 'v4-youtube-feed') return false;
-    if((st.type || 'videos') !== 'all') return false;
+    /* Update 153: asal kharabi — Home/YouTube ki aam
+       load type 'videos' se ati hai, purana darwaza
+       sirf 'all' par khulta tha, is liye sync KABHI
+       chala hi nahi. Ab asal landing load par chalega
+       (search / chips / filters par nahi). */
+    const _lq = (st.q || '').trim().toLowerCase();
+    if(!(!st.type || st.type === 'all' || st.type === 'videos')) return false;
+    if(_lq !== '' && _lq !== 'trending' && _lq !== 'trending videos') return false;
+    if(st.sub || st.sort || st.minDur) return false;
     let linked = ''; try{ linked = localStorage.getItem('pt_yt_linked') || ''; }catch(e){}
     if(linked !== '1') return false;
     if(!(window.PlayTubeApp && PlayTubeApp.ytHomeFeed)) return false;
-    const data = await v4YtHomeCall();
+    let data = null;
+    if(window._v4YtSyncData && (Date.now() - (window._v4YtSyncAt || 0)) < 300000) data = window._v4YtSyncData;
+    else { data = await v4YtHomeCall(); if(data){ window._v4YtSyncData = data; window._v4YtSyncAt = Date.now(); } }
     if(v4FeedGen[elId] !== gen || v4FeedState[elId] !== st) return true;
     if(!data || !data.videos || !data.videos.length) return false;
     const el = v4$(elId); if(!el) return false;
@@ -2775,6 +2793,9 @@ async function v4LoadFeed(elId, q, type, sub, opts){
   const p = v4LoadFeedInner(elId, q, type, sub, o2);
   if(cached){
     if(!el.querySelector('.v4-card')) el.innerHTML = cached;
+    /* Update 153: mehfooz list bhi har open par ghuma
+       kar — pehli videos pichli dafa wali na hon. */
+    try{ const _cs = el.querySelectorAll('.v4-card'); if(_cs.length > 3){ const _o = 1 + ((Math.random() * Math.min(6, _cs.length - 1)) | 0); for(let _i = 0; _i < _o; _i++){ const _f = el.querySelector('.v4-card'); if(_f && _f.parentNode) _f.parentNode.appendChild(_f); } } }catch(e){}
   } else {
     const g0 = v4FeedGen[elId];
     setTimeout(function(){
@@ -2862,6 +2883,7 @@ async function v4FeedMore(elId, first){
     });
     let pageVs2 = (st.type === 'playlists') ? pageVs : v4ApplyFilters(pageVs, st);
     if(st.type !== 'playlists'){ pageVs2 = v4ApplySearchOpts(pageVs2, st); if(st.sort !== 'date') pageVs2 = v4Diverse(pageVs2); }
+    if(first && st.type !== 'playlists' && st.sort !== 'date' && (!st.q || /trend/i.test(st.q))) pageVs2 = v4RotateFirst(elId, pageVs2);
     pageVs2.forEach(function(v){ v4Videos[v.videoId] = v; pageHtml += v4CardHTML(v); pageCount++; v4SeenAdd([v.videoId]); });
     v4AudioCards = false;
     if(pageCount){
@@ -3199,6 +3221,9 @@ async function v4ShortsPhoneLoad(){
       });
     }
     if(!got.length) return false;
+    /* Update 153: pehli list har open par ghuma kar —
+       sar har dafa mukhtalif short. */
+    if(v4ShortsPage === 0 && got.length > 4){ const _o2 = 1 + ((Math.random() * Math.min(8, got.length - 1)) | 0); const _h2 = got.splice(0, _o2); for(let _i2 = 0; _i2 < _h2.length; _i2++) got.push(_h2[_i2]); }
     v4ShortsRenderItems(got, true);
     return true;
   }catch(e){ return false; }
@@ -3218,6 +3243,7 @@ async function v4ShortsLoad(){
       v4ShortsLoading = false;
       const items = (d.items || []).filter(function(it){ return it.id && it.id.videoId; });
       if(!items.length){ v4ShortsPhoneLoad().then(function(ok){ if(!ok) v4ShortsDone = true; }); return; }
+      if(v4ShortsPage === 0 && items.length > 4){ const _o3 = 1 + ((Math.random() * Math.min(8, items.length - 1)) | 0); items = items.slice(_o3).concat(items.slice(0, _o3)); }
       v4ShortsRenderItems(items, !!d.has_more);
     })
     .catch(function(){ v4ShortsLoading = false; v4ShortsPhoneLoad(); });
@@ -3247,6 +3273,30 @@ function v4ShortPreloadNext(sec){
   try{
     const nxt = sec.nextElementSibling;
     if(nxt && nxt.getAttribute('data-vid')) v4PhoneStreamGet(nxt.getAttribute('data-vid'));
+  }catch(e){}
+}
+async function v4ShortsSyncTry(){
+  try{
+    if(!v4YtLinked()) return;
+    if(!(window.PlayTubeApp && PlayTubeApp.ytHomeFeed)) return;
+    let data = window._v4YtSyncData;
+    if(!data || (Date.now() - (window._v4YtSyncAt || 0)) >= 300000){ data = await v4YtHomeCall(); if(data){ window._v4YtSyncData = data; window._v4YtSyncAt = Date.now(); } }
+    if(!data || !data.shorts || !data.shorts.length) return;
+    const ov = v4$('v4-shorts'); if(!ov || !ov.classList.contains('open')) return;
+    if(v4ShortsQuery !== 'trending shorts') return;
+    const items = data.shorts.map(function(s){ return {id:{videoId:s.id}, snippet:{title:s.title || '', channelTitle:s.channel || ''}, view_count:s.views || ''}; }).filter(function(it){ return it.id.videoId; });
+    if(!items.length) return;
+    const tr = v4$('v4-shorts-track'); if(!tr) return;
+    if(!tr.querySelector('.v4-short')){ v4ShortsRenderItems(items, true); return; }
+    /* Kuchh list lag chuki ho aur user abhi sar par ho
+       to sync wali PEHLE laga kar baqi peeche kar do. */
+    if(tr.scrollTop < 10){
+      const cur = [];
+      tr.querySelectorAll('.v4-short').forEach(function(s){ const it = v4ShortsItems[s.getAttribute('data-vid')]; if(it) cur.push(it); });
+      tr.innerHTML = '';
+      v4ShortsRenderItems(items, true);
+      if(cur.length) v4ShortsRenderItems(cur, true);
+    }
   }catch(e){}
 }
 function v4OpenShorts(query){
@@ -3293,6 +3343,10 @@ function v4OpenShorts(query){
       }
     });
   }
+  /* Update 154: account link ho to Shorts mein PEHLE
+     user ke apne YouTube home ki shorts (sync) —
+     bahir wala YouTube nahi khulta. */
+  if(!_wasOpen && _q === 'trending shorts') v4ShortsSyncTry();
   /* Update 147: mehfooz shorts hon to pehle wo — screen
      khaali/kaali nahi rehti, taza peeche aati rahengi. */
   try{ const _sc = JSON.parse(localStorage.getItem('pt_shorts_cache') || '[]'); const _tr0 = v4$('v4-shorts-track'); if(_sc.length && _tr0 && !_tr0.querySelector('.v4-short')){ /* Update 151: mehfooz list har dafa GHUMA kar lagti hai — pehli short pichli dafa wali nahi hoti. */ const _off = _sc.length > 1 ? (1 + ((Math.random() * (_sc.length - 1)) | 0)) : 0; v4ShortsRenderItems(_sc.slice(_off).concat(_sc.slice(0, _off)), true); window._v4ShortsFreshSwap = Date.now(); } }catch(e){}
@@ -5300,7 +5354,7 @@ async function v4CleanServer(btn){
 function v4YtLinked(){ try{ return localStorage.getItem('pt_yt_linked') === '1'; }catch(e){ return false; } }
 function v4YtLinkResult(ok){
   try{ if(ok) localStorage.setItem('pt_yt_linked', '1'); else localStorage.removeItem('pt_yt_linked'); }catch(e){}
-  if(ok) v4Toast('YouTube account link ho gaya ✓');
+  if(ok){ v4Toast('YouTube account link ho gaya ✓ — aap ki videos Home, YouTube aur Shorts mein sync ho jayengi'); window._v4YtSyncData = null; window._v4YtSyncAt = 0; }
   if(v4State.view === 'ytaccount') v4RenderYtAccount();
 }
 function v4YtOpen(url){
@@ -5325,10 +5379,10 @@ function v4RenderYtAccount(){
     box.innerHTML =
       '<div style="text-align:center;padding:14px 6px"><div style="font-size:30px">▶️</div>' +
       '<div style="font-weight:800;font-size:16px;margin-top:6px">Get all YouTube features on Playza</div>' +
-      '<p class="v4-muted">Apna YouTube account link karein — phir aap ki Subscriptions, Library, History aur Watch later yahin se khulengi; videos dekhna aur subscribe karna bhi wahin hoga.</p></div>' +
-      '<div class="v4-row"><span>🔄</span><div class="grow">Sync your YouTube Library</div></div>' +
-      '<div class="v4-row"><span>🕐</span><div class="grow">History and Watch Later</div></div>' +
-      '<div class="v4-row"><span>🔔</span><div class="grow">Subscribe to new channels</div></div>' +
+      '<p class="v4-muted">Apna YouTube account link karein — phir aap ke YouTube home ki videos aur shorts Playza ke andar hi ayengi: Home par, YouTube tab mein aur Shorts mein. Bahir wala YouTube nahi khulega, sab kuchh sync ho kar yahin ayega.</p></div>' +
+      '<div class="v4-row"><span>🏠</span><div class="grow">Home par aap ki apni videos</div></div>' +
+      '<div class="v4-row"><span>🎬</span><div class="grow">YouTube tab mein bhi wahi sync</div></div>' +
+      '<div class="v4-row"><span>⚡</span><div class="grow">Shorts bhi aap ke home se</div></div>' +
       '<button class="v4-bigbtn" style="margin-top:12px" onclick="v4YtSignIn()">Sign in</button>' +
       '<p class="v4-muted" style="margin-top:8px">Sign in Google ke apne page par hoga — aap ka password Playza ko kabhi nahi milta.</p>';
     return;
@@ -5337,13 +5391,8 @@ function v4RenderYtAccount(){
     '<div style="display:flex;flex-direction:column;align-items:center;padding:10px 0 12px"><div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#db2777);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff">Y</div>' +
     '<div style="font-weight:700;margin-top:8px">Mera YouTube account</div>' +
     '<div style="background:#123a34;border:1px solid #1f8a70;color:#4ade80;font-size:11.5px;font-weight:700;border-radius:999px;padding:5px 12px;margin-top:8px">✓ Link hai</div></div>' +
-    '<button class="v4-bigbtn" data-url="https://www.youtube.com/" onclick="v4YtOpenEl(this)">▶ Mera YouTube kholein</button>' +
+    '<p class="v4-muted" style="text-align:center;margin:2px 0 4px">Aap ke YouTube home ki videos aur shorts ab Playza ke <b>Home</b>, <b>YouTube</b> aur <b>Shorts</b> mein sync ho kar ati hain — har khulne par taza. Bahir wala YouTube yahan nahi khulta.</p>' +
     '<div style="margin-top:12px">' +
-    '<div class="v4-row" data-url="https://www.youtube.com/feed/history" onclick="v4YtOpenEl(this)"><span>🕐</span><div class="grow">History</div><span>›</span></div>' +
-    '<div class="v4-row" data-url="https://www.youtube.com/feed/playlists" onclick="v4YtOpenEl(this)"><span>📋</span><div class="grow">Playlists</div><span>›</span></div>' +
-    '<div class="v4-row" data-url="https://www.youtube.com/playlist?list=WL" onclick="v4YtOpenEl(this)"><span>⏰</span><div class="grow">Watch later</div><span>›</span></div>' +
-    '<div class="v4-row" data-url="https://www.youtube.com/feed/subscriptions" onclick="v4YtOpenEl(this)"><span>🔔</span><div class="grow">Subscriptions</div><span>›</span></div>' +
-    '<div class="v4-row" data-url="https://www.youtube.com/account" onclick="v4YtOpenEl(this)"><span>🛡</span><div class="grow">Restricted mode<div class="v4-muted">YouTube ki apni setting se on/off hoga</div></div><span>›</span></div>' +
     '<div class="v4-row" data-url="https://accounts.google.com/AccountChooser?continue=https%3A%2F%2Fwww.youtube.com%2F" onclick="v4YtOpenEl(this)"><span>🔄</span><div class="grow">Switch Account</div><span>›</span></div>' +
     '<div class="v4-row" onclick="v4YtSignOut()"><span>🚪</span><div class="grow" style="color:#ff8fa8">Sign out</div></div>' +
     '</div>';
