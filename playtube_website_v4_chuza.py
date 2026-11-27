@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 55  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 56  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">55</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">56</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -3482,6 +3482,11 @@ function v4DlEmptyFix(){
 function v4PhoneDlRender(){
   const boxA = v4$('v4-phone-active'); if(!boxA) return;
   const boxD = v4$('v4-phone-done'); if(!boxD) return;
+  /* Update 145: scroll mehfooz — render ke baad wapis
+     (folder scroll karte hue khud start par chala jata
+     tha). */
+  const _svY = window.scrollY || 0;
+  const _fb0 = boxA.querySelector('.v4-dlf-body'); const _svF = _fb0 ? _fb0.scrollTop : 0;
   let live = [];
   if(v4NativeMode() && window.PlayTubeApp && PlayTubeApp.phoneDlState){
     try{ live = JSON.parse(PlayTubeApp.phoneDlState() || '[]'); }catch(e){}
@@ -3491,13 +3496,15 @@ function v4PhoneDlRender(){
   live.forEach(function(p){
     if(p.status === 'done'){
       const k = (p.title || '') + '|' + (p.quality || '');
-      if(!stored.some(function(s){ return ((s.title || '') + '|' + (s.quality || '')) === k; })){ stored.unshift({title: p.title || '', quality: p.quality || '', videoId: p.videoId || '', totalMB: p.totalMB || '', fileName: p.fileName || '', ts: Date.now()}); changed = true; v4GuestPhoneDone(p.videoId || ''); }
+      if(!stored.some(function(s){ return ((s.title || '') + '|' + (s.quality || '')) === k; })){ stored.unshift({title: p.title || '', quality: p.quality || '', videoId: p.videoId || '', totalMB: p.totalMB || '', fileName: p.fileName || '', src: p.src || '', ts: Date.now()}); changed = true; v4GuestPhoneDone(p.videoId || ''); }
     }
   });
   if(changed){ try{ localStorage.setItem('pt_phone_dl', JSON.stringify(stored.slice(0, 50))); }catch(e){} }
   const liveKeys = {}; live.forEach(function(p){ if(p.status !== 'done') liveKeys[(p.title || '') + '|' + (p.quality || '')] = 1; });
-  const active = live.filter(function(p){ return p.status === 'running' || p.status === 'paused' || p.status === 'starting'; });
-  const bad = live.filter(function(p){ return p.status === 'failed' || p.status === 'stopped'; });
+  /* Update 145: Downloads tab par sirf web (Home/
+     YouTube/sheet) wali — AI wali sirf AI folder mein. */
+  const active = live.filter(function(p){ return p.src !== 'ai' && (p.status === 'running' || p.status === 'paused' || p.status === 'starting'); });
+  const bad = live.filter(function(p){ return p.src !== 'ai' && (p.status === 'failed' || p.status === 'stopped'); });
   const sig = live.map(function(p){ return p.id + ':' + p.status; }).join(',') + '#' + stored.length + (window._v4DlFolderOpen === false ? '#c' : '#o');
   if(sig !== window._v4phSig){
     window._v4phSig = sig;
@@ -3505,7 +3512,7 @@ function v4PhoneDlRender(){
     const boxF = v4$('v4-phone-failed');
     if(boxF) boxF.innerHTML = bad.map(v4PhoneRowHtml).join('');
     let doneHtml = '';
-    stored.forEach(function(s){ if(liveKeys[(s.title || '') + '|' + (s.quality || '')]) return; doneHtml += v4PhoneStoredRow(s); });
+    stored.forEach(function(s){ if(s.src === 'ai') return; if(liveKeys[(s.title || '') + '|' + (s.quality || '')]) return; doneHtml += v4PhoneStoredRow(s); });
     boxD.innerHTML = doneHtml;
   } else {
     live.forEach(function(p){
@@ -3521,6 +3528,8 @@ function v4PhoneDlRender(){
   if(acEl2){ const tot = (window._v4srvAct || 0) + active.length; acEl2.textContent = tot ? '(' + tot + ')' : ''; }
   v4DlEmptyFix();
   v4FailSectSync();
+  const _fb1 = boxA.querySelector('.v4-dlf-body'); if(_fb1 && _svF) _fb1.scrollTop = _svF;
+  if(Math.abs((window.scrollY || 0) - _svY) > 2) window.scrollTo(0, _svY);
 }
 async function v4LoadDownloads(){
   try{
@@ -3646,6 +3655,9 @@ function v4FailSectSync(){
 function v4RenderDownloads(){
   const fEl = v4$('v4-dl-filter'); if(!fEl) return;
   const f = (fEl.value || '').toLowerCase();
+  /* Update 145: scroll mehfooz (phone wali tarah). */
+  const _svY = window.scrollY || 0;
+  const _da0 = v4$('v4-dl-active'); const _fb0 = _da0 ? _da0.querySelector('.v4-dlf-body') : null; const _svF = _fb0 ? _fb0.scrollTop : 0;
   const selbar = v4$('v4-dl-selbar');
   if(selbar){
     if(v4DlSel.on){
@@ -3710,6 +3722,8 @@ function v4RenderDownloads(){
   else v4$('v4-dl-done').innerHTML = '<div class="v4-empty"><div class="v4-empty-ic">🎬</div><div class="v4-empty-t">Abhi tak koi download nahi</div><p class="v4-muted">Jo videos aap download karein ge, wo yahan mehfooz milengi — baghair internet ke dekhne ke liye.</p><button class="v4-bigbtn" style="max-width:240px;margin:10px auto 0" data-v="home" onclick="v4Show(this.dataset.v)">Videos dekhein</button></div>';
   v4DlEmptyFix();
   v4FailSectSync();
+  const _da1 = v4$('v4-dl-active'); const _fb1 = _da1 ? _da1.querySelector('.v4-dlf-body') : null; if(_fb1 && _svF) _fb1.scrollTop = _svF;
+  if(Math.abs((window.scrollY || 0) - _svY) > 2) window.scrollTo(0, _svY);
 }
 let v4AutoSaveBase = false;
 function v4SaveFileName(it){
@@ -4932,8 +4946,15 @@ function v4AiFolderRender(key){
   if(!total) h += '<div class="v4-ep"><span style="flex:1;font-size:13px">Load ho raha hai...</span></div>';
   rows.forEach(function(r){ h += v4AiFolderRowHtml(F, r); });
   h += '</div></div>';
+  const box = v4$('v4-ai-msgs');
+  const _oldBox = F.el.querySelector('.v4-job-box'); const _svJ = _oldBox ? _oldBox.scrollTop : 0;
+  const _svC = box ? box.scrollTop : 0;
   F.el.innerHTML = h;
-  const box = v4$('v4-ai-msgs'); if(box && F.el.parentNode === box) box.appendChild(F.el);
+  if(box && F.el.parentNode === box) box.appendChild(F.el);
+  /* Update 145: folder ki list scroll render par start
+     par na jaye; chat ki scroll bhi wahi rahe. */
+  const _newBox = F.el.querySelector('.v4-job-box'); if(_newBox && _svJ) _newBox.scrollTop = _svJ;
+  if(box && _svC && Math.abs(box.scrollTop - _svC) > 2) box.scrollTop = _svC;
 }
 function v4PhoneItemToggle(el){
   /* Update 120: phone row ka apna start/stop — khamosh click. */
