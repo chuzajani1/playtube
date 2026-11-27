@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 44  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 45  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1646,7 +1646,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">44</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">45</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2257,12 +2257,15 @@ async function v4PhoneFeedFallback(elId, st){
     if(!(window.PlayTubeApp && PlayTubeApp.phoneSearch)) return false;
     const q = v4FeedQuery(st);
     if(q === null) return false;
+    /* Update 125: rotation har load par nayi jagah se shuru —
+       har open/refresh ka pehla batch mukhtalif. */
+    if(st.phoneRot == null) st.phoneRot = (Math.random() * 16) | 0;
     let items = null;
     if(q === ''){
       /* Trending satahein: Home = asal YouTube trending; YouTube
          tab ki pehli list pool-rotation se — warna dono par wahi
          pehli video khadi rehti thi. */
-      if(elId === 'v4-youtube-feed'){ st.phoneRot = 1; items = await v4PhoneBridge('phoneSearch', v4PhoneRotQuery(st)); }
+      if(elId === 'v4-youtube-feed'){ items = await v4PhoneBridge('phoneSearch', v4PhoneRotQuery(st)); }
       else if(PlayTubeApp.phoneTrending) items = await v4PhoneBridge('phoneTrending', null);
     }
     if(!items || !items.length) items = await v4PhoneBridge('phoneSearch', q || 'trending');
@@ -2296,6 +2299,26 @@ async function v4PhoneFeedFallback(elId, st){
       if(ordered.length < 4) ordered = norm.filter(function(v){ return !st.seen[v.videoId] && !v4FeedShown[v.videoId]; });
       if(ordered.length < 4) ordered = norm.filter(function(v){ return !st.seen[v.videoId]; });
     }
+    /* Update 125: pehli list mein NAYI (kabhi na dekhi) videos
+       6 se kam hon to phone se aur bharo — har open / refresh
+       par har jagah sar naya, purani video kahin nahi. */
+    let _unseen = 0;
+    ordered.forEach(function(v){ if(!v4FeedShown[v.videoId] && !seenP[v.videoId]) _unseen++; });
+    for(let _tx = 0; _tx < 2 && _unseen < 6; _tx++){
+      let _more = null;
+      if(q !== '' && window.PlayTubeApp && PlayTubeApp.phoneSearchMore) _more = await v4PhoneBridge('phoneSearchMore', q);
+      if(!_more || !_more.length){ st.phoneRot = (st.phoneRot || 0) + 1; _more = await v4PhoneBridge('phoneSearch', (q === '') ? v4PhoneRotQuery(st) : (q + v4_FEED_VARIANTS[st.phoneRot % v4_FEED_VARIANTS.length])); }
+      if(!_more || !_more.length) break;
+      const _have = {}; ordered.forEach(function(v){ _have[v.videoId] = 1; });
+      const _add = [];
+      _more.forEach(function(it){
+        const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || ''});
+        if(v.videoId && !_have[v.videoId] && !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]){ _have[v.videoId] = 1; _add.push(v); }
+      });
+      if(!_add.length) continue;
+      ordered = _add.concat(ordered);
+      _unseen += _add.length;
+    }
     if(!ordered.length) return false;
     let html = '', n = 0;
     ordered.forEach(function(v){
@@ -2308,7 +2331,6 @@ async function v4PhoneFeedFallback(elId, st){
        thak jaye to server wala rasta. */
     st.phonePg = 0;
     st.phoneQ = q;
-    if(st.phoneRot == null) st.phoneRot = 0;
     st.done = false;
     v4FeedArm(elId);
     return true;
@@ -2589,21 +2611,61 @@ function v4ShortsRenderItems(items, hasMore){
     if(v4ShortsObs) v4ShortsObs.observe(sec);
   });
   v4SeenAdd(items.map(function(it){ return it.id.videoId; }));
+  v4ShortsSeenAdd(items.map(function(it){ return it.id.videoId; }));
   v4ShortsPage++;
   if(!hasMore) v4ShortsDone = true;
+}
+/* Update 125: Shorts bhi har dafa NAYI — dikhi hui shorts
+   localStorage mein yaad (500 tak), agli list un ke baghair;
+   seeds (server wale FEED_SHORTS_POOL ki copy) rotation se. */
+const v4_SHORTS_SEEDS = ['trending shorts #shorts', 'viral shorts #shorts', 'funny shorts #shorts', 'comedy shorts hindi #shorts', 'cricket shorts #shorts', 'pakistani drama shorts #shorts', 'dance shorts #shorts', 'naat shorts #shorts', 'motu patlu shorts #shorts', 'pubg shorts #shorts', 'movie shorts #shorts', 'poetry shorts #shorts'];
+let v4ShortsRot = (Math.random() * 12) | 0;
+function v4ShortsSeenGet(){ try{ return JSON.parse(localStorage.getItem('pt_shorts_seen') || '[]'); }catch(e){ return []; } }
+function v4ShortsSeenAdd(ids){
+  try{
+    let a = v4ShortsSeenGet();
+    const have = {}; a.forEach(function(x){ have[x] = 1; });
+    ids.forEach(function(id){ if(id && !have[id]){ a.push(id); have[id] = 1; } });
+    if(a.length > 500) a = a.slice(a.length - 500);
+    localStorage.setItem('pt_shorts_seen', JSON.stringify(a));
+  }catch(e){}
+}
+function v4ShortsSeedNext(){
+  const ints = v4InterestTop(3);
+  const mixed = [];
+  v4_SHORTS_SEEDS.forEach(function(s, i){ mixed.push(s); if(ints.length && i % 4 === 3) mixed.push(ints[((i / 4) | 0) % ints.length] + ' shorts'); });
+  v4ShortsRot++;
+  return mixed[v4ShortsRot % mixed.length];
 }
 async function v4ShortsPhoneLoad(){
   try{
     if(!(window.PlayTubeApp && PlayTubeApp.phoneSearch)) return false;
+    const seenS = {}; v4ShortsSeenGet().forEach(function(x){ seenS[x] = 1; });
     let q = v4ShortsQuery || 'trending shorts';
     if(q.toLowerCase().indexOf('shorts') < 0) q += ' shorts';
-    const items = await v4PhoneBridge('phoneSearch', q);
-    if(!items || !items.length) return false;
-    const mapped = items.filter(function(it){ return it.id && (!it.duration || it.duration <= 70); }).map(function(it){
-      return {id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, view_count: (it.views != null && it.views >= 0) ? it.views : 0, duration: it.duration || 0};
-    });
-    if(!mapped.length) return false;
-    v4ShortsRenderItems(mapped, false);
+    /* Pehle asal query (agli page bhi), phir rotation seeds —
+       jab tak 10 NAYI shorts na mil jayein; dikhi hui kabhi
+       dobara nahi, list khatam bhi nahi (hasMore=true). */
+    const got = [];
+    const have = {};
+    for(let round = 0; round < 3 && got.length < 10; round++){
+      let items = null;
+      if(round === 0){
+        if(v4ShortsPage > 0 && PlayTubeApp.phoneSearchMore) items = await v4PhoneBridge('phoneSearchMore', q);
+        if(!items || !items.length) items = await v4PhoneBridge('phoneSearch', q);
+      } else {
+        items = await v4PhoneBridge('phoneSearch', v4ShortsSeedNext());
+      }
+      if(!items || !items.length) continue;
+      items.forEach(function(it){
+        if(!it.id || have[it.id] || seenS[it.id]) return;
+        if(it.duration && it.duration > 70) return;
+        have[it.id] = 1;
+        got.push({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, view_count: (it.views != null && it.views >= 0) ? it.views : 0, duration: it.duration || 0});
+      });
+    }
+    if(!got.length) return false;
+    v4ShortsRenderItems(got, true);
     return true;
   }catch(e){ return false; }
 }
@@ -2653,9 +2715,11 @@ function v4ShortPreloadNext(sec){
 }
 function v4OpenShorts(query){
   v4MiniClose();
-  const ov = v4$('v4-shorts'); ov.classList.add('open'); v4Lock(true);
+  const ov = v4$('v4-shorts'); const _wasOpen = ov.classList.contains('open'); ov.classList.add('open'); v4Lock(true);
   const _q = (query && String(query).trim()) ? String(query).trim() : 'trending shorts';
-  if(_q !== v4ShortsQuery){ v4ShortsQuery = _q; v4ShortsPage = 0; v4ShortsDone = false; v4ShortsSeq = Date.now(); const _tr = v4$('v4-shorts-track'); if(_tr) _tr.innerHTML = ''; ov.removeAttribute('data-init'); }
+  /* Update 125: Shorts har OPEN par nayi list (band karke khola
+     to fresh) — dikhi hui seen-store se kat jati hain. */
+  if(!_wasOpen || _q !== v4ShortsQuery){ v4ShortsQuery = _q; v4ShortsPage = 0; v4ShortsDone = false; v4ShortsSeq = Date.now(); const _tr = v4$('v4-shorts-track'); if(_tr) _tr.innerHTML = ''; ov.removeAttribute('data-init'); }
   if(!v4ShortsObs){
     v4ShortsObs = new IntersectionObserver(function(es){
       es.forEach(function(en){
