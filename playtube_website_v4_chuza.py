@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 53  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 54  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">53</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">54</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -2952,33 +2952,34 @@ function v4ShortCard(it){
     '<div class="v4-short-meta"><div class="v4-short-chan"><span class="v4-short-ava">' + v4Esc(ava) + '</span>' + v4Esc(sn.channelTitle || '') + '</div>' +
     '<div class="v4-short-title">' + v4Esc(sn.title || '') + '</div></div></section>';
 }
-/* Update 142: shorts ka embed fallback — enablejsapi ke
-   sath, playVideo command se khud chal pare (tap na
-   karna pare). */
-function v4ShortForceEmbed(sec, v, spin){
-  if(!sec || sec.dataset.fbk) return;
-  sec.dataset.fbk = '1';
-  const vid = sec.getAttribute('data-vid');
+/* Update 143: jo short phone se na chale wo KHUD skip
+   ho kar agli chalti hai — Shorts par YouTube wala
+   player kabhi nahi aata. Musalsal 5 skip par ruk kar
+   saaf paigham. */
+function v4ShortSkip(sec, v, spin){
+  if(!sec || sec.dataset.skipped) return;
+  sec.dataset.skipped = '1';
   try{ if(v) v.pause(); }catch(e){}
-  if(v && v.parentNode) v.remove();
-  const ifr = document.createElement('iframe');
-  ifr.src = 'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&enablejsapi=1&rel=0&playsinline=1&modestbranding=1';
-  ifr.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
-  ifr.setAttribute('allowfullscreen', '');
-  ifr.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0';
-  sec.insertBefore(ifr, sec.children[1] || null);
-  const kick = function(){ try{ ifr.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*'); }catch(e){} };
-  ifr.addEventListener('load', function(){ kick(); setTimeout(kick, 1200); });
-  if(spin) spin.style.display = 'none';
-  const bg2 = sec.querySelector('img.bg'); if(bg2) bg2.style.display = 'none';
+  const track = v4$('v4-shorts-track');
+  const n = track ? (parseInt(track.dataset.skips || '0', 10) + 1) : 1;
+  if(track) track.dataset.skips = '' + n;
+  if(spin){
+    spin.dataset.repl = '1';
+    if(n >= 5){ spin.innerHTML = '<span style="color:#fff;font-size:13px;padding:0 18px;text-align:center">Shorts load nahi ho rahi — net check karke Shorts dobara kholein</span>'; spin.style.display = 'flex'; return; }
+    spin.innerHTML = '<span style="color:#fff;font-size:26px">⏭</span>';
+    spin.style.display = 'flex';
+  }
+  setTimeout(function(){
+    const nx = sec.nextElementSibling;
+    if(nx && track) track.scrollTo({top: nx.offsetTop, behavior: 'smooth'});
+  }, 650);
 }
 function v4ShortActivate(sec){
   const vid = sec.getAttribute('data-vid');
   if(vid) v4SeenAdd([vid]);
   const _sit = v4ShortsItems[vid]; if(_sit && _sit.snippet && _sit.snippet.title) v4InterestAdd(_sit.snippet.title.replace(/[^a-zA-Z0-9 ]/g, ' ').split(/\s+/).filter(function(w){ return w.length > 2; }).slice(0, 3).join(' '), 1);
-  if(sec.dataset.fbk) return;
   if(sec.querySelector('video')) return;
-  const spin = sec.querySelector('.v4-short-spin'); if(spin){ if(spin.dataset.fail){ spin.innerHTML = ''; delete spin.dataset.fail; } spin.style.display = 'flex'; }
+  const spin = sec.querySelector('.v4-short-spin'); if(spin){ if(spin.dataset.fail){ spin.innerHTML = ''; delete spin.dataset.fail; } if(spin.dataset.repl){ spin.innerHTML = '<i></i>'; delete spin.dataset.repl; } spin.style.display = 'flex'; }
   const v = document.createElement('video');
   v.setAttribute('playsinline', ''); v.loop = true; v.muted = v4ShortsMuted;
   v.poster = 'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg';
@@ -2989,51 +2990,32 @@ function v4ShortActivate(sec){
   const _cachedUrl = v4StreamCache[vid];
   if(_cachedUrl){ v.src = _cachedUrl; }
   else if(window.PlayTubeApp && PlayTubeApp.phoneStream){
-    /* Update 142: phone stream 4s mein na aye to SEEDHA
-       embed — beech wala sust server-stream intezar
-       khatam. Fail-cache wali par intezar hi nahi. */
+    /* Update 143: Shorts par YouTube wala player KABHI
+       nahi — sirf phone ki apni stream; extraction ek
+       dafa dobara bhi try hoti hai, phir bhi na chale
+       to short khud skip ho jati hai. */
     if(v4StreamFail[vid] && (Date.now() - v4StreamFail[vid] < 120000)){
-      setTimeout(function(){ if(sec.contains(v)) v4ShortForceEmbed(sec, v, spin); }, 60);
+      setTimeout(function(){ if(sec.contains(v)) v4ShortSkip(sec, v, spin); }, 400);
     } else {
       let _got = false;
-      v4PhoneStreamGet(vid).then(function(url){
-        if(!sec.contains(v)) return;
-        if(url){ _got = true; if(!(v.getAttribute('src') && v.readyState >= 2)){ v.src = url; const p3 = v.play(); if(p3 && p3.catch) p3.catch(function(){ v.muted = true; const p4 = v.play(); if(p4 && p4.catch) p4.catch(function(){}); }); } }
-        else if(!v.getAttribute('src')){ v4ShortForceEmbed(sec, v, spin); }
-      });
-      setTimeout(function(){ if(sec.contains(v) && !_got && !v.getAttribute('src')) v4ShortForceEmbed(sec, v, spin); }, 4000);
+      const _tryStream = function(again){
+        v4PhoneStreamGet(vid).then(function(url){
+          if(!sec.contains(v)) return;
+          if(url){ _got = true; if(!(v.getAttribute('src') && v.readyState >= 2)){ v.src = url; const p3 = v.play(); if(p3 && p3.catch) p3.catch(function(){ v.muted = true; const p4 = v.play(); if(p4 && p4.catch) p4.catch(function(){}); }); } }
+          else if(!again){ setTimeout(function(){ if(sec.contains(v) && !_got) _tryStream(true); }, 1500); }
+          else if(!v.getAttribute('src')){ v4ShortSkip(sec, v, spin); }
+        });
+      };
+      _tryStream(false);
+      setTimeout(function(){ if(sec.contains(v) && !_got && !v.getAttribute('src')) v4ShortSkip(sec, v, spin); }, 9000);
     }
   }
-  else { setTimeout(function(){ if(sec.contains(v)) v4ShortForceEmbed(sec, v, spin); }, 60); }
-  /* Update 139: latki hui stream par pehle watchdog ek
-     hi dafa chalta tha — ab har koshish ki apni 7s ghari
-     hai aur 16s ki HARD deadline par embed lazmi khulta
-     hai. Kaali screen par latakna khatam. */
-  let attempts = 0, dead = false, wdT = null;
-  const forceEmbed = function(){
-    if(sec.dataset.fbk) return;
-    sec.dataset.fbk = '1';
-    try{ v.pause(); }catch(e){}
-    if(v.parentNode) v.remove();
-    const ifr = document.createElement('iframe');
-    ifr.src = 'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&rel=0&playsinline=1&modestbranding=1';
-    ifr.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
-    ifr.setAttribute('allowfullscreen', '');
-    ifr.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0';
-    sec.insertBefore(ifr, sec.children[1] || null);
-    if(spin) spin.style.display = 'none';
-    const bg2 = sec.querySelector('img.bg'); if(bg2) bg2.style.display = 'none';
-  };
-  const armWd = function(){ clearTimeout(wdT); wdT = setTimeout(function(){ if(sec.contains(v) && !dead && v.readyState < 3) retry(); }, 7000); };
-  const retry = function(){
-    if(!sec.contains(v) || dead) return;
-    attempts++;
-    dead = true; clearTimeout(wdT); v4ShortForceEmbed(sec, v, spin);
-  };
-  armWd();
-  setTimeout(function(){ if(sec.contains(v) && v.readyState < 3) v4ShortForceEmbed(sec, v, spin); }, 10000);
-  v.addEventListener('playing', function(){ clearTimeout(wdT); if(spin) spin.style.display = 'none'; const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none'; });
-  v.addEventListener('error', function(){ if(sec.contains(v)) v4ShortForceEmbed(sec, v, spin); });
+  else { v.src = '/api/stream/' + vid; setTimeout(function(){ if(sec.contains(v) && v.readyState < 3) v4ShortSkip(sec, v, spin); }, 14000); }
+  /* Update 143: 10s ki hard deadline — latki hui short
+     khud skip; koi embed wala rasta baqi nahi. */
+  let wdT = setTimeout(function(){ if(sec.contains(v) && v.readyState < 3) v4ShortSkip(sec, v, spin); }, 10000);
+  v.addEventListener('playing', function(){ clearTimeout(wdT); const tr = v4$('v4-shorts-track'); if(tr) tr.dataset.skips = '0'; if(spin) spin.style.display = 'none'; const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none'; });
+  v.addEventListener('error', function(){ if(sec.contains(v)) v4ShortSkip(sec, v, spin); });
   const prog = sec.querySelector('.v4-short-prog');
   v.addEventListener('timeupdate', function(){ if(v.duration) prog.style.width = (v.currentTime / v.duration * 100) + '%'; });
   sec.insertBefore(v, sec.children[1] || null);
@@ -3042,7 +3024,7 @@ function v4ShortActivate(sec){
 function v4ShortDeactivate(sec){
   const v = sec.querySelector('video');
   if(v){ try{ v.pause(); v.removeAttribute('src'); v.load(); }catch(e){} v.remove(); }
-  const ifr = sec.querySelector('iframe'); if(ifr) ifr.remove(); if(sec.dataset.fbk) delete sec.dataset.fbk;
+  const ifr = sec.querySelector('iframe'); if(ifr) ifr.remove(); if(sec.dataset.fbk) delete sec.dataset.fbk; if(sec.dataset.skipped) delete sec.dataset.skipped;
   const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = '';
   const prog = sec.querySelector('.v4-short-prog'); if(prog) prog.style.width = '0';
   const spin = sec.querySelector('.v4-short-spin'); if(spin) spin.style.display = 'none';
