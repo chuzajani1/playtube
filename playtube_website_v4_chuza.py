@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 48  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 49  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1472,6 +1472,7 @@ HTML = '''
   .v4-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
   .v4-chip{font-size:11px;background:var(--v4card);border:1px solid var(--v4border);color:var(--v4text);border-radius:999px;padding:6px 10px;cursor:pointer}
   .v4-fchip.on{background:linear-gradient(135deg,#7c5cff,#5a3ee0);color:#fff;border-color:transparent;font-weight:700}
+  .v4-dchip.on,.v4-mchip.on,.v4-kchip.on{background:linear-gradient(135deg,#7c5cff,#5a3ee0);color:#fff;border-color:transparent;font-weight:700}
   .v4-plbadge{position:absolute;left:8px;bottom:8px;background:rgba(124,92,255,.94);color:#fff;font-size:10.5px;font-weight:700;border-radius:999px;padding:3px 9px}
   .v4-bubble{max-width:88%;font-size:13px;border-radius:14px;padding:10px 12px;margin-bottom:10px;line-height:1.45}
   .v4-bubble.me{background:linear-gradient(135deg,var(--v4violet),#5a3ee0);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
@@ -1646,7 +1647,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">48</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">49</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -2036,8 +2037,11 @@ function v4RefreshCurrent(){
   const st = v4FeedState[feedId];
   const q = (st && st.q) || (v4State.view === 'youtube' ? 'trending videos' : (v4State.view === 'music' ? 'trending songs' : 'trending'));
   const t = (st && st.type) || 'videos';
+  const sb = (st && st.sub) || '';
   v4Toast('Refresh ho raha hai — nayi videos aa rahi hain');
-  v4LoadFeed(feedId, q, t);
+  /* Update 129: refresh usi option ke ANDAR — sub (masalan
+     Dramas > Pakistani) bhi sath jata hai, back nahi hota. */
+  v4LoadFeed(feedId, q, t, sb);
   window.scrollTo(0, 0);
 }
 function v4CloseAllOverlays(){ try{ v4CloseShorts(); }catch(e){} try{ v4CloseSearch(); }catch(e){} try{ v4CloseSheet(); }catch(e){} try{ v4ClosePlayer(); }catch(e){} try{ v4CloseDlMenu(); }catch(e){} }
