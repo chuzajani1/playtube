@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 42  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 43  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1646,7 +1646,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">42</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">43</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -3855,7 +3855,7 @@ function v4AiChannelPanel(){
 function v4AiChannelGo(name){ v4AiSend(null, 'channel:' + name, '📂 ' + name); }
 function v4AiTazaOpen(){
   const b = v4AiBubble('🆕 Aaj Ki Taza — kya dekhna hai? Upar se chunein, list isi box mein badlegi:');
-  const opts = [['drama', '🎭 Aaj ki nayi drama episodes'], ['songs', '🎵 Aaj ke naye ganay'], ['mine', '📺 Mere save channels se'], ['mix', '🌐 Sab kuch mix']];
+  const opts = [['drama', '🎭 Aaj ki nayi drama episodes'], ['teaser', '🎬 Aaj ke naye Teaser / Trailer'], ['songs', '🎵 Aaj ke naye ganay'], ['mine', '📺 Mere save channels se'], ['mix', '🌐 Sab kuch mix']];
   const orow = document.createElement('div'); orow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px';
   const holder = document.createElement('div');
   const btns = [];
@@ -3879,7 +3879,7 @@ async function v4AiTazaLoad(holder, kind){
   holder.innerHTML = '';
   if(!r.ok || !d.candidates || !d.candidates.length){
     const p = document.createElement('div'); p.className = 'v4-muted'; p.style.marginTop = '8px';
-    p.textContent = (kind === 'mine' && !shows.length) ? 'Pehle 📺 Mere Shows mein koi channel save karein.' : 'Aaj ki koi nayi video nahi mili — thodi dair baad try karein.';
+    p.textContent = (kind === 'mine' && !shows.length) ? 'Pehle 📺 Mere Shows mein koi channel save karein.' : (kind === 'teaser' ? 'Aaj koi naya teaser / trailer nahi mila — thodi dair baad try karein.' : 'Aaj ki koi nayi video nahi mili — thodi dair baad try karein.');
     holder.appendChild(p); return;
   }
   const hd = document.createElement('div'); hd.style.marginTop = '8px'; hd.textContent = '🆕 ' + d.candidates.length + ' nayi videos mili — select karke download karein:'; holder.appendChild(hd);
@@ -9590,6 +9590,17 @@ def _playlist_items(pid, vid=None):
         return []
 
 
+_TEASER_RE = re.compile(
+    r'\b(teaser|trailer|promo|first look|coming soon)\b', re.I)
+
+
+def _ai_is_teaser(title):
+    """Teaser/trailer/promo wali video asal episode NAHI hoti —
+    episode lists mein kabhi nahi ayegi; un ka apna alag Taza
+    option hai (user, 2026-11-27)."""
+    return bool(_TEASER_RE.search(title or ''))
+
+
 def _ai_find_episode(show_title, ep):
     """Episode search + title matching (Bug #6 fix).
 
@@ -9628,6 +9639,8 @@ def _ai_find_episode(show_title, ep):
         if not e or not e.get('id'):
             continue
         tl = (e.get('title') or '').lower()
+        if _ai_is_teaser(tl):
+            continue
         if kws and not all(k in tl for k in kws):
             continue
         sc = _ep_ok(tl)
@@ -10012,9 +10025,12 @@ def _ai_candidates(parsed, query=None):
              'hai', 'aur', 'video', 'videos'}
     kws = [w for w in re.findall(r'[a-z0-9]+', title.lower())
            if len(w) >= 3 and w not in _stop]
+    _ep_intent = bool(eps) or 'episode' in (query or '').lower()
     out = []
     for e in entries:
         tl = (e.get('title') or '').lower()
+        if _ep_intent and _ai_is_teaser(tl):
+            continue
         if kws:
             hit = sum(1 for k in kws if k in tl)
             if hit < max(1, int(len(kws) * 0.6)):
@@ -10438,16 +10454,21 @@ def api_ai_taza():
     kind = (data.get('kind') or 'mix').strip().lower()
     _mine = [str(s).strip()[:80] for s in (data.get('shows') or [])
              if str(s).strip()][:8]
+    _dch = ['ARY Digital', 'Hum TV', 'Geo TV', 'Har Pal Geo',
+            'Star Plus', 'Colors TV']
+    # mode: 'hide' = teaser bahir (episode lists), 'only' = sirf
+    # teaser (alag option), 'keep' = sab (ganay).
     _queries = []
     if kind in ('drama', 'mix'):
-        _queries += [f"{c} new episode" for c in
-                     ['ARY Digital', 'Hum TV', 'Geo TV', 'Har Pal Geo',
-                      'Star Plus', 'Colors TV']]
+        _queries += [(f"{c} new episode", 'hide') for c in _dch]
     if kind in ('songs', 'mix'):
-        _queries += [f"{c} new song" for c in
+        _queries += [(f"{c} new song", 'keep') for c in
                      ['Coke Studio', 'T-Series', '8XM', 'ARY Musik']]
     if kind == 'mine':
-        _queries += [f"{s} new" for s in _mine]
+        _queries += [(f"{s} new", 'hide') for s in _mine]
+    if kind == 'teaser':
+        _queries += [(f"{c} teaser", 'only') for c in _dch + _mine[:4]]
+        _queries += [(f"{c} trailer", 'only') for c in _dch]
     if not _queries:
         return jsonify({'success': True, 'kind': kind, 'candidates': []})
     _found = {}
@@ -10455,7 +10476,7 @@ def api_ai_taza():
 
     _sem = threading.Semaphore(2)
 
-    def _one(_q):
+    def _one(_q, _mode='keep'):
         # Update 111: ek sath 6-10 page-bursts par YouTube aksar
         # khali page de deta hai (taza live par 0 araha tha) — is
         # liye ek waqt mein 2 se zyada fetch nahi, n=30 (feed wali
@@ -10478,6 +10499,11 @@ def api_ai_taza():
                 if not _vid or _vid in _found:
                     continue
                 _sn = _it.get('snippet') or {}
+                _ttl = _sn.get('title') or ''
+                if _mode == 'hide' and _ai_is_teaser(_ttl):
+                    continue
+                if _mode == 'only' and not _ai_is_teaser(_ttl):
+                    continue
                 _found[_vid] = {
                     'video_id': _vid,
                     'title': _sn.get('title') or '',
@@ -10488,8 +10514,8 @@ def api_ai_taza():
                     'age': _it.get('age_text') or '',
                     '_amin': _am}
 
-    _ths = [threading.Thread(target=_one, args=(q,), daemon=True)
-            for q in _queries]
+    _ths = [threading.Thread(target=_one, args=_qm, daemon=True)
+            for _qm in _queries]
     for _t in _ths:
         _t.start()
     for _t in _ths:
