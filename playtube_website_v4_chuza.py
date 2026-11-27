@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 39  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 40  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -873,10 +873,13 @@ downloaded_files = load_downloads_db()
 
 # ============ STORAGE AUTO-CLEANUP (Update 82 / v8) ============
 # User ka rule: server ki jagah 80% bhar jaye to sab se PURANI mukammal
-# downloads khud delete hoti rahen (75% tak). Private folder wali aur
-# chalti hui downloads kabhi auto-delete nahi hoti.
+# downloads khud delete hoti rahen. Private folder wali aur chalti hui
+# downloads kabhi auto-delete nahi hoti.
+# Update 122 (user policy 2026-11-27): "800 MB ho to old 500 MB auto saf"
+# — is chhote volume par wahi hisaab: 80% par safai shuru, 40% tak saaf,
+# taake storage KABHI full na ho (97.8% wala haal dobara nahi).
 STORAGE_LIMIT_PCT = 80.0
-STORAGE_TARGET_PCT = 75.0
+STORAGE_TARGET_PCT = 40.0
 
 
 def _storage_info():
@@ -902,7 +905,9 @@ def _storage_info():
 
 def _storage_cleanup():
     """80% se zyada bharne par sab se purani completed downloads delete
-    karo jab tak istemal 75% se neeche na aa jaye. (freed_mb, removed)."""
+    karo jab tak istemal TARGET (40%) se neeche na aa jaye; sath mein
+    record ke baghair padi purani files (orphans) bhi saaf hoti hain.
+    (freed_mb, removed)."""
     freed = 0
     removed = 0
     try:
@@ -939,6 +944,41 @@ def _storage_cleanup():
                 del download_meta[_did]
             freed += _sz
             removed += 1
+        # Update 122: record ke baghair padi purani files (orphans)
+        # bhi saaf — "0 files par volume full" wali halat dobara na ho.
+        try:
+            _known = set()
+            for _v2 in downloaded_files.values():
+                if _v2.get('file_path'):
+                    _known.add(os.path.abspath(_v2['file_path']))
+            _now = time.time()
+            for _sub in ('', 'MP4', 'MP3', 'Social', 'Documents',
+                         'Thumbnails', 'Subtitles', 'Uploads'):
+                _dir = (os.path.join(DOWNLOAD_DIR, _sub)
+                        if _sub else DOWNLOAD_DIR)
+                if not os.path.isdir(_dir):
+                    continue
+                for _fn in os.listdir(_dir):
+                    if _fn.endswith('.json'):
+                        continue
+                    _fp2 = os.path.join(_dir, _fn)
+                    if not os.path.isfile(_fp2):
+                        continue
+                    if os.path.abspath(_fp2) in _known:
+                        continue
+                    _need = 86400 if _fn.endswith(('.part', '.ytdl',
+                                                   '.tmp')) else 3600
+                    try:
+                        if _now - os.path.getmtime(_fp2) < _need:
+                            continue
+                        _sz2 = os.path.getsize(_fp2)
+                        os.remove(_fp2)
+                        freed += _sz2
+                        removed += 1
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         if removed:
             save_downloads_db()
             _save_download_meta()
@@ -1248,6 +1288,11 @@ HTML = '''
 .v4-short-spin{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:3}
 .v4-short-spin i{width:40px;height:40px;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:var(--v4teal);animation:v4spin .8s linear infinite}
   .v4-frame{margin-top:10px;border-radius:16px;padding:2px;background:linear-gradient(135deg,var(--v4violet),var(--v4teal));box-shadow:0 12px 34px rgba(0,0,0,.45)}
+  body.v4-mini-on #v4-view-watch{display:block !important;position:fixed;right:10px;bottom:74px;left:auto;top:auto;width:200px;z-index:1350;padding:0;margin:0;background:transparent;pointer-events:none}
+  body.v4-mini-on #v4-view-watch>*{display:none !important}
+  body.v4-mini-on #v4-view-watch>#v4-frame{display:block !important;pointer-events:auto;margin-top:0}
+  body.v4-mini-on #v4-mini-bar{display:flex !important}
+  body.v4-mini-on #v4-view-watch .v4-fbadge{display:none !important}
   .v4-framein{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:#000}
   .v4-frame video{position:absolute;inset:0;width:100%;height:100%;background:#000}
   .v4-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
@@ -1462,8 +1507,6 @@ HTML = '''
       <div class="v4-row" onclick="v4Show('history')"><span>🕘</span><div class="grow">Watch History</div><span>›</span></div>
       <div class="v4-row" onclick="window.location.href='/about'"><span>ℹ️</span><div class="grow">About Playza</div><span>›</span></div>
       <div class="v4-row" onclick="window.location.href='/contact'"><span>✉️</span><div class="grow">Contact</div><span>›</span></div>
-      <div class="v4-h" style="margin-top:20px">🛒 Hot Deals</div>
-      <div class="v4-deals" id="v4-deals"><p class="v4-muted">Load ho raha hai...</p></div>
       <div class="v4-ratecard">
         <div class="v4-rate-t">⭐ Playza ko Rate karein</div>
         <p class="v4-muted v4-rate-sub">Agar Playza aap ko pasand aya hai to stars de kar hamari hosla-afzai karein — aap ki rating se hi Playza aur behtar banta hai. Shukriya!</p>
@@ -1473,7 +1516,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">39</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">40</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -1489,6 +1532,7 @@ HTML = '''
         <iframe id="v4-player" src="about:blank" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>
         <div class="v4-fbadge">▶ Playza</div>
         <div class="v4-fbadge" style="left:auto;right:10px">HD</div>
+        <div id="v4-mini-bar" style="display:none;position:absolute;top:6px;right:6px;gap:6px;z-index:8"><button class="v4-iconbtn" style="width:30px;height:30px;font-size:13px;padding:0" onclick="event.stopPropagation();v4Show('watch')">⤢</button><button class="v4-iconbtn" style="width:30px;height:30px;font-size:13px;padding:0" onclick="event.stopPropagation();v4MiniClose()">✕</button></div>
       </div></div>
       <div class="v4-h" id="v4-watch-title" style="margin-top:12px"></div>
       <p class="v4-muted" id="v4-watch-channel"></p>
@@ -1573,6 +1617,8 @@ HTML = '''
         <div class="v4-tool" onclick="v4Show('private')"><div class="ic">🔒</div><div class="tn">Private Folder</div><div class="td">PIN ke peeche chhupi downloads</div></div>
         <div class="v4-tool" onclick="v4Show('failed')"><div class="ic">❌</div><div class="tn">Fail Hui Downloads</div><div class="td">Fail hui — dobara try / delete</div></div>
         <div class="v4-tool" onclick="v4Show('compress')"><div class="ic">🗜️</div><div class="tn">Video Compressor</div><div class="td">Quality wohi — sirf size kam</div></div>
+        <div class="v4-tool" onclick="v4Show('sysclean')"><div class="ic">🧹</div><div class="tn">System clean</div><div class="td">Playza ka apna kachra saaf karein</div></div>
+        <div class="v4-tool" onclick="v4Show('ytaccount')"><div class="ic">▶️</div><div class="tn">YouTube account</div><div class="td">Apna YouTube link karein — History, Playlists, Watch later</div></div>
       </div>
     </section>
 
@@ -1581,6 +1627,19 @@ HTML = '''
       <div class="v4-h" style="margin-top:10px">🗜️ Video Compressor</div>
       <p class="v4-muted">Video ki quality aur HD bilkul wohi rahe gi — sirf file ka size kam hoga, taake storage bache aur bhejni asan ho. Nayi chhoti file Downloads mein "(Chhoti)" naam se aye gi; purani file bhi rahe gi.</p>
       <div id="v4-cmp-list"><p class="v4-muted">Load ho raha hai...</p></div>
+    </section>
+
+    <section id="v4-view-sysclean" class="v4-view">
+      <button class="v4-btn2" onclick="v4Show('tools')">← Tools</button>
+      <div class="v4-h" style="margin-top:10px">🧹 System clean</div>
+      <p class="v4-muted">Ye sirf Playza ka apna kachra saaf karta hai — cache, purani AI chat, aur server par padi Playza ki temp files. Aap ki downloads aur dusri apps ko haath nahi lagta.</p>
+      <div id="v4-clean-body"><p class="v4-muted">Load ho raha hai...</p></div>
+    </section>
+
+    <section id="v4-view-ytaccount" class="v4-view">
+      <button class="v4-btn2" onclick="v4Show('tools')">← Tools</button>
+      <div class="v4-h" style="margin-top:10px">▶️ YouTube account</div>
+      <div id="v4-yt-body"><p class="v4-muted">Load ho raha hai...</p></div>
     </section>
 
     <section id="v4-view-private" class="v4-view">
@@ -1599,10 +1658,12 @@ HTML = '''
       <div class="v4-row"><div class="grow">Ek sath downloads</div><select id="v4-set-conc" class="v4-input" style="width:130px;margin:0" onchange="v4SaveSettings()"><option>1</option><option>2</option><option>3</option><option>5</option></select></div>
       <div class="v4-row"><div class="grow">Speed limit</div><select id="v4-set-speed" class="v4-input" style="width:130px;margin:0" onchange="v4SaveSettings()"><option>Unlimited</option><option>1 MB/s</option><option>2 MB/s</option><option>5 MB/s</option></select></div>
       <div class="v4-row"><div class="grow">Sirf Wi-Fi par download</div><button class="v4-switch" id="v4-set-wifi" onclick="v4ToggleSetting('wifiOnly',this)"><i></i></button></div>
+      <div class="v4-row"><div class="grow">Download in background<div class="v4-muted">Off ho to app peeche jane par nayi downloads start nahi hongi aur HD (merge) downloads ruk jayengi</div></div><button class="v4-switch" id="v4-set-bgdl" onclick="v4ToggleSetting('bgDl',this)"><i></i></button></div>
       <div class="v4-sect">APP</div>
       <div class="v4-row"><div class="grow">Language</div><span class="val" id="v4-set-lang">English</span><button class="v4-btn2" onclick="v4ToggleLang()">Badlein</button></div>
       <div class="v4-row"><div class="grow">Theme</div><span class="val" id="v4-set-theme">Dark</span><button class="v4-btn2" onclick="v4ToggleTheme()">Badlein</button></div>
       <div class="v4-row"><div class="grow">Download mukammal ho to batao<div class="v4-muted">Notification ke liye</div></div><button class="v4-switch" id="v4-set-notify" onclick="v4ToggleSetting('notify',this)"><i></i></button></div>
+      <div class="v4-row"><div class="grow">Auto Miniplayer<div class="v4-muted">Video chalti ho aur aap dusre page par jayen to chhota player neeche set ho jata hai (AI tab mein nahi)</div></div><button class="v4-switch" id="v4-set-mini" onclick="v4ToggleSetting('autoMini',this)"><i></i></button></div>
       <div class="v4-row" id="v4-set-floating-row" style="display:none"><div class="grow">Floating Button (sirf APK app me)<div class="v4-muted" id="v4-set-floating-note">Dusri apps ke upar Playza bubble - tap karne par clipboard link ka download page khulta hai</div></div><button class="v4-switch" id="v4-set-floating" onclick="v4ToggleFloating(this)"><i></i></button></div>
     </section>
 
@@ -1811,7 +1872,7 @@ HTML = '''
 <script id="v4-js">
 /* ================= Playza v4 UI logic ================= */
 const v4State = {user:null, config:null, view:'home',
-  settings:{folder:'Playza', defQuality:'360p', maxConc:3, speed:'Unlimited', wifiOnly:false, notify:true},
+  settings:{folder:'Playza', defQuality:'360p', maxConc:3, speed:'Unlimited', wifiOnly:false, notify:true, bgDl:true, autoMini:true},
   loadedYt:0, loadedMu:0, platsDone:0};
 try{ const _s = JSON.parse(localStorage.getItem('pt_v4_settings') || 'null'); if(_s) v4State.settings = Object.assign(v4State.settings, _s); }catch(e){}
 const v4Videos = {};
@@ -1827,7 +1888,7 @@ function v4Esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').repla
 async function v4Fetch(url, opts){ const c = new AbortController(); const t = setTimeout(function(){ c.abort(); }, 30000); const o = Object.assign({}, opts || {}, {signal: c.signal}); try{ const r = await fetch(url, o); let d = null; try{ d = await r.json(); }catch(e){} clearTimeout(t); return {ok:r.ok, status:r.status, data:d}; }catch(e){ clearTimeout(t); return {ok:false, status:0, data:null}; } }
 function v4Post(url, body){ return v4Fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body || {})}); }
 function v4Toast(msg){ const t = v4$('v4-toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(function(){ t.style.display = 'none'; }, 3400); }
-function v4Dur(s){ if(!s) return ''; s = parseInt(s); if(!s) return ''; const m = Math.floor(s/60), ss = s % 60, h = Math.floor(m/60); if(h) return h + ':' + String(m%60).padStart(2,'0') + ':' + String(ss).padStart(2,'0'); return m + ':' + String(ss).padStart(2,'0'); }
+function v4Dur(s){ if(!s) return ''; s = parseInt(s); if(!s || s < 0) return ''; const m = Math.floor(s/60), ss = s % 60, h = Math.floor(m/60); if(h) return h + ':' + String(m%60).padStart(2,'0') + ':' + String(ss).padStart(2,'0'); return m + ':' + String(ss).padStart(2,'0'); }
 function v4Views(n){ if(!n) return ''; n = parseInt(n); if(!n) return ''; if(n >= 1000000) return (n/1000000).toFixed(1).replace('.0','') + 'M views'; if(n >= 1000) return (n/1000).toFixed(1).replace('.0','') + 'K views'; return n + ' views'; }
 function v4MB(b){ if(!b) return ''; return (b/(1024*1024)).toFixed(1) + ' MB'; }
 function v4Img(id){ return '<img loading="lazy" src="https://i.ytimg.com/vi/' + id + '/hqdefault.jpg" data-vid="' + id + '" data-stage="0" onerror="v4ImgFb(this)" alt="">'; }
@@ -1848,9 +1909,18 @@ function v4RefreshCurrent(){
   window.scrollTo(0, 0);
 }
 function v4CloseAllOverlays(){ try{ v4CloseShorts(); }catch(e){} try{ v4CloseSearch(); }catch(e){} try{ v4CloseSheet(); }catch(e){} try{ v4ClosePlayer(); }catch(e){} try{ v4CloseDlMenu(); }catch(e){} }
+function v4MiniOn(){ document.body.classList.add('v4-mini-on'); }
+function v4MiniOff(){ document.body.classList.remove('v4-mini-on'); }
+function v4MiniClose(){ v4MiniOff(); v4FrameStop(); }
 function v4Show(view){
   v4CloseAllOverlays();
-  if(view !== 'watch') v4FrameStop();
+  /* Update 122: Auto Miniplayer — watch se dusre page par jane par
+     video band nahi hoti; chhota player neeche set ho jata hai.
+     AI tab mein miniplayer NAHI (user) — wahan video band hoti hai. */
+  if(view !== 'watch'){
+    if(v4FrameId && v4State.view === 'watch' && view !== 'ai' && v4State.settings.autoMini !== false) v4MiniOn();
+    else { v4MiniOff(); v4FrameStop(); }
+  } else v4MiniOff();
   if(view === 'home' && v4State.view === 'home'){ v4FeedSession = Math.random().toString(36).slice(2, 10); const hh = v4$('v4-home-heading'); if(hh) hh.textContent = 'Trending Videos'; v4SearchState.q = ''; v4RenderSearchBar(); v4SetSearchBoxes(''); v4LoadFeed('v4-home-feed', 'trending'); }
   const rb = v4$('v4-refresh-btn'); if(rb) rb.style.display = (view === 'home' || view === 'youtube' || view === 'music') ? 'block' : 'none';
   document.querySelectorAll('.v4-view').forEach(function(s){ s.classList.remove('active'); });
@@ -1864,6 +1934,8 @@ function v4Show(view){
   if(view === 'ai'){ v4RenderAiChips(); v4AiShowCheck(); }
   if(view === 'private') v4RenderPrivate();
   if(view === 'compress') v4RenderCompress();
+  if(view === 'sysclean') v4RenderSysClean();
+  if(view === 'ytaccount') v4RenderYtAccount();
   if(view === 'profile') v4RenderProfile();
   if(view === 'admin') v4RenderAdmin();
   if(view === 'favorites') v4RenderFavs();
@@ -2019,19 +2091,45 @@ function v4PhoneBridge(method, arg){
     setTimeout(function(){ if(v4PhoneSearchWait === res){ v4PhoneSearchWait = null; res(null); } }, 30000);
   });
 }
+/* Update 121: chip/type/sub se ASAL search query — server wale
+   /api/feed ke naqshe ki copy, taake phone wala rasta bhi har chip
+   ki APNI talash kare (ek hi trending list har jagah wala bug
+   yahin se khatam hota hai). '' mile to matlab trending hai;
+   null mile to is type ke liye phone rasta nahi (playlists). */
+function v4FeedQuery(st){
+  const q = (st.q || '').trim();
+  const t = (st.type || 'videos'), sub = (st.sub || 'all');
+  const trend = (!q || /^trend/i.test(q));
+  const D = {pakistani:'pakistani drama episode', indian:'indian drama serial', turkish:'turkish drama in urdu', dubbed:'korean drama hindi dubbed', webseries:'web series hindi dubbed'};
+  const M = {indian:'indian full movie hindi', pakistani:'pakistani full movie', english:'english full movie', dubbed:'hollywood movie hindi dubbed full', south:'south indian movie hindi dubbed'};
+  const K = {motupatlu:'motu patlu cartoon hindi', cocomelon:'cocomelon nursery rhymes', doraemon:'doraemon cartoon hindi', peppa:'peppa pig full episodes', tomjerry:'tom and jerry cartoon'};
+  const DS = {pakistani:' pakistani drama', indian:' indian drama serial', turkish:' turkish drama urdu dubbed', dubbed:' hindi dubbed drama', webseries:' web series'};
+  const MS = {indian:' indian full movie', pakistani:' pakistani full movie', english:' english full movie', dubbed:' hindi dubbed full movie', south:' south indian hindi dubbed movie'};
+  const KS = {motupatlu:' motu patlu', cocomelon:' cocomelon', doraemon:' doraemon hindi', peppa:' peppa pig', tomjerry:' tom and jerry'};
+  if(t === 'playlists') return null;
+  if(t === 'dramas'){ if(!trend) return q + (DS[sub] || ' drama episode'); return D[sub] || 'pakistani drama episode'; }
+  if(t === 'movies'){ if(!trend) return q + (MS[sub] || ' full movie'); return M[sub] || 'full movie hindi'; }
+  if(t === 'kids'){ if(!trend) return q + (KS[sub] || ' for kids'); return K[sub] || 'kids cartoon hindi'; }
+  if(t === 'mp3') return trend ? 'new songs official audio' : (q + ' official audio');
+  if(t === 'naat') return trend ? 'naat sharif' : q;
+  if(t === 'shorts') return trend ? 'trending shorts' : (q + ' shorts');
+  if(t === 'live') return trend ? 'live stream' : (q + ' live stream');
+  if(trend) return '';
+  return q;
+}
 async function v4PhoneFeedFallback(elId, st){
   try{
     if(!(window.PlayTubeApp && PlayTubeApp.phoneSearch)) return false;
-    const tq = (st.q || '').trim().toLowerCase();
-    const isTrend = (!tq || tq === 'trending' || tq === 'trending videos' || tq === 'trending songs');
+    const q = v4FeedQuery(st);
+    if(q === null) return false;
     let items = null;
-    if(isTrend && PlayTubeApp.phoneTrending) items = await v4PhoneBridge('phoneTrending', null);
-    if(!items || !items.length) items = await v4PhoneBridge('phoneSearch', st.q || 'trending');
+    if(q === '' && PlayTubeApp.phoneTrending) items = await v4PhoneBridge('phoneTrending', null);
+    if(!items || !items.length) items = await v4PhoneBridge('phoneSearch', q || 'trending');
     if(!items || !items.length) return false;
     const el = v4$(elId); if(!el) return false;
     let html = '', n = 0;
     items.forEach(function(it){
-      const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: it.duration || '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || ''});
+      const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || ''});
       if(v.videoId && !st.seen[v.videoId]){ st.seen[v.videoId] = 1; v4Videos[v.videoId] = v; html += v4CardHTML(v); n++; v4SeenAdd([v.videoId]); }
     });
     if(!n) return false;
@@ -2040,11 +2138,21 @@ async function v4PhoneFeedFallback(elId, st){
     return true;
   }catch(e){ return false; }
 }
+function v4FeedRetry(btn){ const elId = btn.getAttribute('data-feed'); const st = v4FeedState[elId]; if(!st) return; v4LoadFeed(elId, st.q, st.type, st.sub, {sort: st.sort, minDur: st.minDur}); }
 async function v4LoadFeed(elId, q, type, sub, opts){
   const el = v4$(elId); if(!el) return;
   const gen = (v4FeedGen[elId] = (v4FeedGen[elId] || 0) + 1);
   v4FeedState[elId] = {q:q, type:(type || 'videos'), sub:(sub || ''), page:0, seen:{}, loading:false, done:false, sort:(opts && opts.sort) || '', minDur:(opts && opts.minDur) || 0, gen:gen, _retry:(opts && opts._retry) || 0};
   el.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
+  /* Update 121: APK mein PHONE PEHLE — har chip/search ki asal
+     talash phone se hoti hai; server sirf tab jab phone kuch na de.
+     (Browser mein bridge nahi hota — wahan purana server flow hi.) */
+  if(window.PlayTubeApp && PlayTubeApp.phoneSearch && (type || 'videos') !== 'playlists'){
+    const okP = await v4PhoneFeedFallback(elId, v4FeedState[elId]);
+    if(okP) return;
+    if(v4FeedGen[elId] !== gen) return;
+    el.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
+  }
   await v4FeedMore(elId, true);
 }
 async function v4FeedMore(elId, first){
@@ -2086,18 +2194,14 @@ async function v4FeedMore(elId, first){
   st.loading = false;
   if(added > 0) st.empty = 0; else { st.empty = (st.empty || 0) + 1; if(st.empty >= 2) st.done = true; }
   if(first && !added){
-    if(failed && !(st._retry || 0)){
-      el.innerHTML = '<p class="v4-muted">Server slow hai — dobara try ho raha hai...</p>';
-      const q2 = st.q, t2 = st.type, s2 = st.sub, so2 = st.sort, md2 = st.minDur;
-      setTimeout(function(){ v4LoadFeed(elId, q2, t2, s2, {sort: so2, minDur: md2, _retry: 1}); }, 3000);
-      return;
-    }
+    /* Update 121: 'Server slow hai' wala khud-bakhud loop KHATAM.
+       Pehle phone fallback (asal query ke sath), warna khamosh msg
+       aur hath se dobara wala button — baar baar wahi error nahi. */
     if(window.PlayTubeApp && PlayTubeApp.phoneSearch){
-      el.innerHTML = '<p class="v4-muted">Server se load nahi ho raha — phone se try ho raha hai...</p>';
       const okF = await v4PhoneFeedFallback(elId, st);
       if(okF) return;
     }
-    el.innerHTML = failed ? '<p class="v4-muted">Results load nahi ho sake — net check karke dobara try karein.</p>' : '<p class="v4-muted">Kuch nahi mila — dobara try karein.</p>';
+    el.innerHTML = (failed ? '<p class="v4-muted">Results load nahi ho sake — net check karke dobara try karein.</p>' : '<p class="v4-muted">Kuch nahi mila — dobara try karein.</p>') + '<div style="text-align:center;padding:6px"><button class="v4-btn2" data-feed="' + elId + '" onclick="v4FeedRetry(this)">↻ Dobara try karein</button></div>';
     return;
   }
   if(st.done){
@@ -2207,7 +2311,20 @@ function v4ShortActivate(sec){
   const v = document.createElement('video');
   v.setAttribute('playsinline', ''); v.loop = true; v.muted = v4ShortsMuted;
   v.poster = 'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg';
-  v.src = '/api/stream/' + vid;
+  /* Update 121: APK mein short PHONE ki direct stream se chalti hai
+     (server wala intezar-page sirf fallback); agli short ki stream
+     pehle se mangwa lete hain taake swipe par foran chale. */
+  v4ShortPreloadNext(sec);
+  const _cachedUrl = v4StreamCache[vid];
+  if(_cachedUrl){ v.src = _cachedUrl; }
+  else if(window.PlayTubeApp && PlayTubeApp.phoneStream){
+    v4PhoneStreamGet(vid).then(function(url){
+      if(!sec.contains(v)) return;
+      if(url){ v.src = url; const p3 = v.play(); if(p3 && p3.catch) p3.catch(function(){}); }
+      else if(!v.getAttribute('src')){ v.src = '/api/stream/' + vid; }
+    });
+  }
+  else v.src = '/api/stream/' + vid;
   let retried = 0;
   const retry = function(){ if(!sec.contains(v)) return; if(retried >= 2){ if(!sec.dataset.fbk){ sec.dataset.fbk = '1'; try{ v.pause(); }catch(e){} if(v.parentNode) v.remove(); const ifr = document.createElement('iframe'); ifr.src = 'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&rel=0&playsinline=1&modestbranding=1'; ifr.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen'); ifr.setAttribute('allowfullscreen', ''); ifr.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0'; sec.insertBefore(ifr, sec.children[1] || null); if(spin) spin.style.display = 'none'; const bg2 = sec.querySelector('img.bg'); if(bg2) bg2.style.display = 'none'; } return; } retried++; if(spin) spin.style.display = 'flex'; v.src = '/api/stream/' + vid + '?retry=' + retried; const p2 = v.play(); if(p2 && p2.catch) p2.catch(function(){}); };
   const wd = setTimeout(function(){ if(v.readyState < 3 && sec.contains(v)) retry(); }, 7000);
@@ -2227,30 +2344,80 @@ function v4ShortDeactivate(sec){
   const spin = sec.querySelector('.v4-short-spin'); if(spin) spin.style.display = 'none';
 }
 function v4FetchT(url, ms){ const c = new AbortController(); const t = setTimeout(function(){ c.abort(); }, ms || 30000); return fetch(url, {signal: c.signal}).then(function(r){ clearTimeout(t); return r; }, function(e){ clearTimeout(t); throw e; }); }
-function v4ShortsLoad(){
+function v4ShortsRenderItems(items, hasMore){
+  const track = v4$('v4-shorts-track'); if(!track) return;
+  items.forEach(function(it){
+    v4ShortsItems[it.id.videoId] = it;
+    if(track.querySelector('[data-vid="' + it.id.videoId + '"]')) return;
+    const div = document.createElement('div'); div.innerHTML = v4ShortCard(it);
+    const sec = div.firstChild; track.appendChild(sec);
+    if(v4ShortsObs) v4ShortsObs.observe(sec);
+  });
+  v4SeenAdd(items.map(function(it){ return it.id.videoId; }));
+  v4ShortsPage++;
+  if(!hasMore) v4ShortsDone = true;
+}
+async function v4ShortsPhoneLoad(){
+  try{
+    if(!(window.PlayTubeApp && PlayTubeApp.phoneSearch)) return false;
+    let q = v4ShortsQuery || 'trending shorts';
+    if(q.toLowerCase().indexOf('shorts') < 0) q += ' shorts';
+    const items = await v4PhoneBridge('phoneSearch', q);
+    if(!items || !items.length) return false;
+    const mapped = items.filter(function(it){ return it.id && (!it.duration || it.duration <= 70); }).map(function(it){
+      return {id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, view_count: (it.views != null && it.views >= 0) ? it.views : 0, duration: it.duration || 0};
+    });
+    if(!mapped.length) return false;
+    v4ShortsRenderItems(mapped, false);
+    return true;
+  }catch(e){ return false; }
+}
+async function v4ShortsLoad(){
   if(v4ShortsLoading || v4ShortsDone) return;
   v4ShortsLoading = true;
+  /* Update 121: APK mein shorts ki list bhi PHONE se pehle */
+  if(window.PlayTubeApp && PlayTubeApp.phoneSearch){
+    const okP = await v4ShortsPhoneLoad();
+    v4ShortsLoading = false;
+    if(okP) return;
+  }
   v4FetchT('/api/feed?q=' + encodeURIComponent(v4ShortsQuery) + '&type=shorts&page=' + v4ShortsPage + '&r=sh' + v4ShortsSeq + '&seen=' + encodeURIComponent(v4SeenParam()) + '&int=' + encodeURIComponent(v4InterestTop(5).join('|')), 30000)
     .then(function(x){ return x.json(); })
     .then(function(d){
       v4ShortsLoading = false;
       const items = (d.items || []).filter(function(it){ return it.id && it.id.videoId; });
-      if(!items.length){ v4ShortsDone = true; return; }
-      const track = v4$('v4-shorts-track');
-      items.forEach(function(it){
-        v4ShortsItems[it.id.videoId] = it;
-        if(track.querySelector('[data-vid="' + it.id.videoId + '"]')) return;
-        const div = document.createElement('div'); div.innerHTML = v4ShortCard(it);
-        const sec = div.firstChild; track.appendChild(sec);
-        if(v4ShortsObs) v4ShortsObs.observe(sec);
-      });
-      v4SeenAdd(items.map(function(it){ return it.id.videoId; }));
-      v4ShortsPage++;
-      if(!d.has_more) v4ShortsDone = true;
+      if(!items.length){ v4ShortsPhoneLoad().then(function(ok){ if(!ok) v4ShortsDone = true; }); return; }
+      v4ShortsRenderItems(items, !!d.has_more);
     })
-    .catch(function(){ v4ShortsLoading = false; });
+    .catch(function(){ v4ShortsLoading = false; v4ShortsPhoneLoad(); });
+}
+/* Update 121: phone ki direct stream (Shorts ke liye) — cache +
+   waiter; Java v4PhoneStreamResult se jawab deta hai. */
+const v4StreamCache = {};
+const v4StreamWait = {};
+function v4PhoneStreamResult(vid, url){
+  if(url) v4StreamCache[vid] = url;
+  const w = v4StreamWait[vid]; delete v4StreamWait[vid];
+  if(w) w(url || null);
+}
+function v4PhoneStreamGet(vid){
+  if(v4StreamCache[vid]) return Promise.resolve(v4StreamCache[vid]);
+  if(!(window.PlayTubeApp && PlayTubeApp.phoneStream)) return Promise.resolve(null);
+  return new Promise(function(res){
+    if(v4StreamWait[vid]){ const old = v4StreamWait[vid]; v4StreamWait[vid] = function(u){ old(u); res(u); }; return; }
+    v4StreamWait[vid] = res;
+    try{ PlayTubeApp.phoneStream(vid); }catch(e){ delete v4StreamWait[vid]; res(null); return; }
+    setTimeout(function(){ if(v4StreamWait[vid] === res){ delete v4StreamWait[vid]; res(null); } }, 25000);
+  });
+}
+function v4ShortPreloadNext(sec){
+  try{
+    const nxt = sec.nextElementSibling;
+    if(nxt && nxt.getAttribute('data-vid')) v4PhoneStreamGet(nxt.getAttribute('data-vid'));
+  }catch(e){}
 }
 function v4OpenShorts(query){
+  v4MiniClose();
   const ov = v4$('v4-shorts'); ov.classList.add('open'); v4Lock(true);
   const _q = (query && String(query).trim()) ? String(query).trim() : 'trending shorts';
   if(_q !== v4ShortsQuery){ v4ShortsQuery = _q; v4ShortsPage = 0; v4ShortsDone = false; v4ShortsSeq = Date.now(); const _tr = v4$('v4-shorts-track'); if(_tr) _tr.innerHTML = ''; ov.removeAttribute('data-init'); }
@@ -2403,6 +2570,7 @@ function v4PickFmt(el){
 function v4CloseSheet(){ v4$('v4-sheetwrap').classList.remove('open'); v4Lock(false); }
 function v4SheetDownload(){
   if(!v4Sheet.sel){ v4Toast('Pehle ek quality chunein'); return; }
+  if(v4NativeMode() && v4Sheet.sel.nk && !v4GuestGate()){ v4CloseSheet(); v4OpenAuth('signin', false, 'limit'); v4Toast('Guest limit khatam — pehle account banayein'); return; }
   if(v4NativeMode() && v4Sheet.sel.nk){ try{ PlayTubeApp.nativeDownload(v4Sheet.id, v4Sheet.sel.nk, v4$('v4-sheet-title').textContent || ''); v4CloseSheet(); }catch(e){ v4Toast('Phone download shuru nahi ho saka'); } return; }
   const params = {video_id: v4Sheet.id, format: v4Sheet.sel.format, quality: v4Sheet.sel.quality, title: v4$('v4-sheet-title').textContent || ''};
   v4StartDownload(params);
@@ -2491,7 +2659,7 @@ function v4PhoneDlRender(){
   live.forEach(function(p){
     if(p.status === 'done'){
       const k = (p.title || '') + '|' + (p.quality || '');
-      if(!stored.some(function(s){ return ((s.title || '') + '|' + (s.quality || '')) === k; })){ stored.unshift({title: p.title || '', quality: p.quality || '', videoId: p.videoId || '', totalMB: p.totalMB || '', ts: Date.now()}); changed = true; }
+      if(!stored.some(function(s){ return ((s.title || '') + '|' + (s.quality || '')) === k; })){ stored.unshift({title: p.title || '', quality: p.quality || '', videoId: p.videoId || '', totalMB: p.totalMB || '', ts: Date.now()}); changed = true; v4GuestPhoneDone(p.videoId || ''); }
     }
   });
   if(changed){ try{ localStorage.setItem('pt_phone_dl', JSON.stringify(stored.slice(0, 50))); }catch(e){} }
@@ -2869,6 +3037,7 @@ async function v4AiSend(e, _sendText, _dispText){
     const b = v4AiBubble(d.message || 'Results mil gaye — jin par select karein, wahi download hongi:');
     const ctx = v4RenderCandidates(b, d.candidates || [], {quality:(d.parsed && d.parsed.quality) || '360p', format:(d.parsed && d.parsed.format) || 'mp4', qexp: !!d.qexp, show: d.show || '', category: (d.parsed && d.parsed.category) || '', kind: d.kind || '', src: d.src || ''});
     window._v4CandCtx = ctx;
+    v4AiCandTrack(b, ctx);
     setTimeout(function(){ window.scrollTo(0, document.body.scrollHeight); }, 60);
     return;
   }
@@ -2915,6 +3084,14 @@ function v4CandPlay(ctx, vid){
   wrap.appendChild(band);
   box.appendChild(wrap);
 }
+function v4AiCandTrack(b, ctx){
+  /* Update 120: list card bhi singleton jaisa — nayi list ane par
+     purani UNUSED list (jis se download start nahi hua) replace ho
+     jati hai; istemal shuda list history mein rehti hai. */
+  const prev = window._v4CandBubble;
+  if(prev && prev.el && prev.el !== b && prev.el.parentNode && !(prev.ctx && prev.ctx._started)) prev.el.remove();
+  window._v4CandBubble = {el: b, ctx: ctx};
+}
 function v4RenderCandidates(b, candidates, opts){
   opts = opts || {};
   const ctx = {quality: opts.quality || '360p', format: opts.format || 'mp4', qexp: !!opts.qexp, show: opts.show || '', category: opts.category || '', kind: opts.kind || '', src: opts.src || '', items: candidates || [], sel: {}};
@@ -2957,6 +3134,7 @@ async function v4AiSimilar(c){
   b.textContent = '↗ "' + (c.title || '') + '" jaisi aur videos — select karke download karein:';
   const ctx = v4RenderCandidates(b, d.candidates, {quality:'360p', format:'mp4', qexp:false, show:'', category:'', src:'↗ Isi jaisi aur'});
   window._v4CandCtx = ctx;
+  v4AiCandTrack(b, ctx);
 }
 /* Update 105: candidates multi-select — tap = select, sirf select
    ki hui hi download hongi (3-5 ya jitni chaahein) */
@@ -2973,10 +3151,18 @@ function v4CandGo(el){
   const items = Object.keys(ctx.sel || {}).map(function(ix){ const c = (ctx.items || [])[+ix]; return c ? {video_id:c.video_id, title:c.title} : null; }).filter(Boolean);
   if(!items.length) return;
   ctx.selItems = items;
-  v4AiBubble('✔ ' + items.length + ' videos select ho gayin', true, true);
   if(ctx.format === 'mp3'){ v4CandStart('192', 'mp3'); return; }
   if(ctx.qexp){ v4CandStart(ctx.quality || '360p', 'mp4'); return; }
-  const b = v4AiBubble('Kis quality mein download karun? (' + items.length + ' videos)');
+  /* Update 120: quality card EK hi banti hai — dobara puche to
+     purani card replace hokar chat ke aakhir (neeche) aa jati hai,
+     duplicate bubbles nahi bante. '✔ select ho gayin' wali alag
+     bubble bhi khatam — wohi baat card ke andar hai. */
+  const _sig = items.map(function(x){ return x.video_id; }).join(',');
+  const _oldQ = document.getElementById('v4-ai-quality');
+  if(_oldQ && _oldQ.getAttribute('data-sig') === _sig){ v4$('v4-ai-msgs').appendChild(_oldQ); window.scrollTo(0, document.body.scrollHeight); return; }
+  if(_oldQ) _oldQ.remove();
+  const b = v4AiBubble('✔ ' + items.length + ' videos select ho gayin — Kis quality mein download karun?');
+  b.id = 'v4-ai-quality'; b.setAttribute('data-sig', _sig);
   const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px';
   const _qopts109 = ctx.kind === 'songs' ? [['MP3','mp3'],['360p','mp4'],['720p','mp4'],['1080p','mp4']] : [['360p','mp4'],['720p','mp4'],['1080p','mp4'],['MP3','mp3']];
   _qopts109.forEach(function(qo){
@@ -2989,6 +3175,8 @@ function v4CandGo(el){
 }
 async function v4CandStart(quality, format){
   const ctx = window._v4CandCtx || {};
+  ctx._started = true;
+  const _qc = document.getElementById('v4-ai-quality'); if(_qc) _qc.remove();
   window._v4AttachCtx = ctx;
   const items = ctx.selItems || [];
   if(!items.length) return;
@@ -3108,9 +3296,37 @@ async function v4AiPickAll(el){
 
 /* Update 103: AI jobs APK mein PHONE par — server bot-check se mehfooz */
 function v4PhoneAiOk(){ try{ return !!(window.PlayTubeApp && PlayTubeApp.phoneDlStart); }catch(e){ return false; } }
+/* Update 122 (user policy 2026-11-27): APK ki download limit bhi
+   WOHI jo website ki hai — bina account, admin ki set ki hui ginati
+   (default 10). Play unlimited hai; ginati sirf download par hai,
+   aur sirf mukammal (done) downloads par lagti hai. */
+function v4GuestPhoneUsed(){
+  let local = 0;
+  try{ local = parseInt(localStorage.getItem('pt_guest_phone_dl') || '0', 10) || 0; }catch(e){}
+  const srv = (v4State.config && v4State.config.guest_used) || 0;
+  return local + (srv || 0);
+}
+function v4GuestGate(){
+  if(v4State.user) return true;
+  const lim = (v4State.config && v4State.config.guest_limit != null) ? v4State.config.guest_limit : 10;
+  if(lim <= 0) return true;
+  return v4GuestPhoneUsed() < lim;
+}
+function v4GuestPhoneDone(vid){
+  if(v4State.user || !vid) return;
+  try{
+    const counted = JSON.parse(localStorage.getItem('pt_guest_counted') || '[]');
+    if(counted.indexOf(vid) >= 0) return;
+    counted.push(vid);
+    localStorage.setItem('pt_guest_counted', JSON.stringify(counted.slice(-200)));
+    const n = (parseInt(localStorage.getItem('pt_guest_phone_dl') || '0', 10) || 0) + 1;
+    localStorage.setItem('pt_guest_phone_dl', String(n));
+  }catch(e){}
+}
 let v4PhoneJobSeq = 0;
 function v4PhoneJobStart(items, quality, format, msg, show, opts){
   if(!items || !items.length) return;
+  if(!v4GuestGate()){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, 'limit'); v4AiBubble('Limit khatam — pehle account banayein.'); return; }
   const job = {id: ++v4PhoneJobSeq, items: items, quality: quality || '360p', format: format || 'mp4', idx: 0, userStopped: false, done: 0, failed: 0};
   job.key = 'pj' + job.id; (window._v4PhoneJobs = window._v4PhoneJobs || {})[job.key] = job;
   /* Update 114 (corrected): phone job apne naye bubble mein nahi —
@@ -3249,7 +3465,7 @@ function v4PhoneSched(){
     for(let ii = 0; ii < job.items.length; ii++){
       if(active >= lim) return;
       const it = job.items[ii];
-      if(!it._st){ v4PhoneItemStart(job, it); if(it._st === 'starting' || it._st === 'downloading') active++; }
+      if(!it._st && !it._hold){ v4PhoneItemStart(job, it); if(it._st === 'starting' || it._st === 'downloading') active++; }
     }
   }
 }
@@ -3295,6 +3511,7 @@ function v4PhoneItemPoll(job, it){
   if(ent.status === 'done'){ v4ShowTrackTitle(it.title || ''); it._pct = 100; v4PhoneItemFinish(job, it, 'done', ''); return; }
   if(ent.status === 'failed'){ v4PhoneItemFinish(job, it, 'failed', ent.error || 'Download fail ho gaya — ↻ se dobara try karein'); return; }
   if(ent.status === 'stopped'){
+    if(it._wantStop){ it._wantStop = false; it._hold = true; v4PhoneItemFinish(job, it, 'ustop', ''); return; }
     /* Apni entry par baghair user-stop ke 'stopped' — ye fail hai;
        'stopped' kabhi khud nahi banta. */
     v4PhoneItemFinish(job, it, 'failed', 'Download ruk gaya — ↻ se dobara try karein'); return;
@@ -3304,7 +3521,7 @@ function v4PhoneItemPoll(job, it){
 function v4PhoneItemFinish(job, it, st, err){
   if(it._timer){ clearInterval(it._timer); it._timer = null; }
   it._st = st; if(err) it._err = err;
-  if(st === 'done') job.done++; else if(st === 'failed') job.failed++;
+  if(st === 'done'){ job.done++; v4GuestPhoneDone(it.video_id || ''); } else if(st === 'failed') job.failed++;
   v4PhoneJobRender(job);
   v4FolderSched();
 }
@@ -3815,7 +4032,20 @@ function v4AiFolderRowHtml(F, r){
   } else {
     right += '<span class="v4-ai-stop" data-fid="' + F.fid + '" data-idx="' + r.idx + '" onclick="event.stopPropagation();v4AiFolderDelStored(this)" title="Delete">🗑</span>';
   }
-  return '<div class="v4-ai-row' + (st === 'downloading' ? ' act' : '') + '"><div class="v4-ai-r1">' + icon + '<span class="v4-ai-t">' + v4Esc(r.title || '') + '</span>' + right + '</div>' + (r.err && st === 'failed' ? '<div style="font-size:11px;color:#f87171;margin-top:2px">' + v4Esc(r.err) + '</div>' : '') + bar + '</div>';
+  /* Update 120: har row ka APNA start/stop (bayan taraf) — click
+     khamosh hai, koi bubble nahi; All-Stop halat mein ek item
+     chalane se sirf wohi chalti hai. */
+  let left = '';
+  if(r.kind === 'phone'){
+    if(st === 'downloading') left = '<span class="v4-ai-stop" data-job="' + r.jobKey + '" data-idx="' + r.idx + '" onclick="event.stopPropagation();v4PhoneItemToggle(this)" title="Sirf ye rokein">⏸</span>';
+    else if(st === 'stopped') left = '<span class="v4-ai-stop" style="background:rgba(20,184,166,.13);border-color:rgba(20,184,166,.55);color:#5eead4" data-job="' + r.jobKey + '" data-idx="' + r.idx + '" onclick="event.stopPropagation();v4PhoneItemToggle(this)" title="Sirf ye chalain">▶</span>';
+    else if(st === 'pending') left = '<span class="v4-ai-stop" data-job="' + r.jobKey + '" data-idx="' + r.idx + '" onclick="event.stopPropagation();v4PhoneItemToggle(this)" title="Line mein rokein">⏸</span>';
+  } else if(r.kind === 'server'){
+    if(st === 'downloading' || st === 'searching') left = '<span class="v4-ai-stop" data-job="' + r.jobId + '" data-idx="' + r.idx + '" onclick="event.stopPropagation();v4SrvItemToggle(this)" title="Sirf ye rokein">⏸</span>';
+    else if(st === 'stopped') left = '<span class="v4-ai-stop" style="background:rgba(20,184,166,.13);border-color:rgba(20,184,166,.55);color:#5eead4" data-job="' + r.jobId + '" data-idx="' + r.idx + '" onclick="event.stopPropagation();v4SrvItemToggle(this)" title="Sirf ye chalain">▶</span>';
+    else if(st === 'pending' || st === 'queued') left = '<span class="v4-ai-stop" data-job="' + r.jobId + '" data-idx="' + r.idx + '" onclick="event.stopPropagation();v4SrvItemToggle(this)" title="Line mein rokein">⏸</span>';
+  }
+  return '<div class="v4-ai-row' + (st === 'downloading' ? ' act' : '') + '"><div class="v4-ai-r1">' + left + icon + '<span class="v4-ai-t">' + v4Esc(r.title || '') + '</span>' + right + '</div>' + (r.err && st === 'failed' ? '<div style="font-size:11px;color:#f87171;margin-top:2px">' + v4Esc(r.err) + '</div>' : '') + bar + '</div>';
 }
 function v4AiFolderRender(key){
   const F = (window._v4Folders || {})[key]; if(!F || !F.el) return;
@@ -3828,7 +4058,7 @@ function v4AiFolderRender(key){
       if(it._st === 'done') st = 'completed';
       else if(it._st === 'failed') st = 'failed';
       else if(it._st === 'starting' || it._st === 'downloading') st = 'downloading';
-      else if(it._st === 'ustop' || job.userStopped) st = 'stopped';
+      else if(it._st === 'ustop' || it._hold || job.userStopped) st = 'stopped';
       rows.push({title: it.title || '', status: st, pct: it._pct || 0, kind:'phone', jobKey: jk, idx: i, ord: rows.length, seq: job.id || 0, err: it._err || ''});
     });
   });
@@ -3867,6 +4097,56 @@ function v4AiFolderRender(key){
   F.el.innerHTML = h;
   const box = v4$('v4-ai-msgs'); if(box && F.el.parentNode === box) box.appendChild(F.el);
 }
+function v4PhoneItemToggle(el){
+  /* Update 120: phone row ka apna start/stop — khamosh click. */
+  const job = (window._v4PhoneJobs || {})[el.getAttribute('data-job')]; if(!job) return;
+  const idx = Number(el.getAttribute('data-idx'));
+  const it = job.items[idx]; if(!it || it._st === 'deleted' || it._st === 'done') return;
+  if(it._st === 'starting' || it._st === 'downloading'){
+    it._wantStop = true; it._hold = true;
+    try{
+      let live = [];
+      try{ live = JSON.parse(PlayTubeApp.phoneDlState() || '[]'); }catch(e){}
+      const ent = (it._entId && live.filter(function(x){ return x.id === it._entId; })[0]) || live.filter(function(x){ return x.videoId === it.video_id && !(it._preIds && it._preIds[x.id]); })[0];
+      if(ent && PlayTubeApp.phoneDlCancel){ try{ PlayTubeApp.phoneDlCancel(ent.id); }catch(e){} }
+      else if(!it._entId){
+        setTimeout(function(){
+          try{
+            const live2 = JSON.parse(PlayTubeApp.phoneDlState() || '[]');
+            const claims = window._v4EntClaim || {};
+            live2.forEach(function(x){ if(x.videoId === it.video_id && x.status === 'running' && !claims[x.id] && !(it._preIds && it._preIds[x.id])){ try{ PlayTubeApp.phoneDlCancel(x.id); }catch(e){} } });
+          }catch(e){}
+        }, 4000);
+      }
+    }catch(e){}
+    if(it._timer){ clearInterval(it._timer); it._timer = null; }
+    it._st = 'ustop';
+    v4PhoneJobRender(job); v4FolderSched();
+    return;
+  }
+  if(it._st === 'failed') return;
+  /* start — sirf ye item; All-Stop halat mein baqi sab ruki rehti hain */
+  if(job.userStopped){
+    job.userStopped = false;
+    (job.items || []).forEach(function(o){ if(o !== it && !o._st) o._hold = true; });
+  }
+  it._hold = false; it._wantStop = false;
+  it._st = undefined;
+  v4PhoneJobRender(job); v4FolderSched();
+}
+function v4SrvItemToggle(el){
+  /* Update 120: server row ka apna start/stop — khamosh, maujooda
+     stop-item / retry-item raste se, koi bubble/toast nahi. */
+  const jid = el.getAttribute('data-job'); const idx = Number(el.getAttribute('data-idx'));
+  const F = (window._v4Folders || {})[V4_FOLDER_KEY];
+  const job = F && F.serverData[jid];
+  const es = job && (job.episodes_status || [])[idx];
+  if(!es) return;
+  const start = (es.status === 'stopped');
+  v4Post('/api/ai/jobs/' + jid + (start ? '/retry-item' : '/stop-item'), {index: idx}).then(function(){
+    v4Fetch('/api/ai/jobs/' + jid).then(function(r){ if(r.ok && r.data && r.data.job) v4RenderJob(jid, r.data.job); });
+  });
+}
 function v4AiFolderStopAll(el){
   const F = v4AiFolderByFid(el.getAttribute('data-fid')); if(!F) return;
   Object.keys(F.phoneJobs || {}).forEach(function(jk){ const job = F.phoneJobs[jk]; if(job){ job.userStopped = true; v4PhoneJobCancelCurrent(job); } });
@@ -3890,7 +4170,7 @@ function v4AiFolderStartAll(F){
   Object.keys(F.phoneJobs || {}).forEach(function(jk){
     const job = F.phoneJobs[jk]; if(!job) return;
     job.userStopped = false;
-    (job.items || []).forEach(function(it){ if(it._st === 'ustop') it._st = undefined; });
+    (job.items || []).forEach(function(it){ it._hold = false; it._wantStop = false; if(it._st === 'ustop') it._st = undefined; });
   });
   Object.keys(F.serverJobs || {}).forEach(function(jid){
     const job = F.serverData[jid]; if(!job) return;
@@ -3971,6 +4251,96 @@ function v4AiFolderRefill(){
     stored.forEach(function(s){ if(s.title && !have[s.videoId]) F.restoredDone.push({title: s.title, videoId: s.videoId}); });
     if(F.restoredDone.length) v4AiFolderRender(V4_FOLDER_KEY);
   }catch(e){}
+}
+
+/* ---------- Update 122: System clean (Tools) — sirf Playza ka
+   apna kachra: browser cache, AI chat, server ki temp files. */
+function v4LSSize(){ let n = 0; try{ for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); n += (k || '').length + (localStorage.getItem(k) || '').length; } }catch(e){} return n; }
+async function v4RenderSysClean(){
+  const box = v4$('v4-clean-body'); if(!box) return;
+  let cacheN = 0, est = '';
+  try{ if(window.caches){ const ks = await caches.keys(); cacheN = ks.length; } }catch(e){}
+  try{ if(navigator.storage && navigator.storage.estimate){ const e2 = await navigator.storage.estimate(); if(e2 && e2.usage) est = ' • kul istemal ~' + (e2.usage / 1048576).toFixed(1) + ' MB'; } }catch(e){}
+  const lsKb = Math.round(v4LSSize() / 102.4) / 10;
+  box.innerHTML =
+    '<div class="v4-row"><div class="grow">Playza cache (app/browser)<div class="v4-muted">' + cacheN + ' cache dabbe' + est + '</div></div><button class="v4-btn2" onclick="v4CleanCache()">Saaf karein</button></div>' +
+    '<div class="v4-row"><div class="grow">Save shuda data (settings, AI chat, lists)<div class="v4-muted">~' + lsKb + ' KB — AI chat ki purani baatein yahin se saaf hongi</div></div><button class="v4-btn2" onclick="v4CleanAiChat()">AI chat saaf</button></div>' +
+    '<div class="v4-row"><div class="grow">Server par Playza ki temp files<div class="v4-muted">Pic-pehchan (OCR) ki temp + record ke baghair padi purani files</div></div><button class="v4-btn2" onclick="v4CleanServer(this)">Server saaf karein</button></div>' +
+    '<p class="v4-muted" style="margin-top:8px">Aap ki mukammal downloads, account aur dusri apps is se bilkul mehfooz hain.</p>';
+}
+async function v4CleanCache(){
+  try{ if(window.caches){ const ks = await caches.keys(); for(const k of ks) await caches.delete(k); } }catch(e){}
+  v4Toast('Cache saaf ho gaya'); v4RenderSysClean();
+}
+function v4CleanAiChat(){
+  try{ localStorage.removeItem('pt_ai_chat'); }catch(e){}
+  const box = v4$('v4-ai-msgs'); if(box){ box.innerHTML = ''; box.removeAttribute('data-restored'); }
+  window._v4Folders = {}; window._v4CandBubble = null;
+  v4Toast('AI chat saaf ho gayi'); v4RenderSysClean();
+}
+async function v4CleanServer(btn){
+  if(btn) btn.disabled = true;
+  const r = await v4Post('/api/system-clean', {});
+  if(r.ok && r.data && r.data.success) v4Toast('Server se ' + (r.data.freed_mb || 0) + ' MB kachra saaf — ab ' + (r.data.free_mb || 0) + ' MB khaali');
+  else v4Toast('Server safai nahi ho saki');
+  if(btn) btn.disabled = false;
+  v4RenderSysClean();
+}
+
+/* ---------- Update 122: YouTube account (Tools) — SnapTube wala
+   tareeqa: sign-in Google ke apne page par (APK mein alag page),
+   andar YouTube ki apni History/Playlists/Watch later khulti hain.
+   Password Playza ko kabhi nahi milta. ---------- */
+function v4YtLinked(){ try{ return localStorage.getItem('pt_yt_linked') === '1'; }catch(e){ return false; } }
+function v4YtLinkResult(ok){
+  try{ if(ok) localStorage.setItem('pt_yt_linked', '1'); else localStorage.removeItem('pt_yt_linked'); }catch(e){}
+  if(ok) v4Toast('YouTube account link ho gaya ✓');
+  if(v4State.view === 'ytaccount') v4RenderYtAccount();
+}
+function v4YtOpen(url){
+  if(window.PlayTubeApp && PlayTubeApp.ytOpen){ try{ PlayTubeApp.ytOpen(url); return; }catch(e){} }
+  window.open(url, '_blank');
+}
+function v4YtOpenEl(el){ v4YtOpen(el.getAttribute('data-url')); }
+function v4YtSignIn(){
+  v4YtOpen('https://accounts.google.com/ServiceLogin?service=youtube&continue=' + encodeURIComponent('https://www.youtube.com/signin'));
+  if(!(window.PlayTubeApp && PlayTubeApp.ytOpen)){ try{ localStorage.setItem('pt_yt_linked', '1'); }catch(e){} setTimeout(function(){ v4RenderYtAccount(); }, 500); }
+}
+function v4YtSignOut(){
+  try{ localStorage.removeItem('pt_yt_linked'); }catch(e){}
+  if(window.PlayTubeApp && PlayTubeApp.ytSignOut){ try{ PlayTubeApp.ytSignOut(); }catch(e){} }
+  else window.open('https://accounts.google.com/Logout', '_blank');
+  v4RenderYtAccount();
+  v4Toast('Sign out ho gaya');
+}
+function v4RenderYtAccount(){
+  const box = v4$('v4-yt-body'); if(!box) return;
+  if(!v4YtLinked()){
+    box.innerHTML =
+      '<div style="text-align:center;padding:14px 6px"><div style="font-size:30px">▶️</div>' +
+      '<div style="font-weight:800;font-size:16px;margin-top:6px">Get all YouTube features on Playza</div>' +
+      '<p class="v4-muted">Apna YouTube account link karein — phir aap ki Subscriptions, Library, History aur Watch later yahin se khulengi; videos dekhna aur subscribe karna bhi wahin hoga.</p></div>' +
+      '<div class="v4-row"><span>🔄</span><div class="grow">Sync your YouTube Library</div></div>' +
+      '<div class="v4-row"><span>🕐</span><div class="grow">History and Watch Later</div></div>' +
+      '<div class="v4-row"><span>🔔</span><div class="grow">Subscribe to new channels</div></div>' +
+      '<button class="v4-bigbtn" style="margin-top:12px" onclick="v4YtSignIn()">Sign in</button>' +
+      '<p class="v4-muted" style="margin-top:8px">Sign in Google ke apne page par hoga — aap ka password Playza ko kabhi nahi milta.</p>';
+    return;
+  }
+  box.innerHTML =
+    '<div style="display:flex;flex-direction:column;align-items:center;padding:10px 0 12px"><div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#db2777);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff">Y</div>' +
+    '<div style="font-weight:700;margin-top:8px">Mera YouTube account</div>' +
+    '<div style="background:#123a34;border:1px solid #1f8a70;color:#4ade80;font-size:11.5px;font-weight:700;border-radius:999px;padding:5px 12px;margin-top:8px">✓ Link hai</div></div>' +
+    '<button class="v4-bigbtn" data-url="https://www.youtube.com/" onclick="v4YtOpenEl(this)">▶ Mera YouTube kholein</button>' +
+    '<div style="margin-top:12px">' +
+    '<div class="v4-row" data-url="https://www.youtube.com/feed/history" onclick="v4YtOpenEl(this)"><span>🕐</span><div class="grow">History</div><span>›</span></div>' +
+    '<div class="v4-row" data-url="https://www.youtube.com/feed/playlists" onclick="v4YtOpenEl(this)"><span>📋</span><div class="grow">Playlists</div><span>›</span></div>' +
+    '<div class="v4-row" data-url="https://www.youtube.com/playlist?list=WL" onclick="v4YtOpenEl(this)"><span>⏰</span><div class="grow">Watch later</div><span>›</span></div>' +
+    '<div class="v4-row" data-url="https://www.youtube.com/feed/subscriptions" onclick="v4YtOpenEl(this)"><span>🔔</span><div class="grow">Subscriptions</div><span>›</span></div>' +
+    '<div class="v4-row" data-url="https://www.youtube.com/account" onclick="v4YtOpenEl(this)"><span>🛡</span><div class="grow">Restricted mode<div class="v4-muted">YouTube ki apni setting se on/off hoga</div></div><span>›</span></div>' +
+    '<div class="v4-row" data-url="https://accounts.google.com/AccountChooser?continue=https%3A%2F%2Fwww.youtube.com%2F" onclick="v4YtOpenEl(this)"><span>🔄</span><div class="grow">Switch Account</div><span>›</span></div>' +
+    '<div class="v4-row" onclick="v4YtSignOut()"><span>🚪</span><div class="grow" style="color:#ff8fa8">Sign out</div></div>' +
+    '</div>';
 }
 
 /* ---------- search screen (Update 79: SnapTube-style alag page) ---------- */
@@ -4182,6 +4552,8 @@ function v4FillSettings(){
   v4$('v4-set-speed').value = s.speed;
   v4SwitchUI('v4-set-wifi', s.wifiOnly);
   v4SwitchUI('v4-set-notify', s.notify);
+  v4SwitchUI('v4-set-bgdl', s.bgDl !== false);
+  v4SwitchUI('v4-set-mini', s.autoMini !== false);
   const fr = v4$('v4-set-floating-row');
   if(fr && window.PlayTubeApp){
     fr.style.display = 'flex';
@@ -4199,7 +4571,8 @@ function v4FillSettings(){
   v4$('v4-set-lang').textContent = (localStorage.getItem('pt_lang') === 'ur') ? 'اردو' : 'English';
   v4$('v4-set-theme').textContent = (document.documentElement.getAttribute('data-theme') === 'light') ? 'Light' : 'Dark';
 }
-function v4ToggleSetting(key, el){ v4State.settings[key] = !v4State.settings[key]; el.classList.toggle('on', v4State.settings[key]); v4SaveSettings(true); }
+function v4ToggleSetting(key, el){ v4State.settings[key] = !v4State.settings[key]; el.classList.toggle('on', v4State.settings[key]); v4SaveSettings(true); if(key === 'bgDl') v4PhoneSyncBg(); }
+function v4PhoneSyncBg(){ try{ if(window.PlayTubeApp && PlayTubeApp.phoneSetBgDl) PlayTubeApp.phoneSetBgDl(v4State.settings.bgDl !== false); }catch(e){} }
 function v4SaveSettings(silent){
   const s = v4State.settings;
   const f = v4$('v4-set-folder'); if(f) s.folder = f.value || 'Playza';
@@ -4339,17 +4712,13 @@ async function v4RenderAdmin(){
                        : '<button class="v4-btn2" data-uid="' + u.id + '" data-grant="1" onclick="v4AdminUserPrem(this)">Premium dein</button>')) + '</div>';
   });
   h += '</div>';
-  const dlist = cfg.deals || [];
-  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">HOT DEALS (MORE TAB)</div>';
-  h += '<div id="v4-deals-edit">';
-  dlist.forEach(function(d){ h += v4DealRow(d); });
-  h += '</div><button class="v4-btn2" onclick="v4DealAdd()">+ Naya Product</button> <button class="v4-btn2" onclick="v4AdminSaveDeals()">Deals Save karein</button></div>';
+  /* Update 122: Hot Deals KHATAM (user 2026-11-27) — admin card bhi hata diya. */
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">PRIVATE FOLDER</div><div class="v4-row"><div class="grow">PIN ki halat<div class="v4-muted">' + (cfg.pin_set ? 'PIN set hai' : 'Abhi PIN set nahi hai') + '</div></div>' + (cfg.pin_set ? '<button class="v4-btn2" onclick="v4AdminResetPin()">PIN Reset karein</button>' : '') + '</div><div class="v4-muted">PIN bhool jayein to yahan se reset karein — phir naya PIN banana pare ga.</div></div>';
   h += '<button class="v4-bigbtn" style="background:var(--v4card);border:1px solid var(--v4border)" onclick="v4AdminLogout()">Admin Logout</button>';
   body.innerHTML = h;
   v4LoadStorage(); v4LoadCookies();
 }
-async function v4LoadStorage(){ const box = v4$('v4-storage-box'); if(!box) return; const r = await v4Fetch('/api/admin/storage'); if(!r.ok || !r.data){ box.textContent = 'Storage ki maloomat nahi mil sakin'; return; } const d = r.data; const pct = Math.min(100, d.used_pct || 0); const col = pct >= 80 ? '#f87171' : (pct >= 60 ? '#fbbf24' : '#14b8a6'); let h = '<div class="v4-row"><div class="grow">Istemaal shuda jagah</div><b>' + d.used_mb + ' / ' + d.total_mb + ' MB (' + pct + '%)</b></div>'; h += '<div style="height:10px;border-radius:99px;background:var(--v4border);overflow:hidden;margin:6px 0"><div style="height:100%;width:' + pct + '%;background:' + col + '"></div></div>'; h += '<div class="v4-muted">Khaali jagah: ' + d.free_mb + ' MB - Downloads: ' + d.downloads_count + ' files (' + d.downloads_mb + ' MB)</div>'; h += '<div class="v4-muted" style="margin-top:4px">Auto rule: jagah 80% bharne par sab se purani downloads khud delete ho jati hain (Private folder wali kabhi nahi).</div>'; h += '<button class="v4-btn2" style="margin-top:8px" onclick="v4AdminCleanup()">Abhi safai karein</button>'; box.innerHTML = h; }
+async function v4LoadStorage(){ const box = v4$('v4-storage-box'); if(!box) return; const r = await v4Fetch('/api/admin/storage'); if(!r.ok || !r.data){ box.textContent = 'Storage ki maloomat nahi mil sakin'; return; } const d = r.data; const pct = Math.min(100, d.used_pct || 0); const col = pct >= 80 ? '#f87171' : (pct >= 60 ? '#fbbf24' : '#14b8a6'); let h = '<div class="v4-row"><div class="grow">Istemaal shuda jagah</div><b>' + d.used_mb + ' / ' + d.total_mb + ' MB (' + pct + '%)</b></div>'; h += '<div style="height:10px;border-radius:99px;background:var(--v4border);overflow:hidden;margin:6px 0"><div style="height:100%;width:' + pct + '%;background:' + col + '"></div></div>'; h += '<div class="v4-muted">Khaali jagah: ' + d.free_mb + ' MB - Downloads: ' + d.downloads_count + ' files (' + d.downloads_mb + ' MB)</div>'; h += '<div class="v4-muted" style="margin-top:4px">Auto rule: jagah 80% bharne par sab se purani downloads khud delete hoti hain jab tak 40% na reh jaye (Private folder wali kabhi nahi) — storage kabhi full nahi hota.</div>'; h += '<button class="v4-btn2" style="margin-top:8px" onclick="v4AdminCleanup()">Abhi safai karein</button>'; box.innerHTML = h; }
 async function v4LoadCookies(){ const box = v4$('v4-cookies-box'); if(!box) return; const r = await v4Fetch('/api/admin/cookies-status'); const on = r.ok && r.data && r.data.active; box.innerHTML = '<div class="v4-muted">' + (on ? '✅ Cookies lagi hui hain — downloads mazboot hain.' : '⚠ Cookies nahi lagin — YouTube kabhi kabhi server ko rok deta hai (bot-check), tab downloads fail hoti hain. Spare Google account ki cookies.txt yahan lagayein to ye rukawat khatam ho jayegi.') + '</div><label class="v4-btn2" style="display:inline-block;margin-top:8px;cursor:pointer">🍪 Cookies file chunein<input type="file" accept=".txt" style="display:none" onchange="v4AdminCookiesUpload(this)"></label>'; }
 async function v4AdminCookiesUpload(inp){ const f = inp.files && inp.files[0]; if(!f) return; const fd = new FormData(); fd.append('file', f); v4Toast('Cookies lag rahi hain...'); try{ const r = await fetch('/api/admin/cookies', {method:'POST', body:fd}); const d = await r.json(); if(d && d.success){ v4Toast('✅ Cookies lag gayin'); v4LoadCookies(); } else v4Toast((d && d.error) || 'Cookies nahi lag sakin'); }catch(e){ v4Toast('Upload fail ho gaya'); } }
 async function v4AdminCleanup(){ const r = await v4Post('/api/admin/storage-cleanup', {}); if(r.ok && r.data){ if(r.data.removed) v4Toast(r.data.removed + ' purani downloads delete - ' + r.data.freed_mb + ' MB khaali'); else v4Toast('Safai ki zaroorat nahi - jagah 80% se kam bhari hai'); v4LoadStorage(); } else v4Toast('Safai nahi ho saki'); }
@@ -4593,7 +4962,6 @@ async function v4LoadConfig(){
   if(ann){ el.textContent = '📢 ' + ann; el.style.display = 'block'; } else el.style.display = 'none';
   const _ver = v4$('v4-ver'); if(_ver && r.data.version) _ver.textContent = r.data.version;
   const t = r.data.toggles || {};
-  v4RenderDeals(r.data.deals);
   if(t.social_enabled === false){ const b = v4$('v4-tt-social'); if(b) b.style.display = 'none'; }
   if(t.ai_enabled === false){ const b = v4$('v4-bn-ai'); if(b) b.style.display = 'none'; }
 }
@@ -11190,6 +11558,41 @@ def api_admin_cookies_status():
     if _g:
         return _g
     return jsonify({'active': bool(_yt_cookies_path())})
+
+
+@app.route('/api/system-clean', methods=['POST'])
+def api_system_clean():
+    """Update 122: Tools > System clean ka server hissa — sirf Playza
+    ka apna kachra: OCR temp files + storage cleanup (purani mukammal
+    downloads/orphans, maujooda usool ke mutabiq). User ki chalti hui
+    ya private downloads ko haath nahi lagta."""
+    freed = 0
+    removed = 0
+    try:
+        _tmp = os.path.join(DATA_DIR, 'ocr_tmp')
+        if os.path.isdir(_tmp):
+            for _fn in os.listdir(_tmp):
+                _p = os.path.join(_tmp, _fn)
+                try:
+                    if os.path.isfile(_p):
+                        freed += os.path.getsize(_p)
+                        os.remove(_p)
+                        removed += 1
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    try:
+        _f2, _r2 = _storage_cleanup()
+        freed += int(_f2 * 1048576)
+        removed += _r2
+    except Exception:
+        pass
+    info = _storage_info()
+    return jsonify({'success': True,
+                    'freed_mb': round(freed / 1048576, 1),
+                    'removed': removed, 'used_pct': info['used_pct'],
+                    'free_mb': info['free_mb']})
 
 
 @app.route('/api/admin/storage')
