@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 60  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 61  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">60</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">61</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -2548,7 +2548,7 @@ function v4PhoneBridge(method, arg){
     if(!(window.PlayTubeApp && PlayTubeApp[method])){ res(null); return; }
     v4PhoneSearchWait = res;
     try{ if(arg != null) PlayTubeApp[method](arg); else PlayTubeApp[method](); }catch(e){ v4PhoneSearchWait = null; res(null); return; }
-    setTimeout(function(){ if(v4PhoneSearchWait === res){ v4PhoneSearchWait = null; res(null); } }, 30000);
+    setTimeout(function(){ if(v4PhoneSearchWait === res){ v4PhoneSearchWait = null; res(null); } }, 10000);
   });
 }
 /* Update 121: chip/type/sub se ASAL search query — server wale
@@ -2595,7 +2595,7 @@ function v4ApplySearchOpts(list, st){
   }
   return out;
 }
-async function v4PhoneFeedFallback(elId, st){
+async function v4PhoneFeedFallback(elId, st, guardFn){
   try{
     if(!(window.PlayTubeApp && PlayTubeApp.phoneSearch)) return false;
     const q = v4FeedQuery(st);
@@ -2617,7 +2617,11 @@ async function v4PhoneFeedFallback(elId, st){
       st.phoneRot = _r0 + 1; _qs.push(v4PhoneRotQuery(st));
       st.phoneRot = _r0 + 2; _qs.push(v4PhoneRotQuery(st));
       st.phoneRot = _r0 + 2;
-      const _rs = await Promise.all(_qs.map(function(x){ return v4PhoneBridge('phoneSearch', x); }));
+      /* Update 150: bridge ka jawab EK hi jagah ata hai —
+         teen calls ek sath chalane se pehli do latak jati
+         theen (30s timeout tak). Ab ek ke baad ek. */
+      const _rs = [];
+      for(let _qi = 0; _qi < _qs.length; _qi++){ _rs.push(await v4PhoneBridge('phoneSearch', _qs[_qi])); }
       items = [];
       const _seenQ = {};
       _rs.forEach(function(r){ (r || []).forEach(function(it){ if(it && it.id && !_seenQ[it.id]){ _seenQ[it.id] = 1; items.push(it); } }); });
@@ -2674,6 +2678,9 @@ async function v4PhoneFeedFallback(elId, st){
     if(st.sort !== 'date') ordered = v4Diverse(ordered);
     if(!st.q || /trend/i.test(st.q)) ordered = v4RotateFirst(elId, ordered);
     if(!ordered.length) return false;
+    /* Update 150: race mein server pehle paint kar chuka
+       ho to phone wali list us ke upar NAHI charhti. */
+    if(guardFn && !guardFn()) return false;
     let html = '', n = 0;
     ordered.forEach(function(v){
       st.seen[v.videoId] = 1; v4FeedShown[v.videoId] = 1; v4Videos[v.videoId] = v; html += v4CardHTML(v); n++; v4SeenAdd([v.videoId]);
@@ -2794,8 +2801,17 @@ async function v4LoadFeedInner(elId, q, type, sub, opts){
      talash phone se hoti hai; server sirf tab jab phone kuch na de.
      (Browser mein bridge nahi hota — wahan purana server flow hi.) */
   if(window.PlayTubeApp && PlayTubeApp.phoneSearch && (type || 'videos') !== 'playlists'){
-    const okP = await v4PhoneFeedFallback(elId, v4FeedState[elId]);
-    if(okP) return;
+    /* Update 150: phone ko 6s ki narm deadline — jawab
+       late ho to server wala rasta fauran chal jata hai
+       (pehle phone ke lambe intezar mein server khara
+       rehta tha aur 20s wali deadline error dikha deti
+       thi). Phone ka jawab baad mein aye to paint nahi
+       karega (guard) — server ki list hi rahegi. */
+    const _stR = v4FeedState[elId];
+    const _guard = function(){ return v4FeedGen[elId] === gen && _stR._srvPainted !== gen; };
+    const _pP = v4PhoneFeedFallback(elId, _stR, _guard);
+    const _rP = await Promise.race([_pP, new Promise(function(res){ setTimeout(function(){ res('late'); }, 6000); })]);
+    if(_rP === true) return;
     if(v4FeedGen[elId] !== gen) return;
     if(!(opts && opts._cached)) el.innerHTML = '<p class="v4-muted">Load ho raha hai...</p>';
   }
@@ -2849,7 +2865,7 @@ async function v4FeedMore(elId, first){
     pageVs2.forEach(function(v){ v4Videos[v.videoId] = v; pageHtml += v4CardHTML(v); pageCount++; v4SeenAdd([v.videoId]); });
     v4AudioCards = false;
     if(pageCount){
-      if(first && added === 0) el.innerHTML = stripHtml + pageHtml;
+      if(first && added === 0){ el.innerHTML = stripHtml + pageHtml; st._srvPainted = st.gen; }
       else { const old = el.querySelector('.v4-more'); if(old) old.remove(); el.insertAdjacentHTML('beforeend', pageHtml); }
       added += pageCount;
     }
@@ -3044,10 +3060,19 @@ function v4ShortActivate(sec){
   /* Update 143: 10s ki hard deadline — latki hui short
      khud skip; koi embed wala rasta baqi nahi. */
   let wdT = setTimeout(function(){ if(sec.contains(v) && v.readyState < 3) v4ShortSkip(sec, v, spin); }, 10000);
-  v.addEventListener('playing', function(){ clearTimeout(wdT); const tr = v4$('v4-shorts-track'); if(tr) tr.dataset.skips = '0'; if(spin) spin.style.display = 'none'; const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none'; });
+  /* Update 150: beech mein atki short ka ilaaj — pehle
+     watchdog sirf shuru ke 10 second dekhta tha; video
+     chal kar ruk jaye (buffering) to spinner ghumta
+     rehta tha, koi skip nahi hota tha. Ab 'waiting' par
+     8s ka timer: chal pare to saaf, warna agli short. */
+  let _stallT = null;
+  const _armStall = function(){ if(_stallT) clearTimeout(_stallT); _stallT = setTimeout(function(){ if(sec.contains(v)) v4ShortSkip(sec, v, spin); }, 8000); };
+  v.addEventListener('waiting', _armStall);
+  v.addEventListener('stalled', _armStall);
+  v.addEventListener('playing', function(){ clearTimeout(wdT); if(_stallT) clearTimeout(_stallT); const tr = v4$('v4-shorts-track'); if(tr) tr.dataset.skips = '0'; if(spin) spin.style.display = 'none'; const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none'; });
   v.addEventListener('error', function(){ if(sec.contains(v)) v4ShortSkip(sec, v, spin); });
   const prog = sec.querySelector('.v4-short-prog');
-  v.addEventListener('timeupdate', function(){ if(v.duration) prog.style.width = (v.currentTime / v.duration * 100) + '%'; });
+  v.addEventListener('timeupdate', function(){ if(_stallT) clearTimeout(_stallT); if(v.duration) prog.style.width = (v.currentTime / v.duration * 100) + '%'; });
   sec.insertBefore(v, sec.children[1] || null);
   const p = v.play(); if(p && p.catch) p.catch(function(){});
 }
