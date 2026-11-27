@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 61  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 62  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">61</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">62</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -3087,6 +3087,19 @@ function v4ShortDeactivate(sec){
 function v4FetchT(url, ms){ const c = new AbortController(); const t = setTimeout(function(){ c.abort(); }, ms || 30000); return fetch(url, {signal: c.signal}).then(function(r){ clearTimeout(t); return r; }, function(e){ clearTimeout(t); throw e; }); }
 function v4ShortsRenderItems(items, hasMore){
   const track = v4$('v4-shorts-track'); if(!track) return;
+  /* Update 151: khulne par pehle mehfooz (purani) list
+     lagti hai taake screen khaali na ho — taza list ate
+     hi pehli (chalti hui) short ke ILAWA purani saari
+     hata kar taza un ki jagah lag jati hain. Pehle taza
+     aakhir mein jurti theen, is liye har dafa pehli
+     short wahi purani hoti thi. */
+  if(window._v4ShortsFreshSwap && (Date.now() - window._v4ShortsFreshSwap) < 15000){
+    const _newOnes = items.filter(function(it){ return it.id && it.id.videoId && !track.querySelector('[data-vid="' + it.id.videoId + '"]'); });
+    if(_newOnes.length >= 3){
+      window._v4ShortsFreshSwap = 0;
+      track.querySelectorAll('.v4-short').forEach(function(s, i){ if(i > 0){ try{ v4ShortDeactivate(s); }catch(e){} s.remove(); } });
+    }
+  }
   items.forEach(function(it){
     v4ShortsItems[it.id.videoId] = it;
     if(track.querySelector('[data-vid="' + it.id.videoId + '"]')) return;
@@ -3262,7 +3275,7 @@ function v4OpenShorts(query){
   }
   /* Update 147: mehfooz shorts hon to pehle wo — screen
      khaali/kaali nahi rehti, taza peeche aati rahengi. */
-  try{ const _sc = JSON.parse(localStorage.getItem('pt_shorts_cache') || '[]'); const _tr0 = v4$('v4-shorts-track'); if(_sc.length && _tr0 && !_tr0.querySelector('.v4-short')) v4ShortsRenderItems(_sc, true); }catch(e){}
+  try{ const _sc = JSON.parse(localStorage.getItem('pt_shorts_cache') || '[]'); const _tr0 = v4$('v4-shorts-track'); if(_sc.length && _tr0 && !_tr0.querySelector('.v4-short')){ /* Update 151: mehfooz list har dafa GHUMA kar lagti hai — pehli short pichli dafa wali nahi hoti. */ const _off = _sc.length > 1 ? (1 + ((Math.random() * (_sc.length - 1)) | 0)) : 0; v4ShortsRenderItems(_sc.slice(_off).concat(_sc.slice(0, _off)), true); window._v4ShortsFreshSwap = Date.now(); } }catch(e){}
   if(!ov.getAttribute('data-init')){ ov.setAttribute('data-init', '1'); v4ShortsSeq = Date.now(); v4ShortsLoad(); }
   /* Update 139: list bilkul khali rahe to kaali screen
      nahi — saaf paigham + dobara wala button. */
@@ -3279,6 +3292,7 @@ function v4ShortsRetry(){
   v4ShortsLoad();
 }
 function v4CloseShorts(){
+  window._v4ShortsFreshSwap = 0;
   v4$('v4-shorts').classList.remove('open'); v4Lock(false);
   document.querySelectorAll('.v4-short').forEach(function(s){ v4ShortDeactivate(s); });
 }
