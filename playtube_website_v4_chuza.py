@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 58  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 59  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">58</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">59</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -5483,11 +5483,31 @@ function v4SocialPlatformName(url){
   return 'Social';
 }
 let v4SocialPhone = null;
-async function v4SocialFetch(e){
+/* Update 148: phone se social info — jawab na aye to
+   25s watchdog khud fail maan kar aage barhta hai. */
+function v4SocialPhoneKick(url, srvErr, phoneFirst){
+  const box = v4$('v4-social-result');
+  const w = {url:url, srvErr:srvErr || '', phoneFirst:!!phoneFirst};
+  window._v4SocialWait = w;
+  try{ PlayTubeApp.socialPageInfo(url); }catch(e){ window._v4SocialWait = null; return false; }
+  if(box) box.innerHTML = '<div class="v4-dlrow"><span style="width:64px;text-align:center;font-size:22px">📱</span><div class="tt"><div class="t1">' + v4Esc(v4SocialPlatformName(url)) + ' video</div><div class="t2">Phone se info aa rahi hai...</div></div></div>';
+  setTimeout(function(){ if(window._v4SocialWait === w) v4SocialPhoneResult(null); }, 25000);
+  return true;
+}
+async function v4SocialFetch(e, forceServer){
   if(e) e.preventDefault();
   const url = v4$('v4-social-url').value.trim();
   const box = v4$('v4-social-result');
   if(!url){ v4Toast('Pehle link paste karein'); return; }
+  /* Update 148: Instagram par PHONE pehle — server
+     (datacenter) par Instagram ki rok zyada lagti hai;
+     phone ke net par naya rasta chalta hai. Phone fail
+     ho to neeche server wala rasta khud chalega. */
+  if(!forceServer && /instagram\.com/i.test(url) && window.PlayTubeApp && PlayTubeApp.socialPageInfo){
+    box.innerHTML = '<div class="v4-dlrow"><span style="width:64px;text-align:center;font-size:22px">🔗</span><div class="tt"><div class="t1">' + v4Esc(v4SocialPlatformName(url)) + ' video</div><div class="t2">Info aa rahi hai...</div></div></div>';
+    v4SocialInfo = {url:url, info:null};
+    if(v4SocialPhoneKick(url, '', true)) return;
+  }
   /* Update 136: download card FORAN khulta hai — info
      peeche aati rehti hai, page pehle khul jata hai. */
   box.innerHTML = '<div class="v4-dlrow"><span style="width:64px;text-align:center;font-size:22px">🔗</span><div class="tt"><div class="t1">' + v4Esc(v4SocialPlatformName(url)) + ' video</div><div class="t2">Info aa rahi hai...</div></div></div>';
@@ -5498,12 +5518,7 @@ async function v4SocialFetch(e){
     /* Phone wala rasta: app ke apne net se page ki info —
        server IP par lage blocks yahan nahi lagte. */
     if(window.PlayTubeApp && PlayTubeApp.socialPageInfo){
-      window._v4SocialWait = {url:url, srvErr:srvErr};
-      try{ PlayTubeApp.socialPageInfo(url); }catch(e2){ window._v4SocialWait = null; }
-      if(window._v4SocialWait){
-        box.innerHTML = '<div class="v4-dlrow"><span style="width:64px;text-align:center;font-size:22px">📱</span><div class="tt"><div class="t1">' + v4Esc(v4SocialPlatformName(url)) + ' video</div><div class="t2">Phone se info aa rahi hai...</div></div></div>';
-        return;
-      }
+      if(v4SocialPhoneKick(url, srvErr, false)) return;
     }
     box.innerHTML = '<p class="v4-muted">' + v4Esc(srvErr || 'Info nahi mil saki') + '</p>';
     return;
@@ -5518,7 +5533,10 @@ function v4SocialPhoneResult(jsonStr){
   const box = v4$('v4-social-result'); if(!box || !w) return;
   let d = null; try{ d = jsonStr ? JSON.parse(jsonStr) : null; }catch(e){}
   if(!d || !d.video){
-    box.innerHTML = '<p class="v4-muted">' + v4Esc(w.srvErr || 'Is link se video nahi mil saki — video private ho sakti hai ya platform login maang raha ho ga') + '</p>';
+    /* Update 148: phone pehle try hua tha to ab server
+       wala rasta baqi hai — wahi chalao. */
+    if(w.phoneFirst){ box.innerHTML = '<p class="v4-muted">Phone se nahi mili — server se try ho raha hai...</p>'; v4SocialFetch(null, true); return; }
+    box.innerHTML = '<p class="v4-muted">' + v4Esc(w.srvErr || (/instagram\.com/i.test(w.url) ? 'Instagram is video ke liye abhi login maang raha hai — ye Instagram ki rok hai, har downloader ke sath aisa hota hai. Thodi dair baad dobara try karein, aksar khul jata hai.' : 'Is link se video nahi mil saki — video private ho sakti hai ya platform login maang raha ho ga')) + '</p>';
     return;
   }
   v4SocialPhone = {url:w.url, video:d.video, title:d.title || ''};
@@ -7219,6 +7237,16 @@ def _social_og_info(url, platform):
 
         _vid = (_og('og:video:secure_url') or _og('og:video')
                 or _og('twitter:player:stream'))
+        if not _vid:
+            # Update 148: og:video khatam — page ke JSON
+            # mein video_url bhi talaash karo.
+            _jm = re.search(
+                r'"video_url"\s*:\s*"((?:[^"\\]|\\.)*)"', _h)
+            if _jm:
+                try:
+                    _vid = json.loads('"' + _jm.group(1) + '"')
+                except Exception:
+                    _vid = _jm.group(1).replace('\\/', '/')
         if _vid:
             return {'title': _og('og:title') or f'{platform} video',
                     'thumbnail': _og('og:image'),
@@ -7226,6 +7254,56 @@ def _social_og_info(url, platform):
                     'platform': platform, 'ext': 'mp4',
                     'is_image': False, 'formats_available': 1,
                     'direct_url': _vid}
+    if 'instagram.com' in url:
+        # Update 148: Instagram ki apni media info API —
+        # shortcode se media id; server IP par aksar rok
+        # hoti hai, lekin jahan khule wahan seedha jawab.
+        try:
+            _sm = re.search(
+                r'instagram\.com/(?:reel|reels|p|tv)/'
+                r'([A-Za-z0-9_-]{5,20})', url)
+            if _sm:
+                _alpha = ('ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                          'abcdefghijklmnopqrstuvwxyz'
+                          '0123456789-_')
+                _pk = 0
+                for _ch in _sm.group(1):
+                    _pk = _pk * 64 + _alpha.index(_ch)
+                _ar = requests.get(
+                    'https://www.instagram.com/api/v1/media/'
+                    + str(_pk) + '/info/',
+                    headers={'User-Agent': _SOCIAL_UA,
+                             'X-IG-App-ID': '936619743392459'},
+                    timeout=15)
+                if _ar.status_code == 200:
+                    _items = (_ar.json() or {}).get('items') or []
+                    if _items:
+                        _it = _items[0] or {}
+                        _vv = _it.get('video_versions') or []
+                        if _vv:
+                            _best = max(
+                                _vv,
+                                key=lambda v: v.get('width') or 0)
+                            _thumb = ''
+                            _cand = ((_it.get('image_versions2')
+                                      or {}).get('candidates')
+                                     or [])
+                            if _cand:
+                                _thumb = _cand[0].get('url') or ''
+                            _cap = ((_it.get('caption') or {})
+                                    .get('text') or '')[:120]
+                            return {
+                                'title': _cap
+                                or f'{platform} video',
+                                'thumbnail': _thumb,
+                                'duration': 0, 'uploader': '',
+                                'platform': platform,
+                                'ext': 'mp4', 'is_image': False,
+                                'formats_available': 1,
+                                'direct_url':
+                                _best.get('url') or ''}
+        except Exception:
+            pass
     return None
 
 
