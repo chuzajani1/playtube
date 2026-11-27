@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 50  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 51  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">50</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">51</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -2559,6 +2559,20 @@ function v4FeedQuery(st){
   const fh = (v4Filters.feat.indexOf('4k') >= 0 ? ' 4K' : '') + (v4Filters.feat.indexOf('cc') >= 0 ? ' subtitles' : '');
   return q + fh;
 }
+/* Update 139: Search ke options (Nayi / Lambi) ka asal
+   filter — pehle ye sirf server ko jata tha, phone wali
+   list par kuch nahi hota tha (Nayi par 5 saal purani
+   video bhi aa jati thi). Nayi = sirf pichle ~3 mahine,
+   sab se nayi pehle; Lambi = sirf minDur se lambi. */
+function v4ApplySearchOpts(list, st){
+  let out = list || [];
+  if(st && st.minDur){ out = out.filter(function(v){ return v4DurSec(v) >= st.minDur; }); }
+  if(st && st.sort === 'date'){
+    out = out.filter(function(v){ const d = v4AgeDays(v); return d >= 0 && d <= 92; });
+    out.sort(function(a, b){ return v4AgeDays(a) - v4AgeDays(b); });
+  }
+  return out;
+}
 async function v4PhoneFeedFallback(elId, st){
   try{
     if(!(window.PlayTubeApp && PlayTubeApp.phoneSearch)) return false;
@@ -2591,6 +2605,7 @@ async function v4PhoneFeedFallback(elId, st){
        aur list kabhi khatam nahi hoti. */
     const seenP = v4RecentSet(150);
     let ordered = norm.filter(function(v){ return !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]; });
+    ordered = v4ApplySearchOpts(ordered, st);
     /* Update 125: pehli list mein NAYI (kabhi na dekhi) videos
        6 se kam hon to phone se aur bharo — har open / refresh
        par har jagah sar naya, purani video kahin nahi. */
@@ -2599,7 +2614,7 @@ async function v4PhoneFeedFallback(elId, st){
     for(let _tx = 0; _tx < 4 && _unseen < 8; _tx++){
       let _more = null;
       if(q !== '' && window.PlayTubeApp && PlayTubeApp.phoneSearchMore) _more = await v4PhoneBridge('phoneSearchMore', q);
-      if(!_more || !_more.length){ st.phoneRot = (st.phoneRot || 0) + 1; _more = await v4PhoneBridge('phoneSearch', (q === '') ? v4PhoneRotQuery(st) : (q + v4_FEED_VARIANTS[st.phoneRot % v4_FEED_VARIANTS.length])); }
+      if(!_more || !_more.length){ st.phoneRot = (st.phoneRot || 0) + 1; _more = await v4PhoneBridge('phoneSearch', (q === '') ? v4PhoneRotQuery(st) : (q + (st.sort === 'date' ? ' new' : '') + v4_FEED_VARIANTS[st.phoneRot % v4_FEED_VARIANTS.length])); }
       if(!_more || !_more.length) break;
       const _have = {}; ordered.forEach(function(v){ _have[v.videoId] = 1; });
       const _add = [];
@@ -2607,11 +2622,14 @@ async function v4PhoneFeedFallback(elId, st){
         const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || '', age_ts: it.age_ts || 0});
         if(v.videoId && !_have[v.videoId] && !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]){ _have[v.videoId] = 1; _add.push(v); }
       });
+      _add = v4ApplySearchOpts(_add, st);
       if(!_add.length) continue;
       ordered = _add.concat(ordered);
       _unseen += _add.length;
     }
-    ordered = v4Diverse(v4ApplyFilters(ordered, st));
+    ordered = v4ApplyFilters(ordered, st);
+    ordered = v4ApplySearchOpts(ordered, st);
+    if(st.sort !== 'date') ordered = v4Diverse(ordered);
     if(!ordered.length) return false;
     let html = '', n = 0;
     ordered.forEach(function(v){
@@ -2673,7 +2691,8 @@ async function v4PhoneFeedMore(elId, st){
         const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || '', age_ts: it.age_ts || 0});
         if(v.videoId && !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]){ st.seen[v.videoId] = 1; batch.push(v); }
       });
-      batch = v4Diverse(v4ApplyFilters(batch, st));
+      batch = v4ApplySearchOpts(v4ApplyFilters(batch, st), st);
+      if(st.sort !== 'date') batch = v4Diverse(batch);
       let html = '', n = 0;
       batch.forEach(function(v){ v4FeedShown[v.videoId] = 1; v4Videos[v.videoId] = v; html += v4CardHTML(v); n++; v4SeenAdd([v.videoId]); });
       if(!n) continue;
@@ -2721,7 +2740,8 @@ async function v4FeedMore(elId, first){
   }
   let added = 0, tries = 0, failed = false;
   let stripHtml = '';
-  while(tries < 5 && added < 8 && !st.done){
+  const maxTries = (st.sort === 'date' || st.minDur) ? 8 : 5;
+  while(tries < maxTries && added < 8 && !st.done){
     tries++;
     const r = await v4Fetch('/api/feed?q=' + encodeURIComponent(st.q) + '&page=' + st.page + '&type=' + (st.type || 'videos') + (st.sub ? '&sub=' + st.sub : '') + (st.sort ? '&sort=' + st.sort : '') + (st.minDur ? '&min_dur=' + st.minDur : '') + '&seen=' + encodeURIComponent(v4SeenParam()) + '&r=' + v4FeedSession + '&int=' + encodeURIComponent(v4InterestTop(5).join('|')));
     if(v4FeedGen[elId] !== gen || v4FeedState[elId] !== st){ st.loading = false; return; }
@@ -2748,7 +2768,8 @@ async function v4FeedMore(elId, first){
         if(v.videoId && !st.seen[v.videoId]){ st.seen[v.videoId] = 1; pageVs.push(v); }
       }
     });
-    const pageVs2 = (st.type === 'playlists') ? pageVs : v4Diverse(v4ApplyFilters(pageVs, st));
+    let pageVs2 = (st.type === 'playlists') ? pageVs : v4ApplyFilters(pageVs, st);
+    if(st.type !== 'playlists'){ pageVs2 = v4ApplySearchOpts(pageVs2, st); if(st.sort !== 'date') pageVs2 = v4Diverse(pageVs2); }
     pageVs2.forEach(function(v){ v4Videos[v.videoId] = v; pageHtml += v4CardHTML(v); pageCount++; v4SeenAdd([v.videoId]); });
     v4AudioCards = false;
     if(pageCount){
@@ -2770,7 +2791,7 @@ async function v4FeedMore(elId, first){
       const okF = await v4PhoneFeedFallback(elId, st);
       if(okF) return;
     }
-    el.innerHTML = failed ? '<p class="v4-muted">Results load nahi ho sake — net check karke dobara try karein.</p><div style="text-align:center;padding:6px"><button class="v4-btn2" data-feed="' + elId + '" onclick="v4FeedRetry(this)">↻ Dobara try karein</button></div>' : '<p class="v4-muted">Is topic ki saari videos aap pehle dekh chuke hain — is liye dobara nahi dikhayi gayin. Koi aur topic ya search try karein 🌟</p>';
+    el.innerHTML = failed ? '<p class="v4-muted">Results load nahi ho sake — net check karke dobara try karein.</p><div style="text-align:center;padding:6px"><button class="v4-btn2" data-feed="' + elId + '" onclick="v4FeedRetry(this)">↻ Dobara try karein</button></div>' : (st.sort === 'date' ? '<p class="v4-muted">Is topic par nayi (haal ki) videos nahi milin — Sab wale option par saari results hain.</p>' : '<p class="v4-muted">Is topic ki saari videos aap pehle dekh chuke hain — is liye dobara nahi dikhayi gayin. Koi aur topic ya search try karein 🌟</p>');
     return;
   }
   if(st.done){
@@ -2913,10 +2934,38 @@ function v4ShortActivate(sec){
     }
   }
   else v.src = '/api/stream/' + vid;
-  let retried = 0;
-  const retry = function(){ if(!sec.contains(v)) return; if(retried >= 2){ if(!sec.dataset.fbk){ sec.dataset.fbk = '1'; try{ v.pause(); }catch(e){} if(v.parentNode) v.remove(); const ifr = document.createElement('iframe'); ifr.src = 'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&rel=0&playsinline=1&modestbranding=1'; ifr.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen'); ifr.setAttribute('allowfullscreen', ''); ifr.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0'; sec.insertBefore(ifr, sec.children[1] || null); if(spin) spin.style.display = 'none'; const bg2 = sec.querySelector('img.bg'); if(bg2) bg2.style.display = 'none'; } return; } retried++; if(spin) spin.style.display = 'flex'; v.src = '/api/stream/' + vid + '?retry=' + retried; const p2 = v.play(); if(p2 && p2.catch) p2.catch(function(){}); };
-  const wd = setTimeout(function(){ if(v.readyState < 3 && sec.contains(v)) retry(); }, 6000);
-  v.addEventListener('playing', function(){ clearTimeout(wd); if(spin) spin.style.display = 'none'; const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none'; });
+  /* Update 139: latki hui stream par pehle watchdog ek
+     hi dafa chalta tha — ab har koshish ki apni 7s ghari
+     hai aur 16s ki HARD deadline par embed lazmi khulta
+     hai. Kaali screen par latakna khatam. */
+  let attempts = 0, dead = false, wdT = null;
+  const forceEmbed = function(){
+    if(sec.dataset.fbk) return;
+    sec.dataset.fbk = '1';
+    try{ v.pause(); }catch(e){}
+    if(v.parentNode) v.remove();
+    const ifr = document.createElement('iframe');
+    ifr.src = 'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&rel=0&playsinline=1&modestbranding=1';
+    ifr.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
+    ifr.setAttribute('allowfullscreen', '');
+    ifr.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0';
+    sec.insertBefore(ifr, sec.children[1] || null);
+    if(spin) spin.style.display = 'none';
+    const bg2 = sec.querySelector('img.bg'); if(bg2) bg2.style.display = 'none';
+  };
+  const armWd = function(){ clearTimeout(wdT); wdT = setTimeout(function(){ if(sec.contains(v) && !dead && v.readyState < 3) retry(); }, 7000); };
+  const retry = function(){
+    if(!sec.contains(v) || dead) return;
+    attempts++;
+    if(attempts >= 2){ dead = true; clearTimeout(wdT); forceEmbed(); return; }
+    if(spin) spin.style.display = 'flex';
+    v.src = '/api/stream/' + vid + '?retry=' + attempts;
+    const p2 = v.play(); if(p2 && p2.catch) p2.catch(function(){});
+    armWd();
+  };
+  armWd();
+  setTimeout(function(){ if(sec.contains(v) && !dead && v.readyState < 3){ dead = true; clearTimeout(wdT); forceEmbed(); } }, 16000);
+  v.addEventListener('playing', function(){ clearTimeout(wdT); if(spin) spin.style.display = 'none'; const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none'; });
   v.addEventListener('error', function(){ retry(); });
   const prog = sec.querySelector('.v4-short-prog');
   v.addEventListener('timeupdate', function(){ if(v.duration) prog.style.width = (v.currentTime / v.duration * 100) + '%'; });
@@ -2990,7 +3039,7 @@ async function v4ShortsPhoneLoad(){
       if(!items || !items.length) continue;
       items.forEach(function(it){
         if(!it.id || have[it.id] || seenS[it.id]) return;
-        if(it.duration && it.duration > 70) return;
+        const _sd = it.duration || 0; if(_sd <= 0 || _sd > 70) return;
         have[it.id] = 1;
         got.push({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, view_count: (it.views != null && it.views >= 0) ? it.views : 0, duration: it.duration || 0});
       });
@@ -3091,6 +3140,19 @@ function v4OpenShorts(query){
     });
   }
   if(!ov.getAttribute('data-init')){ ov.setAttribute('data-init', '1'); v4ShortsSeq = Date.now(); v4ShortsLoad(); }
+  /* Update 139: list bilkul khali rahe to kaali screen
+     nahi — saaf paigham + dobara wala button. */
+  setTimeout(function(){
+    const tr = v4$('v4-shorts-track');
+    if(ov.classList.contains('open') && tr && !tr.querySelector('.v4-short') && !tr.querySelector('.v4-shorts-msg')){
+      tr.innerHTML = '<div class="v4-shorts-msg" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;padding:24px;text-align:center"><div>Shorts load nahi ho sakin</div><button class="v4-btn2" onclick="v4ShortsRetry()">↻ Dobara try karein</button></div>';
+    }
+  }, 12000);
+}
+function v4ShortsRetry(){
+  const tr = v4$('v4-shorts-track'); if(tr) tr.innerHTML = '';
+  v4ShortsDone = false; v4ShortsPage = 0; v4ShortsSeq = Date.now();
+  v4ShortsLoad();
 }
 function v4CloseShorts(){
   v4$('v4-shorts').classList.remove('open'); v4Lock(false);
@@ -3143,7 +3205,36 @@ function v4FmtHint(f){
   if(f.format === 'm4a') return 'Asal quality awaz';
   if(f.format === 'mp3') return 'Sab devices par chalta hai';
   const h = {'3GP':'Sab se chhoti file, sab se tez','144p':'Bohat halki quality','240p':'Halki file, jaldi download','360p':'Normal saaf quality','480p':'Achi quality, darmiyani size','720p HD':'Bilkul saaf HD quality','1080p HD':'Full HD, bari screen ke liye','1440p (2K)':'2K, bohat saaf','2160p (4K)':'4K, sab se best quality','4320p (8K)':'8K, sab se best quality'};
-  return h[f.label] || '';
+  if(h[f.label]) return h[f.label];
+  /* Update 138: label ki shakl mukhtalif ho sakti hai
+     ('720p • HD', '720p • MP4') — unchai nikaal kar hint
+     har surat milega, row kabhi khali nahi rahegi. */
+  const m = String(f.quality || f.label || '').match(/(\d{3,4})p/);
+  const ht = m ? parseInt(m[1]) : 0;
+  if(ht >= 2160) return '4K, sab se best quality';
+  if(ht >= 1440) return '2K, bohat saaf';
+  if(ht >= 1080) return 'Full HD, bari screen ke liye';
+  if(ht >= 720) return 'Bilkul saaf HD quality';
+  if(ht >= 480) return 'Achi quality, darmiyani size';
+  if(ht >= 360) return 'Normal saaf quality';
+  if(ht >= 240) return 'Halki file, jaldi download';
+  if(ht > 0) return 'Bohat halki quality';
+  if(/3gp/i.test(f.label || '')) return 'Sab se chhoti file, sab se tez';
+  return 'Video file';
+}
+/* Update 138: ek jaisi rows (masalan do MP3 128) merge —
+   jis ke paas size ho wo rehti hai. */
+function v4DedupeFmts(arr){
+  const seen = {}, out = [];
+  (arr || []).forEach(function(f){
+    const k = (f.format || '') + '|' + (f.quality || f.label || '');
+    if(seen[k] !== undefined){
+      if(out[seen[k]].size_mb == null && f.size_mb != null) out[seen[k]] = f;
+      return;
+    }
+    seen[k] = out.length; out.push(f);
+  });
+  return out;
 }
 function v4FriendlyErr(e){ const s = String(e || ''); if(/sign in to confirm|not a bot|bot-check/i.test(s)) return 'YouTube ne server ko kuch der ke liye roka hai — ye rukawat khud khatam ho jati hai, 10-15 minute baad dobara try karein'; if(/timed out|timeout|network|failed to fetch/i.test(s)) return 'Network masla — net check karke dobara try karein'; return s; }
 function v4NativeMode(){ try{ return !!(window.PlayTubeApp && PlayTubeApp.nativeAvailable && PlayTubeApp.nativeAvailable()); }catch(e){ return false; } }
@@ -3202,11 +3293,11 @@ async function v4OpenSheet(id, audioOnly){
   }
   if(d.title) v4$('v4-sheet-title').textContent = d.title;
   if(d.channel) v4$('v4-sheet-channel').textContent = d.channel;
-  const row = function(f){ const music = (f.format === 'mp3' || f.format === 'm4a'); return '<div class="v4-fmtrow" data-fmt="' + f.format + '" data-q="' + (f.quality || '') + '" data-nk="' + (f.native_key || '') + '" onclick="v4PickFmt(this)"><span class="ic">' + (music ? '🎵' : '▶') + '</span><span class="tx"><span class="nm">' + v4Esc(f.label) + '</span><span class="hint">' + v4FmtHint(f) + '</span></span>' + (f.size_mb != null ? '<span class="sz">' + f.size_mb + ' MB</span>' : '') + '<span class="v4-radio">✓</span></div>'; };
+  const row = function(f){ const music = (f.format === 'mp3' || f.format === 'm4a'); return '<div class="v4-fmtrow" data-fmt="' + f.format + '" data-q="' + (f.quality || '') + '" data-nk="' + (f.native_key || '') + '" onclick="v4PickFmt(this)"><span class="ic">' + (music ? '🎵' : '▶') + '</span><span class="tx"><span class="nm">' + v4Esc(f.label) + '</span><span class="hint">' + v4FmtHint(f) + '</span></span>' + (f.size_mb != null ? '<span class="sz">' + (f.size_est ? '≈ ' : '') + f.size_mb + ' MB</span>' : '') + '<span class="v4-radio">✓</span></div>'; };
   const modeNote = d.nativeMode
     ? '<div class="v4-sect" style="color:#2dd4bf">📱 Phone se formats — download phone se hoga, server wala bot-error nahi ayega</div>'
     : (window.PlayTubeApp ? '<div class="v4-sect" style="color:#fbbf24">⚠ Ye formats SERVER se aye hain' + (d.nativeErr ? ' — phone wala rasta fail hua: ' + v4Esc(String(d.nativeErr).slice(0, 120)) : ' — phone download ke liye naya APK (v2.0+) install karein') + '</div>' : '');
-  list.innerHTML = modeNote + '<div class="v4-sect">MUSIC / AUDIO</div>' + (d.music || []).map(row).join('') + (v4Sheet.audioOnly ? '' : '<div class="v4-sect">VIDEO</div>' + (d.video || []).map(row).join(''));
+  list.innerHTML = modeNote + '<div class="v4-sect">MUSIC / AUDIO</div>' + v4DedupeFmts(d.music).map(row).join('') + (v4Sheet.audioOnly ? '' : '<div class="v4-sect">VIDEO</div>' + v4DedupeFmts(d.video).map(row).join(''));
   let target = null;
   list.querySelectorAll('.v4-fmtrow').forEach(function(el){ if(el.getAttribute('data-q') === v4State.settings.defQuality) target = el; });
   if(!target) list.querySelectorAll('.v4-fmtrow').forEach(function(el){ if(el.getAttribute('data-q') === '360p') target = el; });
@@ -3282,10 +3373,20 @@ function v4PhoneRowHtml(p){
   const bar = (p.status === 'running' || p.status === 'paused') ? '<div class="v4-bar"><i data-pdbar style="width:' + (p.percent || 0) + '%"></i></div>' : '';
   return '<div class="v4-dlrow" data-prow="' + pid + '">' + th + '<div class="tt"><div class="t1">' + v4Esc(p.title || '') + '</div>' + bar + '<div class="t2">' + t2 + '</div></div>' + btns + '</div>';
 }
+/* Update 137: complete video ki pic ya naam par click —
+   wahi downloaded file player mein khulti hai (us player
+   mein download option nahi, sirf play). */
+function v4PlayStored(el){
+  const fn = el.getAttribute('data-fn') || '', t = el.getAttribute('data-t') || '';
+  if(window.PlayTubeApp && PlayTubeApp.playDownloaded){ PlayTubeApp.playDownloaded(fn, t); }
+  else v4Toast('Downloaded video sirf Playza app mein chalti hai');
+}
+function v4LocalPlayResult(ok){ if(!ok) v4Toast('Video ki file phone mein nahi mili — shayad delete ho gayi hai'); }
 function v4PhoneStoredRow(s){
   const th = s.videoId ? v4Img(s.videoId) : '<span style="width:64px;text-align:center;font-size:22px">📱</span>';
   const meta = [s.quality || '', s.totalMB ? s.totalMB + ' MB' : '', '✓ Phone ke Playza folder mein hai'].filter(Boolean).join(' • ');
-  return '<div class="v4-dlrow">' + th + '<div class="tt"><div class="t1">' + v4Esc(s.title || '') + '</div><div class="t2">' + v4Esc(meta) + '</div></div><button class="v4-roundbtn" title="List se hata dein" data-t="' + v4Esc(s.title || '') + '" data-q="' + v4Esc(s.quality || '') + '" onclick="v4PhoneStoredDel(this)">🗑</button></div>';
+  const attrs = ' data-fn="' + v4Esc(s.fileName || '') + '" data-t="' + v4Esc(s.title || '') + '" onclick="v4PlayStored(this)"';
+  return '<div class="v4-dlrow"><span' + attrs + ' style="position:relative;display:block;cursor:pointer;flex:none">' + th + '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.85)">▶</span></span><div class="tt"><div class="t1"' + attrs + ' style="cursor:pointer">' + v4Esc(s.title || '') + '</div><div class="t2">' + v4Esc(meta) + '</div></div><button class="v4-roundbtn" title="List se hata dein" data-t="' + v4Esc(s.title || '') + '" data-q="' + v4Esc(s.quality || '') + '" onclick="v4PhoneStoredDel(this)">🗑</button></div>';
 }
 function v4PhoneAct(btn){
   const id = btn.getAttribute('data-pid'), act = btn.getAttribute('data-act');
@@ -3331,7 +3432,7 @@ function v4PhoneDlRender(){
   live.forEach(function(p){
     if(p.status === 'done'){
       const k = (p.title || '') + '|' + (p.quality || '');
-      if(!stored.some(function(s){ return ((s.title || '') + '|' + (s.quality || '')) === k; })){ stored.unshift({title: p.title || '', quality: p.quality || '', videoId: p.videoId || '', totalMB: p.totalMB || '', ts: Date.now()}); changed = true; v4GuestPhoneDone(p.videoId || ''); }
+      if(!stored.some(function(s){ return ((s.title || '') + '|' + (s.quality || '')) === k; })){ stored.unshift({title: p.title || '', quality: p.quality || '', videoId: p.videoId || '', totalMB: p.totalMB || '', fileName: p.fileName || '', ts: Date.now()}); changed = true; v4GuestPhoneDone(p.videoId || ''); }
     }
   });
   if(changed){ try{ localStorage.setItem('pt_phone_dl', JSON.stringify(stored.slice(0, 50))); }catch(e){} }
@@ -5193,22 +5294,66 @@ function v4Rate(n){
   try{ localStorage.setItem('pt_rating', String(n)); }catch(e){}
   v4RateShow(n);
 }
+function v4SocialPlatformName(url){
+  const u = String(url || '').toLowerCase();
+  const map = {'instagram.com':'Instagram','facebook.com':'Facebook','fb.watch':'Facebook','tiktok.com':'TikTok','twitter.com':'Twitter/X','x.com':'Twitter/X','youtube.com':'YouTube','youtu.be':'YouTube','snapchat.com':'SnapChat','pinterest.com':'Pinterest','threads.net':'Threads','dailymotion.com':'DailyMotion','vimeo.com':'Vimeo','soundcloud.com':'SoundCloud','reddit.com':'Reddit','linkedin.com':'LinkedIn','twitch.tv':'Twitch'};
+  for(const k in map){ if(u.indexOf(k) >= 0) return map[k]; }
+  return 'Social';
+}
+let v4SocialPhone = null;
 async function v4SocialFetch(e){
   if(e) e.preventDefault();
   const url = v4$('v4-social-url').value.trim();
   const box = v4$('v4-social-result');
   if(!url){ v4Toast('Pehle link paste karein'); return; }
-  box.innerHTML = '<p class="v4-muted">Video ki info aa rahi hai...</p>';
+  /* Update 136: download card FORAN khulta hai — info
+     peeche aati rehti hai, page pehle khul jata hai. */
+  box.innerHTML = '<div class="v4-dlrow"><span style="width:64px;text-align:center;font-size:22px">🔗</span><div class="tt"><div class="t1">' + v4Esc(v4SocialPlatformName(url)) + ' video</div><div class="t2">Info aa rahi hai...</div></div></div>';
+  v4SocialInfo = {url:url, info:null};
   const r = await v4Post('/api/fetch-social-info', {url:url});
-  if(!r.ok || !r.data || !r.data.info){ box.innerHTML = '<p class="v4-muted">' + v4Esc((r.data && r.data.error) || 'Info nahi mil saki') + '</p>'; return; }
+  if(!r.ok || !r.data || !r.data.info){
+    const srvErr = (r.data && r.data.error) || '';
+    /* Phone wala rasta: app ke apne net se page ki info —
+       server IP par lage blocks yahan nahi lagte. */
+    if(window.PlayTubeApp && PlayTubeApp.socialPageInfo){
+      window._v4SocialWait = {url:url, srvErr:srvErr};
+      try{ PlayTubeApp.socialPageInfo(url); }catch(e2){ window._v4SocialWait = null; }
+      if(window._v4SocialWait){
+        box.innerHTML = '<div class="v4-dlrow"><span style="width:64px;text-align:center;font-size:22px">📱</span><div class="tt"><div class="t1">' + v4Esc(v4SocialPlatformName(url)) + ' video</div><div class="t2">Phone se info aa rahi hai...</div></div></div>';
+        return;
+      }
+    }
+    box.innerHTML = '<p class="v4-muted">' + v4Esc(srvErr || 'Info nahi mil saki') + '</p>';
+    return;
+  }
   v4SocialInfo = {url:url, info:r.data.info};
   const inf = r.data.info;
   box.innerHTML = '<div class="v4-dlrow"><img src="' + v4Esc(inf.thumbnail || '') + '" onerror="this.style.opacity=0.25"><div class="tt"><div class="t1">' + v4Esc(inf.title || '') + '</div><div class="t2">' + v4Esc(inf.platform || '') + ' • ' + v4Esc(inf.uploader || '') + '</div></div></div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="v4-bigbtn" style="margin-top:4px" data-f="video" onclick="v4SocialDownload(this.dataset.f)">⬇ Video Download</button><button class="v4-bigbtn" style="margin-top:4px;background:var(--v4card);border:1px solid var(--v4border)" data-f="audio" onclick="v4SocialDownload(this.dataset.f)">🎵 Audio (MP3)</button>' + ((inf.is_image || (inf.ext && ['jpg','jpeg','png','webp'].indexOf(String(inf.ext).toLowerCase()) >= 0)) ? '<button class="v4-bigbtn" style="margin-top:4px;background:var(--v4card);border:1px solid var(--v4border)" data-f="image" onclick="v4SocialDownload(this.dataset.f)">🖼 Picture</button>' : '') + '</div>';
 }
+function v4SocialPhoneResult(jsonStr){
+  const w = window._v4SocialWait; window._v4SocialWait = null;
+  const box = v4$('v4-social-result'); if(!box || !w) return;
+  let d = null; try{ d = jsonStr ? JSON.parse(jsonStr) : null; }catch(e){}
+  if(!d || !d.video){
+    box.innerHTML = '<p class="v4-muted">' + v4Esc(w.srvErr || 'Is link se video nahi mil saki — video private ho sakti hai ya platform login maang raha ho ga') + '</p>';
+    return;
+  }
+  v4SocialPhone = {url:w.url, video:d.video, title:d.title || ''};
+  box.innerHTML = '<div class="v4-dlrow">' + (d.thumb ? '<img src="' + v4Esc(d.thumb) + '" onerror="this.style.opacity=0.25">' : '<span style="width:64px;text-align:center;font-size:22px">🎬</span>') + '<div class="tt"><div class="t1">' + v4Esc(d.title || 'Video') + '</div><div class="t2">' + v4Esc(v4SocialPlatformName(w.url)) + ' • Phone se mili</div></div></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="v4-bigbtn" style="margin-top:4px" onclick="v4SocialPhoneDl()">⬇ Video Download</button></div>';
+}
+function v4SocialPhoneDl(){
+  if(!v4SocialPhone) return;
+  if(!v4GuestGate()){ v4OpenAuth('signin', false, 'limit'); v4Toast('Guest limit khatam — pehle account banayein'); return; }
+  let t = (v4SocialPhone.title || 'video').replace(/[\/:*?"<>|]/g, ' ').trim().slice(0, 80);
+  if(!t) t = 'playza_video';
+  try{ PlayTubeApp.saveNamed(v4SocialPhone.video, t + '.mp4'); v4Toast('Download shuru ho gaya — Downloads me dekhein'); }
+  catch(e){ v4Toast('Download shuru nahi ho saka'); }
+}
 async function v4SocialDownload(fmt){
   if(!v4SocialInfo) return;
-  const r = await v4Post('/api/download-social', {url:v4SocialInfo.url, format:fmt});
+  const r = await v4Post('/api/download-social', {url:v4SocialInfo.url, format:fmt, direct_url:(v4SocialInfo.info && v4SocialInfo.info.direct_url) || '', title:(v4SocialInfo.info && v4SocialInfo.info.title) || ''});
   if(r.ok && r.data && r.data.success){ v4Toast('Download shuru ho gaya — Downloads me dekhein'); v4LoadDownloads(); return; }
   const d = r.data || {};
   if(d.login_required){ v4Pending = {type:'social', url:v4SocialInfo.url, format:fmt}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); return; }
@@ -6839,6 +6984,50 @@ def _social_friendly_err(e, platform='Social'):
             'masla ho sakta hai, thodi dair baad dobara try karein.')
 
 
+def _social_og_info(url, platform):
+    """Update 136: yt-dlp fail ho to page ke og: tags se
+    seedhi video link — public posts par aksar mil jati
+    hai. Na mile to None."""
+    for _ua in ('facebookexternalhit/1.1 '
+                '(+http://www.facebook.com/externalhit_uatext.php)',
+                _SOCIAL_UA):
+        try:
+            _r = requests.get(
+                url, headers={'User-Agent': _ua,
+                              'Accept-Language': 'en-US,en;q=0.9'},
+                timeout=15, allow_redirects=True)
+            _h = _r.text or ''
+        except Exception:
+            continue
+        if not _h:
+            continue
+
+        def _og(prop):
+            _m = re.search(
+                r'property=["\']' + re.escape(prop)
+                + r'["\']\s+content=["\']([^"\']+)', _h)
+            if not _m:
+                _m = re.search(
+                    r'content=["\']([^"\']+)["\']\s+property=["\']'
+                    + re.escape(prop) + r'["\']', _h)
+            if not _m:
+                _m = re.search(
+                    r'name=["\']' + re.escape(prop)
+                    + r'["\']\s+content=["\']([^"\']+)', _h)
+            return html.unescape(_m.group(1)) if _m else ''
+
+        _vid = (_og('og:video:secure_url') or _og('og:video')
+                or _og('twitter:player:stream'))
+        if _vid:
+            return {'title': _og('og:title') or f'{platform} video',
+                    'thumbnail': _og('og:image'),
+                    'duration': 0, 'uploader': '',
+                    'platform': platform, 'ext': 'mp4',
+                    'is_image': False, 'formats_available': 1,
+                    'direct_url': _vid}
+    return None
+
+
 @app.route('/api/fetch-social-info', methods=['POST'])
 def fetch_social_info():
     data = request.json
@@ -6883,6 +7072,12 @@ def fetch_social_info():
                     }
                 })
     except Exception as e:
+        try:
+            _og = _social_og_info(url, detect_platform(url))
+        except Exception:
+            _og = None
+        if _og:
+            return jsonify({"info": _og})
         return jsonify({"error": _social_friendly_err(e, detect_platform(url))}), 400
 
     return jsonify({"error": "Could not fetch video information"}), 400
@@ -6898,6 +7093,8 @@ def download_social_media():
     url = data.get('url', '').strip()
     format_type = data.get('format', 'video')
     download_id = data.get('download_id', '')
+    direct_url = data.get('direct_url', '').strip()
+    title_hint = data.get('title', '').strip()
 
     if not url:
         return jsonify({"error": "URL is required"}), 400
@@ -6926,7 +7123,7 @@ def download_social_media():
     }
 
     thread = threading.Thread(target=download_social_in_background, args=(
-        url, format_type, platform, download_id))
+        url, format_type, platform, download_id, direct_url, title_hint))
     thread.daemon = True
     thread.start()
 
@@ -6957,7 +7154,59 @@ def detect_platform(url):
     return "Social Media"
 
 
-def download_social_in_background(url, format_type, platform, download_id):
+def download_social_in_background(url, format_type, platform, download_id,
+                                  direct_url='', title_hint=''):
+    if direct_url and format_type == 'video':
+        # Update 136: og: se mili seedhi file — bina yt-dlp ke
+        try:
+            _title = sanitize_filename(title_hint or f'{platform} video') or 'video'
+            _path = os.path.join(SOCIAL_DIR, f'{_title}.mp4')
+            _n = 1
+            while os.path.exists(_path):
+                _n += 1
+                _path = os.path.join(SOCIAL_DIR, f'{_title} ({_n}).mp4')
+            _t0 = time.time()
+            with requests.get(direct_url, headers={'User-Agent': _SOCIAL_UA},
+                              stream=True, timeout=30) as _r:
+                _r.raise_for_status()
+                _total = int(_r.headers.get('Content-Length') or 0)
+                _done = 0
+                with open(_path, 'wb') as _f:
+                    for _chunk in _r.iter_content(262144):
+                        if not _chunk:
+                            continue
+                        _f.write(_chunk)
+                        _done += len(_chunk)
+                        _el = max(time.time() - _t0, 0.1)
+                        download_progress[download_id] = {
+                            'status': 'downloading',
+                            'percent': int(100 * _done / _total) if _total else 0,
+                            'speed': format_speed(_done / _el),
+                            'error': None, 'format': format_type,
+                            'platform': platform}
+            _size = os.path.getsize(_path)
+            downloaded_files[download_id] = {
+                'downloadId': download_id, 'videoId': download_id,
+                'title': _title, 'format': 'MP4', 'quality': 'Best',
+                'platform': platform, 'file_path': _path,
+                'file_size': _size, 'status': 'completed',
+                'timestamp': datetime.now().isoformat()
+            }
+            save_downloads_db()
+            _gd = guest_pending.pop(download_id, None)
+            if _gd:
+                _guest_inc(_gd)
+            download_progress[download_id] = {
+                'status': 'completed', 'percent': 100, 'speed': '',
+                'error': None, 'file_path': _path, 'title': _title,
+                'format': format_type, 'platform': platform,
+                'file_size': _size}
+        except Exception as _e:
+            download_progress[download_id] = {
+                'status': 'failed', 'percent': 0, 'speed': '',
+                'error': _social_friendly_err(_e, platform),
+                'format': format_type, 'platform': platform}
+        return
     def progress_hook(d):
         if d['status'] == 'downloading':
             total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
@@ -9655,6 +9904,22 @@ def api_formats(video_id):
             total += best_audio_size
         return round(total / (1024 * 1024), 1)
 
+    def _fmt_size_est(fmt):
+        # (mb, is_est): asal filesize ho to wahi; warna tbr
+        # (kbps) x duration se andaza — row khali nahi rehti.
+        vs = fmt.get('filesize') or fmt.get('filesize_approx')
+        if vs:
+            total = vs
+            if fmt.get('acodec') in (None, 'none') and best_audio_size:
+                total += best_audio_size
+            return round(total / (1024 * 1024), 1), False
+        tbr = fmt.get('tbr') or fmt.get('vbr') or 0
+        if fmt.get('acodec') in (None, 'none') and best_audio:
+            tbr = tbr + (best_audio.get('tbr') or best_audio.get('abr') or 128)
+        if tbr and duration:
+            return round(tbr * 1000 / 8 * duration / (1024 * 1024), 1), True
+        return None, False
+
     video_group = []
     # 3GP / lowest first - button-mobile friendly (generated option, as before)
     gp = [f for f in formats if f.get('ext') == '3gp']
@@ -9680,8 +9945,9 @@ def api_formats(video_id):
                                    f.get('filesize') or f.get('filesize_approx') or 0))
         _best = _cands[-1]
         _prev_h = _best.get('height', _h)
+        _smb, _sest = _fmt_size_est(_best)
         video_group.append({'label': _label, 'format': 'mp4', 'quality': f'{_h}p',
-                            'size_mb': combined_size_mb(_best)})
+                            'size_mb': _smb, 'size_est': _sest})
 
     music_group = [{'label': 'M4A (128K)', 'format': 'm4a', 'quality': None,
                     'size_mb': _fmt_size_mb(best_audio) if best_audio else None}]
