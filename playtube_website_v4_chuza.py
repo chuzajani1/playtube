@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 54  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 55  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">54</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">55</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -5247,22 +5247,36 @@ function v4RenderSearchBar(){
   const pf = v4SearchState.platform, f = v4SearchState.filter;
   const pb = function(id, label){ return '<button data-pf="' + id + '" class="' + (pf === id ? 'active' : '') + '" onclick="v4SearchPlatform(this)">' + label + '</button>'; };
   const fb = function(id, label){ return '<button data-f="' + id + '" class="' + (f === id ? 'active' : '') + '" onclick="v4SearchFilter(this)">' + label + '</button>'; };
-  bar.innerHTML = '<div class="v4-sbar">' + pb('all', 'All') + pb('youtube', 'YouTube') + pb('instagram', 'Instagram') + pb('facebook', 'Facebook') + '</div>' +
+  bar.innerHTML = '<div class="v4-sbar">' + pb('all', 'All') + pb('youtube', 'YouTube') + pb('movies', '🎬 Movies') + pb('songs', '🎵 Songs') + '</div>' +
     '<div class="v4-sbar">' + fb('all', 'Sab') + fb('date', '🆕 Nayi') + fb('long', '⏱ Lambi') + fb('shorts', '⚡ Shorts') + '</div>';
 }
 function v4SearchPlatform(el){
   const pf = el.getAttribute('data-pf'); v4SearchState.platform = pf; v4RenderSearchBar();
-  if(pf === 'all' || pf === 'youtube'){ v4LoadFeed('v4-home-feed', v4SearchState.q, 'all'); return; }
-  v4Show('social');
-  const inp = v4$('v4-social-url'); if(inp){ inp.placeholder = (pf === 'instagram' ? 'Instagram' : 'Facebook') + ' ka link yahan paste karein...'; inp.focus(); }
+  /* Update 144: Instagram/Facebook chips search se HATA
+     diye — unki videos search mein aa hi nahi saktin,
+     chip dabane par sirf Social tab khul jata tha jo
+     confusion tha. Unki jagah 🎬 Movies / 🎵 Songs:
+     ye asal chalte hain, search usi type mein hoti
+     hai. IG/FB download sirf Social tab (link paste)
+     se hota hai — wahi unka asal kaam hai. */
+  if(pf === 'movies'){ v4LoadFeed('v4-home-feed', v4SearchState.q, 'movies'); return; }
+  if(pf === 'songs'){ v4LoadFeed('v4-home-feed', v4SearchState.q, 'mp3'); return; }
+  v4LoadFeed('v4-home-feed', v4SearchState.q, 'all');
+}
+function v4SearchTypeForPlatform(){
+  const pf = v4SearchState.platform;
+  if(pf === 'movies') return 'movies';
+  if(pf === 'songs') return 'mp3';
+  return 'all';
 }
 function v4SearchFilter(el){
   const f = el.getAttribute('data-f'); v4SearchState.filter = f; v4RenderSearchBar();
   const q = v4SearchState.q;
+  const bt = v4SearchTypeForPlatform();
   if(f === 'shorts'){ v4OpenShorts(q); return; }
-  if(f === 'date'){ v4LoadFeed('v4-home-feed', q, 'all', '', {sort:'date'}); return; }
-  if(f === 'long'){ v4LoadFeed('v4-home-feed', q, 'videos', '', {minDur:1200}); return; }
-  v4LoadFeed('v4-home-feed', q, 'all');
+  if(f === 'date'){ v4LoadFeed('v4-home-feed', q, bt, '', {sort:'date'}); return; }
+  if(f === 'long'){ v4LoadFeed('v4-home-feed', q, bt === 'all' ? 'videos' : bt, '', {minDur:1200}); return; }
+  v4LoadFeed('v4-home-feed', q, bt);
 }
 
 /* ---------- social / more ---------- */
