@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 46  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 47  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1646,7 +1646,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">46</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">47</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
       </div>
@@ -2183,7 +2183,12 @@ function v4RenderCards(elId, items){
 /* ---------- v9: global seen — jo dikh/dekh liya wo dobara nahi ---------- */
 function v4SeenGet(){ try{ return JSON.parse(localStorage.getItem('pt_seen') || '[]'); }catch(e){ return []; } }
 function v4SeenAdd(ids){ if(!ids || !ids.length) return; const now = Date.now(); const drop = {}; ids.forEach(function(id){ if(id) drop[id] = 1; }); const cur = v4SeenGet().filter(function(x){ return x && x.id && !drop[x.id]; }); ids.forEach(function(id){ if(id) cur.unshift({id:id, ts:now}); }); try{ localStorage.setItem('pt_seen', JSON.stringify(cur.slice(0, 3000))); }catch(e){} }
-function v4SeenParam(){ return v4SeenGet().slice(0, 800).map(function(x){ return x.id; }).join(','); }
+function v4SeenParam(){ return v4SeenGet().slice(0, 200).map(function(x){ return x.id; }).join(','); }
+/* Update 127: YouTube model — sirf HAAL ki dikhi hui (recent
+   window) refresh par nahi atin; us se purani mix mein wapis
+   aa sakti hain, is liye list kabhi khatam nahi hoti aur har
+   refresh ka mix alag hota hai. */
+function v4RecentSet(n){ const s = {}; v4SeenGet().slice(0, n || 150).forEach(function(x){ if(x && x.id) s[x.id] = 1; }); return s; }
 const v4FeedState = {};
 let v4FeedSession = Math.random().toString(36).slice(2, 10);
 /* ---------- personalization (Update 34): jo zyada search/watch, waisa feed ---------- */
@@ -2277,20 +2282,19 @@ async function v4PhoneFeedFallback(elId, st){
       if(v.videoId) norm.push(v);
     });
     if(!norm.length) return false;
-    /* Update 126 (user ka FINAL usool): jo video ek dafa dikh
-       gayi — is feed mein, kisi aur tab par, ya pichli dafaon
-       mein — wo DOBARA KABHI NAHI. Koi narmi/relaxation nahi:
-       sirf kabhi-na-dekhi videos hi list mein jati hain; kam
-       hon to neeche top-up aur agli pages se aur bhar li jati
-       hain. */
-    const seenP = {}; v4SeenGet().forEach(function(x){ if(x && x.id) seenP[x.id] = 1; });
+    /* Update 127 (YouTube model): is feed/session mein dikhi
+       hui + HAAL ki 150 purani — ye refresh par nahi atin.
+       Us se purani videos mix mein aa sakti hain (YouTube par
+       bhi aisa hi hota hai) — is liye har refresh alag mix,
+       aur list kabhi khatam nahi hoti. */
+    const seenP = v4RecentSet(150);
     let ordered = norm.filter(function(v){ return !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]; });
     /* Update 125: pehli list mein NAYI (kabhi na dekhi) videos
        6 se kam hon to phone se aur bharo — har open / refresh
        par har jagah sar naya, purani video kahin nahi. */
     let _unseen = 0;
     ordered.forEach(function(v){ if(!v4FeedShown[v.videoId] && !seenP[v.videoId]) _unseen++; });
-    for(let _tx = 0; _tx < 3 && _unseen < 8; _tx++){
+    for(let _tx = 0; _tx < 4 && _unseen < 8; _tx++){
       let _more = null;
       if(q !== '' && window.PlayTubeApp && PlayTubeApp.phoneSearchMore) _more = await v4PhoneBridge('phoneSearchMore', q);
       if(!_more || !_more.length){ st.phoneRot = (st.phoneRot || 0) + 1; _more = await v4PhoneBridge('phoneSearch', (q === '') ? v4PhoneRotQuery(st) : (q + v4_FEED_VARIANTS[st.phoneRot % v4_FEED_VARIANTS.length])); }
@@ -2347,7 +2351,7 @@ async function v4PhoneFeedMore(elId, st){
   try{
     if(!(window.PlayTubeApp && PlayTubeApp.phoneSearch)) return false;
     const el = v4$(elId); if(!el) return false;
-    const seenP = {}; v4SeenGet().forEach(function(x){ if(x && x.id) seenP[x.id] = 1; });
+    const seenP = v4RecentSet(150);
     for(let attempt = 0; attempt < 2; attempt++){
       let items = null;
       if(st.phoneQ){
@@ -2413,7 +2417,14 @@ async function v4FeedMore(elId, first){
     if(!(r.ok && r.data && r.data.items)){ failed = true; break; }
     if(first && !stripHtml && r.data.shorts_row){ stripHtml = v4ShortStripHTML(r.data.shorts_row); v4SeenAdd(r.data.shorts_row.map(function(x){ return (x.id && x.id.videoId) || ''; }).filter(Boolean)); }
     st.page++;
-    if(r.data.has_more === false) st.done = true;
+    if(r.data.has_more === false){
+      /* Update 127: browse feed par 'Bas' NAHI — pool khatam ho
+         to naya session ghuma kar dobara (window purani videos
+         ko foran wapis nahi ane deta). Playlist is se bahir
+         hai — wo asal mein khatam hoti hai. */
+      if(!st._cycled && st.type !== 'playlists'){ st._cycled = 1; v4FeedSession = Math.random().toString(36).slice(2, 10); st.page = 0; }
+      else st.done = true;
+    }
     v4AudioCards = (elId === 'v4-music-feed' && st.type === 'mp3');
     let pageHtml = '', pageCount = 0;
     r.data.items.forEach(function(it){
@@ -2436,7 +2447,7 @@ async function v4FeedMore(elId, first){
   if(v4FeedGen[elId] !== gen || v4FeedState[elId] !== st) return;
   const oldS = el.querySelector('.v4-more'); if(oldS) oldS.remove();
   st.loading = false;
-  if(added > 0) st.empty = 0; else { st.empty = (st.empty || 0) + 1; if(st.empty >= 2) st.done = true; }
+  if(added > 0){ st.empty = 0; st._cycled = 0; } else { st.empty = (st.empty || 0) + 1; if(st.empty >= 2) st.done = true; }
   if(first && !added){
     /* Update 121: 'Server slow hai' wala khud-bakhud loop KHATAM.
        Pehle phone fallback (asal query ke sath), warna khamosh msg
@@ -2562,16 +2573,24 @@ function v4ShortActivate(sec){
   const _cachedUrl = v4StreamCache[vid];
   if(_cachedUrl){ v.src = _cachedUrl; }
   else if(window.PlayTubeApp && PlayTubeApp.phoneStream){
-    v4PhoneStreamGet(vid).then(function(url){
-      if(!sec.contains(v)) return;
-      if(url){ v.src = url; const p3 = v.play(); if(p3 && p3.catch) p3.catch(function(){ v.muted = true; const p4 = v.play(); if(p4 && p4.catch) p4.catch(function(){}); }); }
-      else if(!v.getAttribute('src')){ v.src = '/api/stream/' + vid; }
-    });
+    /* Update 127: phone stream 6 second mein na aye to server
+       wali stream foran — 25s spinner NAHI. Fail hui video par
+       agli dafa phone ka intezar hi nahi hota. */
+    if(v4StreamFail[vid] && (Date.now() - v4StreamFail[vid] < 120000)){ v.src = '/api/stream/' + vid; }
+    else {
+      let _got = false;
+      v4PhoneStreamGet(vid).then(function(url){
+        if(!sec.contains(v)) return;
+        if(url){ _got = true; if(!(v.getAttribute('src') && v.readyState >= 2)){ v.src = url; const p3 = v.play(); if(p3 && p3.catch) p3.catch(function(){ v.muted = true; const p4 = v.play(); if(p4 && p4.catch) p4.catch(function(){}); }); } }
+        else if(!v.getAttribute('src')){ v.src = '/api/stream/' + vid; }
+      });
+      setTimeout(function(){ if(sec.contains(v) && !_got && !v.getAttribute('src')) v.src = '/api/stream/' + vid; }, 6000);
+    }
   }
   else v.src = '/api/stream/' + vid;
   let retried = 0;
   const retry = function(){ if(!sec.contains(v)) return; if(retried >= 2){ if(!sec.dataset.fbk){ sec.dataset.fbk = '1'; try{ v.pause(); }catch(e){} if(v.parentNode) v.remove(); const ifr = document.createElement('iframe'); ifr.src = 'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&rel=0&playsinline=1&modestbranding=1'; ifr.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen'); ifr.setAttribute('allowfullscreen', ''); ifr.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0'; sec.insertBefore(ifr, sec.children[1] || null); if(spin) spin.style.display = 'none'; const bg2 = sec.querySelector('img.bg'); if(bg2) bg2.style.display = 'none'; } return; } retried++; if(spin) spin.style.display = 'flex'; v.src = '/api/stream/' + vid + '?retry=' + retried; const p2 = v.play(); if(p2 && p2.catch) p2.catch(function(){}); };
-  const wd = setTimeout(function(){ if(v.readyState < 3 && sec.contains(v)) retry(); }, 9000);
+  const wd = setTimeout(function(){ if(v.readyState < 3 && sec.contains(v)) retry(); }, 6000);
   v.addEventListener('playing', function(){ clearTimeout(wd); if(spin) spin.style.display = 'none'; const bg = sec.querySelector('img.bg'); if(bg) bg.style.display = 'none'; });
   v.addEventListener('error', function(){ retry(); });
   const prog = sec.querySelector('.v4-short-prog');
@@ -2679,8 +2698,10 @@ async function v4ShortsLoad(){
    waiter; Java v4PhoneStreamResult se jawab deta hai. */
 const v4StreamCache = {};
 const v4StreamWait = {};
+const v4StreamFail = {};
 function v4PhoneStreamResult(vid, url){
   if(url) v4StreamCache[vid] = url;
+  else if(vid) v4StreamFail[vid] = Date.now();
   const w = v4StreamWait[vid]; delete v4StreamWait[vid];
   if(w) w(url || null);
 }
