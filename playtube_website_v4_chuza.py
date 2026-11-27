@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 51  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 52  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">51</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">52</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -2157,7 +2157,7 @@ function v4TopTab(t){ if(t === 'search'){ v4Show('home'); v4OpenSearch(); return
 
 /* ---------- feeds & cards (ONE renderer — Bug #1/#2) ---------- */
 function v4AgeText(it){ if(!it) return ''; if(it.age_text) return String(it.age_text).replace('Streamed ', ''); const ts = it.age_ts; if(ts){ const s = Math.max(0, Math.floor(Date.now() / 1000) - Number(ts)); if(s < 3600) return Math.max(1, Math.floor(s / 60)) + ' minutes ago'; if(s < 86400) return Math.floor(s / 3600) + ' hours ago'; if(s < 2592000) return Math.floor(s / 86400) + ' days ago'; if(s < 31536000) return Math.floor(s / 2592000) + ' months ago'; return Math.floor(s / 31536000) + ' years ago'; } return ''; }
-function v4Norm(item){ const id = (item.id && item.id.videoId) || item.id || item.video_id || ''; const sn = item.snippet || {}; return {videoId:id, title:sn.title || item.title || '', channel:sn.channelTitle || item.channel || '', duration:item.duration || '', views:item.view_count || '', age:v4AgeText(item)}; }
+function v4Norm(item){ const id = (item.id && item.id.videoId) || item.id || item.video_id || ''; const sn = item.snippet || {}; return {videoId:id, title:sn.title || item.title || '', channel:sn.channelTitle || item.channel || '', duration:item.duration || '', views:item.view_count || '', age:v4AgeText(item), live: !!item.live}; }
 let v4AudioCards = false;
 let v4AudioId = '';
 let v4AudioWired = false;
@@ -2210,9 +2210,15 @@ function v4AudioDownload(){ if(v4AudioId) v4OpenSheet(v4AudioId, true); }
 function v4SheetAudio(ev, id){ if(ev) ev.stopPropagation(); v4OpenSheet(id, true); }
 function v4Mp3Click(id){ v4PlayAudio(id); }
 function v4CardHTML(v){
-  const meta = [v4Esc(v.channel), v4Views(v.views), v4Esc(v.age || '')].filter(Boolean).join(' • ');
+  /* Update 141: LIVE video par views wala number asal
+     mein dekhne walon (watching) ki tadaad hoti hai —
+     YouTube bhi waisa hi likhta hai; aam video par asal
+     views + age, jo na mile wo hissa hi nahi dikhta. */
+  const meta = v.live
+    ? [v4Esc(v.channel), v.views ? (v4Views(v.views).replace(' views', '') + ' watching') : '🔴 Live'].filter(Boolean).join(' • ')
+    : [v4Esc(v.channel), v4Views(v.views), v4Esc(v.age || '')].filter(Boolean).join(' • ');
   const tap = v4AudioCards ? 'v4Mp3Click' : 'v4WatchClick';
-  const badge = v4AudioCards ? '<span class=\"v4-dur\" style=\"left:6px;right:auto\">🎵 MP3</span>' : '';
+  const badge = v4AudioCards ? '<span class=\"v4-dur\" style=\"left:6px;right:auto\">🎵 MP3</span>' : (v.live ? '<span class=\"v4-dur\" style=\"left:6px;right:auto;background:#dc2626;color:#fff\">🔴 LIVE</span>' : '');
   return '<div class=\"v4-vcard\"><div class=\"v4-thumb\" data-id=\"' + v.videoId + '\" onclick=\"' + tap + '(this.dataset.id)\">' + v4Img(v.videoId) + badge + (v.duration ? '<span class=\"v4-dur\">' + v4Dur(v.duration) + '</span>' : '') + '</div>' +
     '<div class=\"v4-vrow\"><div class=\"v4-vtexts\" data-id=\"' + v.videoId + '\" onclick=\"' + tap + '(this.dataset.id)\"><div class=\"v4-vtitle\">' + v4Esc(v.title) + '</div>' + (meta ? '<div class=\"v4-vmeta\">' + meta + '</div>' : '') + '</div>' +
     '<button class=\"v4-dlbtn\" title=\"Download\" data-id=\"' + v.videoId + '\" onclick=\"' + (v4AudioCards ? 'v4SheetAudio' : 'v4DlClick') + '(event, this.dataset.id)\">' + (v4AudioCards ? '🎵' : '↓') + '</button></div></div>';
@@ -2586,15 +2592,19 @@ async function v4PhoneFeedFallback(elId, st){
       /* Trending satahein: Home = asal YouTube trending; YouTube
          tab ki pehli list pool-rotation se — warna dono par wahi
          pehli video khadi rehti thi. */
-      if(elId === 'v4-youtube-feed'){ items = await v4PhoneBridge('phoneSearch', v4PhoneRotQuery(st)); }
-      else if(PlayTubeApp.phoneTrending) items = await v4PhoneBridge('phoneTrending', null);
+      /* Update 140: Home ki pehli list bhi rotation/mix
+         se — YouTube ki global trending chart (wahi
+         Spanish shows) har install/update par sar par
+         nahi aati; chart sirf aakhri fallback hai. */
+      items = await v4PhoneBridge('phoneSearch', v4PhoneRotQuery(st));
+      if((!items || !items.length) && PlayTubeApp.phoneTrending) items = await v4PhoneBridge('phoneTrending', null);
     }
     if(!items || !items.length) items = await v4PhoneBridge('phoneSearch', q || 'trending');
     if(!items || !items.length) return false;
     const el = v4$(elId); if(!el) return false;
     const norm = [];
     items.forEach(function(it){
-      const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || '', age_ts: it.age_ts || 0});
+      const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || '', age_ts: it.age_ts || 0, live: it.live || false});
       if(v.videoId) norm.push(v);
     });
     if(!norm.length) return false;
@@ -2619,7 +2629,7 @@ async function v4PhoneFeedFallback(elId, st){
       const _have = {}; ordered.forEach(function(v){ _have[v.videoId] = 1; });
       const _add = [];
       _more.forEach(function(it){
-        const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || '', age_ts: it.age_ts || 0});
+        const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || '', age_ts: it.age_ts || 0, live: it.live || false});
         if(v.videoId && !_have[v.videoId] && !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]){ _have[v.videoId] = 1; _add.push(v); }
       });
       _add = v4ApplySearchOpts(_add, st);
@@ -2688,7 +2698,7 @@ async function v4PhoneFeedMore(elId, st){
       if(!items || !items.length) continue;
       let batch = [];
       items.forEach(function(it){
-        const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || '', age_ts: it.age_ts || 0});
+        const v = v4Norm({id:{videoId: it.id}, snippet:{title: it.title || '', channelTitle: it.channel || ''}, duration: (it.duration > 0) ? it.duration : '', view_count: (it.views != null && it.views >= 0) ? it.views : '', age_text: it.age || '', age_ts: it.age_ts || 0, live: it.live || false});
         if(v.videoId && !st.seen[v.videoId] && !v4FeedShown[v.videoId] && !seenP[v.videoId]){ st.seen[v.videoId] = 1; batch.push(v); }
       });
       batch = v4ApplySearchOpts(v4ApplyFilters(batch, st), st);
@@ -6172,6 +6182,7 @@ def _shorts_search_items(query, n=20):
                     if _mm:
                         _mult = {'K': 1e3, 'M': 1e6, 'B': 1e9}.get(_mm.group(2), 1)
                         _vc = int(float(_mm.group(1)) * _mult)
+                _live = 'watching' in _vct.lower()
                 _age = ((_vr.get('publishedTimeText', {}) or {})
                         .get('simpleText') or '')
                 items.append({
@@ -6188,6 +6199,7 @@ def _shorts_search_items(query, n=20):
                     },
                     'duration': _dur,
                     'view_count': _vc,
+                    'live': _live,
                     'age_text': _age,
                 })
     except Exception:
@@ -6463,6 +6475,7 @@ def _dated_search_items(query, n=30):
                     if _mm:
                         _mult = {'K': 1e3, 'M': 1e6, 'B': 1e9}.get(_mm.group(2), 1)
                         _vc = int(float(_mm.group(1)) * _mult)
+                _live = 'watching' in _vct.lower()
                 _age = ((_vr.get('publishedTimeText', {}) or {})
                         .get('simpleText') or '')
                 items.append({
@@ -6479,6 +6492,7 @@ def _dated_search_items(query, n=30):
                     },
                     'duration': _dur,
                     'view_count': _vc,
+                    'live': _live,
                     'age_text': _age,
                     'age_min': _age_minutes(_age),
                 })
