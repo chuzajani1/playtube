@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 86  # Update 86: har update par +1 — More page par dikhta hai
+APP_VERSION = 87  # Update 86: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1426,6 +1426,26 @@ HTML = '''
   .v4-wrap.open{display:block}
   .v4-overlay{position:absolute;inset:0;background:rgba(4,2,16,.86)}
   .v4-sheet{position:absolute;left:0;right:0;bottom:0;min-height:44vh;max-height:84vh;overflow-y:auto;overscroll-behavior:contain;background:#0b0916;border-radius:18px 18px 0 0;padding:14px 16px 18px;max-width:560px;margin:0 auto;border:1px solid var(--v4border)}
+  .v4-cmtwrap{position:fixed;inset:0;z-index:1400;display:none;background:rgba(3,2,8,.9)}
+  .v4-cmtwrap.open{display:block}
+  .v4-cmtsheet{position:absolute;left:0;right:0;bottom:0;height:78vh;max-width:560px;margin:0 auto;display:flex;flex-direction:column;background:#0b0916;border-radius:18px 18px 0 0;padding:14px 16px 10px;border:1px solid var(--v4border)}
+  .v4-cmt-scroll{overflow-y:auto;overscroll-behavior:contain;flex:1;margin-top:6px}
+  .v4-cmt-row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+  .v4-cmt-av{position:relative;flex:none;width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#7c5cff,#14b8a6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;overflow:hidden}
+  .v4-cmt-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .v4-cmt-main{flex:1;min-width:0}
+  .v4-cmt-meta{font-size:12px;color:#a49ec4}
+  .v4-cmt-meta b{color:#eceaf6;font-size:12.5px}
+  .v4-cmt-pin{font-size:11px;color:#ffd166;margin-bottom:2px}
+  .v4-cmt-text{font-size:13.5px;line-height:1.45;color:#eceaf6;word-wrap:break-word}
+  .v4-cmt-clamp{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+  .v4-cmt-more{font-size:12px;color:#a49ec4;cursor:pointer;margin-top:2px}
+  .v4-cmt-sub{display:flex;gap:14px;margin-top:4px;font-size:12px;color:#a49ec4}
+  .v4-cmt-repbtn{margin-top:6px;background:none;border:0;color:#8ab4ff;font-size:12.5px;cursor:pointer;padding:2px 0}
+  .v4-cmt-replies{margin-top:4px}
+  .v4-cmt-morebtn{display:block;margin:12px auto;background:#1b1838;border:1px solid var(--v4border);color:#eceaf6;border-radius:999px;padding:8px 18px;font-size:13px;cursor:pointer}
+  .v4-cmt-load{display:flex;align-items:center;gap:10px;justify-content:center;padding:22px 0;color:#a49ec4;font-size:13px}
+  .v4-cmt-load i{flex:none;width:22px;height:22px;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:var(--v4teal);animation:v4spin .8s linear infinite}
   .v4-modalpanel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:92%;max-width:420px;max-height:88vh;overflow-y:auto;background:var(--v4bg);border:1px solid var(--v4border);border-radius:16px;padding:18px 16px}
   .v4-fmtrow{display:flex;align-items:center;gap:11px;padding:11px 10px;cursor:pointer;border-radius:12px;border-left:4px solid transparent;margin:2px 0}
   .v4-fmtrow.sel{background:linear-gradient(90deg,rgba(124,92,255,.30),rgba(20,184,166,.20));border-left:4px solid var(--v4teal)}
@@ -1813,7 +1833,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">86</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">87</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -1835,8 +1855,12 @@ HTML = '''
       </div></div>
       <div class="v4-h" id="v4-watch-title" style="margin-top:12px"></div>
       <p class="v4-muted" id="v4-watch-channel"></p>
-      <div style="display:flex;gap:8px;align-items:stretch;margin-top:10px"><button class="v4-bigbtn" style="flex:1;margin:0" onclick="v4WatchDownload()">⬇ Download</button><button class="v4-iconbtn" id="v4-watch-fav" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchFav()">♡</button><button class="v4-iconbtn" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchShare()">↗</button></div>
+      <div style="display:flex;gap:8px;align-items:stretch;margin-top:10px"><button class="v4-bigbtn" style="flex:1;margin:0" onclick="v4WatchDownload()">⬇ Download</button><button class="v4-iconbtn" id="v4-watch-fav" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchFav()">♡</button><button class="v4-iconbtn" style="border-radius:999px;padding:0 16px;font-size:16px" onclick="v4WatchShare()">↗</button><button class="v4-iconbtn" id="v4-watch-cmtbtn" style="border-radius:999px;padding:0 16px;font-size:16px" title="Comments" onclick="v4WatchCommentsToggle()">💬</button></div>
       <div id="v4-watch-msg" class="v4-muted" style="display:none;margin-top:10px"></div>
+      <div id="v4-watch-comments" style="display:none;margin-top:14px">
+        <div class="v4-h" id="v4-cmt-watch-head">💬 Comments</div>
+        <div id="v4-cmt-watch-body"></div>
+      </div>
       <div class="v4-h" style="margin-top:18px">Related Videos</div>
       <div id="v4-related" class="v4-feedgrid"></div>
     </section>
@@ -2197,6 +2221,18 @@ HTML = '''
       <button class="v4-iconbtn" onclick="v4CloseDlMenu()">✕</button>
     </div>
     <div id="v4-dlmenu-list" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- Comments sheet (Update 175) -->
+<div id="v4-cmtwrap" class="v4-cmtwrap">
+  <div class="v4-overlay" onclick="v4ShortsCommentsClose()"></div>
+  <div class="v4-cmtsheet">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="v4-h" style="flex:1" id="v4-cmt-shorts-head">💬 Comments</div>
+      <button class="v4-iconbtn" onclick="v4ShortsCommentsClose()">✕</button>
+    </div>
+    <div id="v4-cmt-shorts-body" class="v4-cmt-scroll"></div>
   </div>
 </div>
 
@@ -3245,6 +3281,201 @@ function v4WatchShare(){
 let v4ShortsPage = 0, v4ShortsLoading = false, v4ShortsDone = false, v4ShortsObs = null, v4ShortsMuted = (localStorage.getItem('pt_short_muted') === '1'), v4ShortsSeq = 0, v4ShortsQuery = 'trending shorts';
 const v4ShortsItems = {};
 function v4FmtCount(n){ n = Number(n) || 0; if(n >= 1e6) return (n / 1e6).toFixed(1).replace('.0', '') + 'M'; if(n >= 1e3) return (n / 1e3).toFixed(1).replace('.0', '') + 'K'; return '' + n; }
+
+/* ---------- Comments (Update 175): asal YouTube comments — watch,
+   Shorts aur songs (jo watch view mein khulein) par ek hi renderer.
+   APK mein phone (NewPipe bridge) se, browser mein /api/comments se.
+   Comment ka text/author UNTRUSTED hai — har jagah v4Esc. ---------- */
+let v4CmtReq = 0;
+const v4CmtWaiters = {};
+function v4CommentsResult(reqId, jsonStr){
+  const w = v4CmtWaiters[reqId]; delete v4CmtWaiters[reqId]; if(!w) return;
+  if(!jsonStr){ w(null); return; }
+  try{ w(JSON.parse(jsonStr)); }catch(e){ w(null); }
+}
+function v4CmtFetch(vid, token){
+  return new Promise(function(res){
+    if(window.PlayTubeApp && PlayTubeApp.comments){
+      const rid = ++v4CmtReq; v4CmtWaiters[rid] = res;
+      try{ PlayTubeApp.comments(vid, token || '', rid); }
+      catch(e){ delete v4CmtWaiters[rid]; res(null); return; }
+      setTimeout(function(){ if(v4CmtWaiters[rid]){ delete v4CmtWaiters[rid]; res(null); } }, 30000);
+      return;
+    }
+    v4FetchT('/api/comments?id=' + encodeURIComponent(vid) + '&page=' + encodeURIComponent(token || ''), 45000)
+      .then(function(r){ return r.json(); })
+      .then(function(d){ res(d); })
+      .catch(function(){ res(null); });
+  });
+}
+function v4CmtSpinHtml(){ return '<div class="v4-cmt-load"><i></i><span>Comments load ho rahe hain...</span></div>'; }
+function v4CmtId(s){ return String(s || '').replace(/[^A-Za-z0-9_.-]/g, ''); }
+function v4CmtTextHtml(t){ return v4Esc(t || '').replace(/\\n/g, '<br>'); }
+function v4CmtExpand(el){
+  if(!el) return;
+  el.classList.remove('v4-cmt-clamp');
+  const nx = el.nextElementSibling;
+  if(nx && nx.classList && nx.classList.contains('v4-cmt-more')) nx.style.display = 'none';
+}
+function v4CmtRow(c, vid, isReply){
+  const name = String(c.author || '');
+  const init = v4Esc((name.trim().charAt(0) || '?').toUpperCase());
+  let av = '<span class="v4-cmt-av">' + init;
+  if(c.avatar) av += '<img src="' + v4Esc(c.avatar) + '" alt="" loading="lazy" onerror="this.remove()">';
+  av += '</span>';
+  let meta = '<div class="v4-cmt-meta"><b>' + v4Esc(name) + '</b>';
+  if(c.hearted) meta += ' <span title="Channel ne dil diya">❤️</span>';
+  if(c.timeText) meta += ' <span>· ' + v4Esc(c.timeText) + '</span>';
+  meta += '</div>';
+  const pin = c.pinned ? '<div class="v4-cmt-pin">📌 Pinned</div>' : '';
+  const txt = String(c.text || '');
+  let body;
+  if(txt.length > 300){
+    body = '<div class="v4-cmt-text v4-cmt-clamp" onclick="v4CmtExpand(this)">' + v4CmtTextHtml(txt) + '</div>'
+         + '<div class="v4-cmt-more" onclick="v4CmtExpand(this.previousElementSibling)">… zyada parhein</div>';
+  } else {
+    body = '<div class="v4-cmt-text">' + v4CmtTextHtml(txt) + '</div>';
+  }
+  const like = (c.likes > 0) ? '<div class="v4-cmt-sub"><span>👍 ' + v4FmtCount(c.likes) + '</span></div>' : '';
+  let rep = '';
+  const cid = v4CmtId(c.id);
+  if(!isReply && cid && c.replies !== 0){
+    const lbl = (c.replies > 0) ? ('💬 ' + c.replies + ' replies') : '💬 Replies dekhein';
+    rep = '<button class="v4-cmt-repbtn" data-vid="' + v4Esc(vid) + '" data-cid="' + cid + '" onclick="v4CmtReplies(this)">' + lbl + '</button>'
+        + '<div class="v4-cmt-replies" style="display:none"></div>';
+  }
+  return '<div class="v4-cmt-row">' + av + '<div class="v4-cmt-main">' + pin + meta + body + like + rep + '</div></div>';
+}
+function v4CmtListHtml(items, vid){
+  return (items || []).map(function(c){ return v4CmtRow(c, vid, false); }).join('');
+}
+async function v4CmtReplies(btn){
+  const box = btn.nextElementSibling; if(!box) return;
+  if(box.style.display !== 'none'){ box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  if(box.getAttribute('data-loaded')) return;
+  const vid = btn.getAttribute('data-vid'), cid = btn.getAttribute('data-cid');
+  box.innerHTML = v4CmtSpinHtml();
+  const d = await v4CmtFetch(vid, 'r:' + cid);
+  if(!d || !d.ok){ box.innerHTML = '<p class="v4-muted">Replies load nahi ho sake</p>'; return; }
+  box.setAttribute('data-loaded', '1');
+  box.setAttribute('data-next', d.nextPage || '');
+  let h = (d.items || []).map(function(c){ return v4CmtRow(c, vid, true); }).join('');
+  if(!h) h = '<p class="v4-muted">Koi reply nahi</p>';
+  if(d.nextPage) h += '<button class="v4-cmt-morebtn" onclick="v4CmtRepliesMore(this)">Aur replies</button>';
+  box.innerHTML = h;
+}
+async function v4CmtRepliesMore(btn){
+  const box = btn.parentElement; if(!box) return;
+  const tok = box.getAttribute('data-next'); if(!tok) return;
+  const repBtn = box.previousElementSibling;
+  const vid = repBtn ? repBtn.getAttribute('data-vid') : '', cid = repBtn ? repBtn.getAttribute('data-cid') : '';
+  btn.disabled = true; btn.textContent = 'Load ho raha hai...';
+  const d = await v4CmtFetch(vid, tok);
+  if(!d || !d.ok){ btn.disabled = false; btn.textContent = 'Aur replies — dobara try'; return; }
+  box.setAttribute('data-next', d.nextPage || '');
+  let h = (d.items || []).map(function(c){ return v4CmtRow(c, vid, true); }).join('');
+  btn.remove();
+  if(d.nextPage) h += '<button class="v4-cmt-morebtn" onclick="v4CmtRepliesMore(this)">Aur replies</button>';
+  box.insertAdjacentHTML('beforeend', h);
+}
+/* --- watch page surface --- */
+const v4CmtWatch = {vid:'', next:null, loading:false, loaded:false};
+function v4CmtWatchReset(vid){
+  v4CmtWatch.vid = vid || ''; v4CmtWatch.next = null; v4CmtWatch.loaded = false; v4CmtWatch.loading = false;
+  const s = v4$('v4-watch-comments'); if(s) s.style.display = 'none';
+  const b = v4$('v4-cmt-watch-body'); if(b) b.innerHTML = '';
+  const h = v4$('v4-cmt-watch-head'); if(h) h.textContent = '💬 Comments';
+}
+function v4WatchCommentsToggle(){
+  const s = v4$('v4-watch-comments'); if(!s || !v4CmtWatch.vid) return;
+  const opening = s.style.display === 'none';
+  s.style.display = opening ? 'block' : 'none';
+  if(opening){
+    try{ s.scrollIntoView({behavior:'smooth', block:'start'}); }catch(e){}
+    if(!v4CmtWatch.loaded && !v4CmtWatch.loading) v4CmtWatchLoad(false);
+  }
+}
+async function v4CmtWatchLoad(more){
+  if(v4CmtWatch.loading) return;
+  const vid = v4CmtWatch.vid; if(!vid) return;
+  const body = v4$('v4-cmt-watch-body'); if(!body) return;
+  v4CmtWatch.loading = true;
+  if(!more) body.innerHTML = v4CmtSpinHtml();
+  const d = await v4CmtFetch(vid, more ? (v4CmtWatch.next || '') : '');
+  if(v4CmtWatch.vid !== vid){ v4CmtWatch.loading = false; return; }
+  v4CmtWatch.loading = false;
+  if(!d || !d.ok){
+    if(more){ v4Toast('Aur comments load nahi ho sake'); }
+    else body.innerHTML = '<p class="v4-muted">' + v4Esc((d && d.error) || 'Comments load nahi ho sake') + '</p><button class="v4-cmt-morebtn" onclick="v4CmtWatchLoad(false)">↻ Dobara try karein</button>';
+    return;
+  }
+  v4CmtWatch.loaded = true;
+  if(d.disabled){ body.innerHTML = '<p class="v4-muted">Is video par comments band hain</p>'; return; }
+  let h = v4CmtListHtml(d.items, vid);
+  if(!more && !h) h = '<p class="v4-muted">Abhi koi comment nahi hai</p>';
+  v4CmtWatch.next = d.nextPage || null;
+  if(v4CmtWatch.next) h += '<button class="v4-cmt-morebtn" id="v4-cmt-watch-more" onclick="v4CmtWatchLoad(true)">Aur comments</button>';
+  if(more){
+    const old = v4$('v4-cmt-watch-more'); if(old) old.remove();
+    body.insertAdjacentHTML('beforeend', h);
+  } else body.innerHTML = h;
+  const hd = v4$('v4-cmt-watch-head');
+  if(hd && d.total) hd.textContent = '💬 Comments · ' + v4FmtCount(d.total);
+}
+/* --- shorts surface --- */
+const v4CmtShorts = {vid:'', next:null, loading:false, loaded:false, wasPlaying:false};
+function v4ShortsCommentsOpen(sec, vid){
+  const v = sec ? sec.querySelector('video') : null;
+  v4CmtShorts.wasPlaying = !!(v && !v.paused && !v.ended);
+  if(v){ try{ v.pause(); }catch(e){} }
+  if(v4CmtShorts.vid !== vid){
+    v4CmtShorts.vid = vid; v4CmtShorts.next = null; v4CmtShorts.loaded = false;
+    const b = v4$('v4-cmt-shorts-body'); if(b) b.innerHTML = '';
+    const h = v4$('v4-cmt-shorts-head'); if(h) h.textContent = '💬 Comments';
+  }
+  const w = v4$('v4-cmtwrap'); if(w) w.classList.add('open');
+  v4Lock(true);
+  if(!v4CmtShorts.loaded && !v4CmtShorts.loading) v4CmtShortsLoad(false);
+}
+function v4ShortsCommentsClose(){
+  const w = v4$('v4-cmtwrap'); if(w) w.classList.remove('open');
+  v4Lock(false);
+  if(v4CmtShorts.wasPlaying){
+    v4CmtShorts.wasPlaying = false;
+    const sec = document.querySelector('#v4-shorts-track .v4-short[data-vid="' + v4CmtShorts.vid + '"]');
+    const v = sec ? sec.querySelector('video') : null;
+    if(v){ const p = v.play(); if(p && p.catch) p.catch(function(){}); }
+  }
+}
+async function v4CmtShortsLoad(more){
+  if(v4CmtShorts.loading) return;
+  const vid = v4CmtShorts.vid; if(!vid) return;
+  const body = v4$('v4-cmt-shorts-body'); if(!body) return;
+  v4CmtShorts.loading = true;
+  if(!more) body.innerHTML = v4CmtSpinHtml();
+  const d = await v4CmtFetch(vid, more ? (v4CmtShorts.next || '') : '');
+  if(v4CmtShorts.vid !== vid){ v4CmtShorts.loading = false; return; }
+  v4CmtShorts.loading = false;
+  if(!d || !d.ok){
+    if(more){ v4Toast('Aur comments load nahi ho sake'); }
+    else body.innerHTML = '<p class="v4-muted">' + v4Esc((d && d.error) || 'Comments load nahi ho sake') + '</p><button class="v4-cmt-morebtn" onclick="v4CmtShortsLoad(false)">↻ Dobara try karein</button>';
+    return;
+  }
+  v4CmtShorts.loaded = true;
+  if(d.disabled){ body.innerHTML = '<p class="v4-muted">Is video par comments band hain</p>'; return; }
+  let h = v4CmtListHtml(d.items, vid);
+  if(!more && !h) h = '<p class="v4-muted">Abhi koi comment nahi hai</p>';
+  v4CmtShorts.next = d.nextPage || null;
+  if(v4CmtShorts.next) h += '<button class="v4-cmt-morebtn" id="v4-cmt-shorts-more" onclick="v4CmtShortsLoad(true)">Aur comments</button>';
+  if(more){
+    const old = v4$('v4-cmt-shorts-more'); if(old) old.remove();
+    body.insertAdjacentHTML('beforeend', h);
+  } else body.innerHTML = h;
+  const hd = v4$('v4-cmt-shorts-head');
+  if(hd && d.total) hd.textContent = '💬 Comments · ' + v4FmtCount(d.total);
+}
+
 function v4ShortCard(it){
   const id = it.id.videoId, sn = it.snippet || {};
   const ava = (sn.channelTitle || '?').trim().charAt(0).toUpperCase();
@@ -3255,6 +3486,7 @@ function v4ShortCard(it){
       '<button class="v4-sbtn" data-act="like"><span class="ic">❤</span><span>' + v4FmtCount(it.view_count) + '</span></button>' +
       '<button class="v4-sbtn" data-act="mute"><span class="ic">' + (v4ShortsMuted ? '🔇' : '🔊') + '</span><span>Sound</span></button>' +
       '<button class="v4-sbtn" data-act="share"><span class="ic">⤴</span><span>Share</span></button>' +
+      '<button class="v4-sbtn" data-act="comments"><span class="ic">💬</span><span>Comments</span></button>' +
       '<button class="v4-sbtn" data-act="dl"><span class="ic">⬇</span><span>Save</span></button>' +
     '</div>' +
     '<div class="v4-short-meta"><div class="v4-short-chan"><span class="v4-short-ava">' + v4Esc(ava) + '</span>' + v4Esc(sn.channelTitle || '') + '</div>' +
@@ -3584,6 +3816,7 @@ function v4OpenShorts(query){
         if(act === 'like'){ btn.classList.toggle('liked'); }
         else if(act === 'mute'){ v4ShortsMuted = !v4ShortsMuted; localStorage.setItem('pt_short_muted', v4ShortsMuted ? '1' : '0'); document.querySelectorAll('#v4-shorts-track video').forEach(function(v){ v.muted = v4ShortsMuted; }); document.querySelectorAll('.v4-sbtn[data-act="mute"] .ic').forEach(function(s){ s.textContent = v4ShortsMuted ? '🔇' : '🔊'; }); }
         else if(act === 'dl'){ v4CloseShorts(); v4OpenSheet(vid); }
+        else if(act === 'comments'){ v4ShortsCommentsOpen(sec, vid); }
         else if(act === 'share'){
           const sn = (it && it.snippet) || {};
           v4ShareText((sn.title || 'Video') + '\\nhttps://www.youtube.com/shorts/' + vid);
@@ -3691,6 +3924,7 @@ function v4OpenWatch(v){
   v4FrameSetup(v.videoId);
   v4$('v4-watch-title').textContent = v.title || '';
   v4$('v4-watch-channel').textContent = v.channel || '';
+  v4CmtWatchReset(v.videoId);
   v4Show('watch');
   v4Post('/api/add-history', {video_id:v.videoId, title:v.title || '', channel:v.channel || ''});
   v4LoadRelated(v);
@@ -7424,6 +7658,145 @@ if('serviceWorker' in navigator){ window.addEventListener('load', function(){ na
 @app.route('/')
 def index():
     return render_template_string(HTML)
+
+
+
+# ---------- Comments (Update 175): browser ke liye yt-dlp se asal
+# YouTube comments. APK mein phone (NewPipe) wala rasta primary hai;
+# dono ka JSON EK hi shakal ka hai:
+# {ok, disabled, total, items:[{id, author, avatar, text, likes,
+#   timeText, pinned, hearted, replies}], nextPage, error}
+# page token: '' = pehla page, 'o:<offset>' = agla top-level page,
+# 'r:<commentId>' = us comment ke replies (cache se, ek hi dafa mein).
+_comments_cache = {}
+_COMMENTS_TTL = 600
+_COMMENTS_PAGE = 40
+
+
+def _cmt_rel_time(ts):
+    """yt-dlp timestamp (epoch) -> '3 days ago' tarz ka text."""
+    try:
+        _d = int(time.time()) - int(ts)
+    except Exception:
+        return ''
+    if _d < 60:
+        return 'just now'
+    if _d < 3600:
+        _n = _d // 60
+        return f'{_n} minute{"s" if _n != 1 else ""} ago'
+    if _d < 86400:
+        _n = _d // 3600
+        return f'{_n} hour{"s" if _n != 1 else ""} ago'
+    if _d < 86400 * 30:
+        _n = _d // 86400
+        return f'{_n} day{"s" if _n != 1 else ""} ago'
+    if _d < 86400 * 365:
+        _n = _d // (86400 * 30)
+        return f'{_n} month{"s" if _n != 1 else ""} ago'
+    _n = _d // (86400 * 365)
+    return f'{_n} year{"s" if _n != 1 else ""} ago'
+
+
+def _cmt_item(c, nrep):
+    _tt = c.get('_time_text') or _cmt_rel_time(c.get('timestamp'))
+    return {'id': c.get('id') or '', 'author': c.get('author') or '',
+            'avatar': c.get('author_thumbnail') or '',
+            'text': c.get('text') or '',
+            'likes': int(c.get('like_count') or 0),
+            'timeText': _tt, 'pinned': bool(c.get('is_pinned')),
+            'hearted': bool(c.get('is_favorited')),
+            'replies': int(nrep or 0)}
+
+
+def _comments_extract(video_id):
+    """Ek dafa ki yt-dlp comment extraction -> cache wali parsed shakal.
+    Bot-block par _extract_with_clients agle player clients try karta
+    hai. Disabled ki pehchan (best-effort): comments bilkul na ayen
+    (None) ya khali hon aur comment_count bhi na ho. Khali hon lekin
+    count maujood ho to extraction nakam — exception, taake endpoint
+    friendly error de (galat 'band hain' na kahe)."""
+    _base = {'quiet': True, 'no_warnings': True,
+             'no_check_certificate': True, 'skip_download': True,
+             'getcomments': True,
+             'extractor_args': {'youtube': {
+                 'max_comments': ['250'], 'comment_sort': ['top'],
+                 'max_comment_depth': ['1']}}}
+    _info = _extract_with_clients(
+        f'https://www.youtube.com/watch?v={video_id}', _base)
+    _raw = (_info or {}).get('comments')
+    _count = (_info or {}).get('comment_count')
+    if _raw is None:
+        return {'disabled': True, 'total': 0, 'tops': [], 'replies': {}}
+    if not _raw and _count:
+        raise Exception('comments empty but count present')
+    if not _raw:
+        return {'disabled': True, 'total': 0, 'tops': [], 'replies': {}}
+    _kids = {}
+    for _c in _raw:
+        _p = _c.get('parent') or 'root'
+        if _p != 'root':
+            _kids.setdefault(_p, []).append(_c)
+    _tops = []
+    for _c in _raw:
+        if (_c.get('parent') or 'root') == 'root':
+            _tops.append(_cmt_item(_c, len(_kids.get(_c.get('id') or '', []))))
+    _reps = {}
+    for _pid, _lst in _kids.items():
+        _reps[_pid] = [_cmt_item(_c, 0) for _c in _lst]
+    return {'disabled': False,
+            'total': int(_count) if _count else len(_tops),
+            'tops': _tops, 'replies': _reps}
+
+
+def _comments_data(video_id):
+    _now = time.time()
+    _hit = _comments_cache.get(video_id)
+    if _hit and _now - _hit[0] < _COMMENTS_TTL:
+        return _hit[1]
+    _data = _comments_extract(video_id)
+    _comments_cache[video_id] = (_now, _data)
+    if len(_comments_cache) > 60:
+        _old = sorted(_comments_cache.items(), key=lambda kv: kv[1][0])[:20]
+        for _k, _v in _old:
+            _comments_cache.pop(_k, None)
+    return _data
+
+
+@app.route('/api/comments')
+def api_comments():
+    _vid = (request.args.get('id') or '').strip()
+    _tok = (request.args.get('page') or '').strip()
+    if not re.match(r'^[A-Za-z0-9_-]{11}$', _vid):
+        return jsonify({'ok': False, 'error': 'Video ID ghalat hai'})
+    try:
+        _data = _comments_data(_vid)
+    except Exception as e:
+        if _is_bot_block(e):
+            return jsonify({'ok': False, 'error':
+                            'YouTube ne server ko comments ke liye roka '
+                            'hai — Playza app (APK) mein comments aaram '
+                            'se ayenge'})
+        return jsonify({'ok': False, 'error':
+                        'Comments load nahi ho sake — dobara try karein'})
+    if _data['disabled']:
+        return jsonify({'ok': True, 'disabled': True, 'total': 0,
+                        'items': [], 'nextPage': None})
+    if _tok.startswith('r:'):
+        return jsonify({'ok': True, 'disabled': False,
+                        'total': _data['total'],
+                        'items': _data['replies'].get(_tok[2:], []),
+                        'nextPage': None})
+    _off = 0
+    if _tok.startswith('o:'):
+        try:
+            _off = max(0, int(_tok[2:]))
+        except Exception:
+            _off = 0
+    _items = _data['tops'][_off:_off + _COMMENTS_PAGE]
+    _next = (f'o:{_off + _COMMENTS_PAGE}'
+             if _off + _COMMENTS_PAGE < len(_data['tops']) else None)
+    return jsonify({'ok': True, 'disabled': False, 'total': _data['total'],
+                    'items': _items, 'nextPage': _next})
 
 
 @app.route('/api/search')
