@@ -81,8 +81,169 @@ def search_youtube_api(query, max_results=50):
         return None
 
 
+def _yt_runs_text(obj):
+    """YouTube ke text obj se saaf text: {runs:[{text}]},
+    {simpleText} ya {content} — teeno chalte hain."""
+    if not obj or not isinstance(obj, dict):
+        return ''
+    if obj.get('simpleText'):
+        return obj.get('simpleText') or ''
+    if obj.get('content'):
+        return obj.get('content') or ''
+    runs = obj.get('runs') or []
+    return ''.join((r.get('text') or '') for r in runs
+                   if isinstance(r, dict))
+
+
+def _yt_parse_duration(txt):
+    if not txt:
+        return None
+    try:
+        parts = [int(p) for p in str(txt).strip().split(':')]
+        d = 0
+        for p in parts:
+            d = d * 60 + p
+        return d
+    except Exception:
+        return None
+
+
+def _yt_parse_views(txt):
+    if not txt:
+        return None
+    m = re.match(r'([\d.]+)\s*([KMB]?)', str(txt).replace(',', ''))
+    if not m:
+        return None
+    try:
+        return int(float(m.group(1))
+                   * {'K': 1e3, 'M': 1e6, 'B': 1e9}.get(m.group(2), 1))
+    except Exception:
+        return None
+
+
+def _yt_item(vid, title, channel, duration, views, age, live=False):
+    return {
+        'id': {'videoId': vid},
+        'snippet': {
+            'title': title or f'Video {vid}',
+            'channelTitle': channel or 'YouTube',
+            'channelId': '',
+            'thumbnails': {
+                'high': {'url': f'https://i.ytimg.com/vi/{vid}/hqdefault.jpg'},
+                'medium': {'url': f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg'},
+                'default': {'url': f'https://i.ytimg.com/vi/{vid}/default.jpg'},
+            },
+        },
+        'duration': duration,
+        'view_count': views,
+        'live': bool(live),
+        'age_text': age or '',
+        'age_min': _age_minutes(age or ''),
+    }
+
+
+def _yt_parse_search_data(data, n=30):
+    """ytInitialData (search page) se MUKAMMAL items —
+    videoRenderer (aam layout) + video lockupViewModel
+    (naya layout) dono; recursive walk, id se dedupe.
+    (Update 159)"""
+    found = []
+    seen = set()
+
+    def _add(it):
+        vid = (it.get('id') or {}).get('videoId')
+        if vid and vid not in seen:
+            seen.add(vid)
+            found.append(it)
+
+    def _from_renderer(vr):
+        vid = vr.get('videoId')
+        if not vid or len(vid) != 11:
+            return
+        title = _yt_runs_text(vr.get('title'))
+        chan = ''
+        runs = (vr.get('longBylineText') or {}).get('runs') or []
+        if runs:
+            chan = runs[0].get('text') or ''
+        dur = _yt_parse_duration(
+            (vr.get('lengthText') or {}).get('simpleText'))
+        vct = (vr.get('viewCountText') or {}).get('simpleText') or ''
+        views = _yt_parse_views(vct)
+        age = (vr.get('publishedTimeText') or {}).get('simpleText') or ''
+        _add(_yt_item(vid, title, chan, dur, views, age,
+                      'watching' in vct.lower()))
+
+    def _from_lockup(lk):
+        if lk.get('contentType') != 'LOCKUP_CONTENT_TYPE_VIDEO':
+            return
+        vid = lk.get('contentId')
+        if not vid or len(vid) != 11:
+            return
+        md = (lk.get('metadata') or {}).get('lockupMetadataViewModel') or {}
+        title = ((md.get('title') or {}).get('content')) or ''
+        rows = (((md.get('metadata') or {})
+                 .get('contentMetadataViewModel') or {})
+                .get('metadataRows') or [])
+        parts = []
+        for row in rows:
+            for p in (row.get('metadataParts') or []):
+                t = ((p.get('text') or {}).get('content')) or ''
+                if t:
+                    parts.append(t)
+        chan = parts[0] if parts else ''
+        views = None
+        age = ''
+        for t in parts:
+            if views is None and 'view' in t.lower():
+                views = _yt_parse_views(t)
+            if not age and 'ago' in t.lower():
+                age = t
+        dur = None
+        try:
+            tv = (lk.get('contentImage') or {}).get('thumbnailViewModel') or {}
+            for ov in (tv.get('overlays') or []):
+                badges = (((ov.get('thumbnailBottomOverlayViewModel') or {})
+                           .get('badges')) or []) \
+                    + (((ov.get('thumbnailOverlayBadgeViewModel') or {})
+                        .get('thumbnailBadges')) or [])
+                for b in badges:
+                    bt = ((b.get('thumbnailBadgeViewModel') or {})
+                          .get('text')) or ''
+                    d2 = _yt_parse_duration(bt)
+                    if d2:
+                        dur = d2
+        except Exception:
+            pass
+        _add(_yt_item(vid, title, chan, dur, views, age))
+
+    def _walk(o):
+        if len(found) >= n * 2:
+            return
+        if isinstance(o, dict):
+            vr = o.get('videoRenderer')
+            if isinstance(vr, dict):
+                _from_renderer(vr)
+            lk = o.get('lockupViewModel')
+            if isinstance(lk, dict):
+                _from_lockup(lk)
+            for v in o.values():
+                _walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                _walk(v)
+
+    try:
+        _walk(data)
+    except Exception:
+        pass
+    return found[:n]
+
+
 def search_youtube_web(query, max_results=20):
-    """YouTube website se direct scrape karo"""
+    """YouTube website se direct scrape — MUKAMMAL
+    metadata ke sath (Update 159: purana version sirf
+    IDs nikal kar 'Video <id>' title bana deta tha,
+    asal titles gayab ho jate thay)."""
     try:
         import urllib.parse
 
@@ -95,36 +256,18 @@ def search_youtube_web(query, max_results=20):
 
         response = requests.get(search_url, headers=headers, timeout=10)
         html = response.text
-
-        # Extract video IDs from ytInitialData
-        video_ids = re.findall(r'"videoId":"([^"]+)"', html)
-
-        # Remove duplicates
-        video_ids = list(dict.fromkeys(video_ids))
-
-        items = []
-        for vid in video_ids[:max_results]:
-            if vid and len(vid) == 11:
-                items.append({
-                    'id': {'videoId': vid},
-                    'snippet': {
-                        'title': f'Video {vid}',
-                        'channelTitle': 'YouTube',
-                        'channelId': '',
-                        'thumbnails': {
-                            'high': {'url': f'https://i.ytimg.com/vi/{vid}/hqdefault.jpg'},
-                            'medium': {'url': f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg'},
-                            'default': {'url': f'https://i.ytimg.com/vi/{vid}/default.jpg'}
-                        }
-                    }
-                })
-
+        m = re.search(r'var ytInitialData = (\{.*?\});</script>',
+                      html, re.S)
+        if not m:
+            return None
+        items = _yt_parse_search_data(json.loads(m.group(1)),
+                                      max_results)
         return items if items else None
-    except:
+    except Exception:
         return None
 
 
-APP_VERSION = 69  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 70  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">69</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">70</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -6830,65 +6973,7 @@ def _dated_search_items(query, n=30):
                        _html, re.S)
         if _m:
             _data = json.loads(_m.group(1))
-            _secs = (_data.get('contents', {})
-                     .get('twoColumnSearchResultsRenderer', {})
-                     .get('primaryContents', {})
-                     .get('sectionListRenderer', {})
-                     .get('contents', []))
-            _vrs = []
-            for _sec in _secs:
-                for _c in (_sec.get('itemSectionRenderer', {})
-                           .get('contents', [])):
-                    if 'videoRenderer' in _c:
-                        _vrs.append(_c['videoRenderer'])
-            for _vr in _vrs[:n]:
-                _vid = _vr.get('videoId')
-                if not _vid:
-                    continue
-                _title = ''.join(_r.get('text', '') for _r in
-                                 _vr.get('title', {}).get('runs', []))
-                _chan = ''
-                _runs = _vr.get('longBylineText', {}).get('runs', [])
-                if _runs:
-                    _chan = _runs[0].get('text', '')
-                _dur = None
-                _lt = (_vr.get('lengthText', {}) or {}).get('simpleText')
-                if _lt:
-                    try:
-                        _parts = [int(_p) for _p in _lt.split(':')]
-                        _dur = 0
-                        for _p in _parts:
-                            _dur = _dur * 60 + _p
-                    except Exception:
-                        _dur = None
-                _vc = None
-                _vct = (_vr.get('viewCountText', {}) or {}).get('simpleText', '')
-                if _vct:
-                    _mm = re.match(r'([\d.]+)\s*([KMB]?)', _vct.replace(',', ''))
-                    if _mm:
-                        _mult = {'K': 1e3, 'M': 1e6, 'B': 1e9}.get(_mm.group(2), 1)
-                        _vc = int(float(_mm.group(1)) * _mult)
-                _live = 'watching' in _vct.lower()
-                _age = ((_vr.get('publishedTimeText', {}) or {})
-                        .get('simpleText') or '')
-                items.append({
-                    'id': {'videoId': _vid},
-                    'snippet': {
-                        'title': _title or f'Video {_vid}',
-                        'channelTitle': _chan or 'YouTube',
-                        'channelId': '',
-                        'thumbnails': {
-                            'high': {'url': f'https://i.ytimg.com/vi/{_vid}/hqdefault.jpg'},
-                            'medium': {'url': f'https://i.ytimg.com/vi/{_vid}/mqdefault.jpg'},
-                            'default': {'url': f'https://i.ytimg.com/vi/{_vid}/default.jpg'},
-                        },
-                    },
-                    'duration': _dur,
-                    'view_count': _vc,
-                    'live': _live,
-                    'age_text': _age,
-                    'age_min': _age_minutes(_age),
-                })
+            items = _yt_parse_search_data(_data, n)
     except Exception:
         items = []
     if items:
