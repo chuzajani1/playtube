@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 80  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 81  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">80</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">81</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -2303,7 +2303,7 @@ function v4TopTab(t){ if(t === 'search'){ v4Show('home'); v4OpenSearch(); return
 
 /* ---------- feeds & cards (ONE renderer — Bug #1/#2) ---------- */
 function v4AgeText(it){ if(!it) return ''; if(it.age_text) return String(it.age_text).replace('Streamed ', ''); const ts = it.age_ts; if(ts){ const s = Math.max(0, Math.floor(Date.now() / 1000) - Number(ts)); if(s < 3600) return Math.max(1, Math.floor(s / 60)) + ' minutes ago'; if(s < 86400) return Math.floor(s / 3600) + ' hours ago'; if(s < 2592000) return Math.floor(s / 86400) + ' days ago'; if(s < 31536000) return Math.floor(s / 2592000) + ' months ago'; return Math.floor(s / 31536000) + ' years ago'; } return ''; }
-function v4Norm(item){ const id = (item.id && item.id.videoId) || item.id || item.video_id || ''; const sn = item.snippet || {}; return {videoId:id, title:sn.title || item.title || '', channel:sn.channelTitle || item.channel || '', duration:item.duration || '', views:item.view_count || '', age:v4AgeText(item), live: !!item.live}; }
+function v4Norm(item){ const id = (item.id && item.id.videoId) || item.id || item.video_id || ''; const sn = item.snippet || {}; return {videoId:id, title:sn.title || item.title || '', channel:sn.channelTitle || item.channel || '', duration:item.duration || '', views:item.view_count || '', age:v4AgeText(item), age_ts:(Number(item.age_ts) || 0), age_min:(item.age_min != null && !isNaN(Number(item.age_min))) ? Number(item.age_min) : null, live: !!item.live}; }
 let v4AudioCards = false;
 let v4AudioId = '';
 let v4AudioWired = false;
@@ -2441,17 +2441,37 @@ function v4ViewsNum(v){
   return n;
 }
 function v4AgeDays(v){
-  const a = (v && v.age) ? ('' + v.age).toLowerCase() : '';
-  const m = a.match(/([\d.]+)\s*(minute|hour|day|week|month|year)/);
-  if(!m) return null;
-  const n = parseFloat(m[1]) || 0;
-  const u = m[2];
-  if(u === 'minute') return n / 1440;
-  if(u === 'hour') return n / 24;
-  if(u === 'day') return n;
-  if(u === 'week') return n * 7;
-  if(u === 'month') return n * 30;
-  return n * 365;
+  /* Update 170: EK hi age hisaab har jagah (feed + search,
+     phone + server) — pehle ye sirf POORE lafz ('3 days ago')
+     parhta tha, lekin YouTube ke naye layout se age MUKHTASAR
+     ati hai ('3d ago', '2h ago', '11mo ago' — server ka
+     _age_minutes inhein Update 112 se samajhta tha, JS wala
+     nahi), is liye Upload Date filter ko har video 'maloom
+     nahi' thi aur 'Today' par asal aaj ki video (Ep 264,
+     '2h ago') bhi nahi milti thi. Ab: text (dono shaklein),
+     phir age_ts (epoch), phir age_min — jo bhi pehle mile. */
+  if(!v) return null;
+  const txts = [v.age, v.age_text];
+  for(let i = 0; i < txts.length; i++){
+    const a = txts[i] ? ('' + txts[i]).toLowerCase() : '';
+    if(!a) continue;
+    if(a.indexOf('just now') >= 0) return 0;
+    const m = a.match(/([\\d.]+)\\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|days?|weeks?|months?|years?|mo|m|h|d|w|y|s)\\b/);
+    if(!m) continue;
+    const n = parseFloat(m[1]) || 0;
+    const u = m[2];
+    if(u.charAt(0) === 's') return 0;
+    if(u === 'mo' || u.indexOf('month') === 0) return n * 30;
+    if(u === 'm' || u.indexOf('min') === 0) return n / 1440;
+    if(u.charAt(0) === 'h') return n / 24;
+    if(u.charAt(0) === 'd') return n;
+    if(u.charAt(0) === 'w') return n * 7;
+    if(u.charAt(0) === 'y') return n * 365;
+  }
+  const ts = Number(v.age_ts) || 0;
+  if(ts > 0) return Math.max(0, (Date.now() / 1000 - ts) / 86400);
+  if(v.age_min != null && !isNaN(Number(v.age_min))) return Number(v.age_min) / 1440;
+  return null;
 }
 function v4FilterTest(v){
   const F = v4Filters;
@@ -3044,7 +3064,7 @@ async function v4FeedMore(elId, first){
   }
   let added = 0, tries = 0, failed = false;
   let stripHtml = '';
-  const maxTries = (st.sort === 'date' || st.minDur) ? 8 : 5;
+  const maxTries = (st.sort === 'date' || st.minDur || v4Filters.date !== 'any') ? 8 : 5;
   while(tries < maxTries && added < 8 && !st.done){
     tries++;
     const r = await v4Fetch('/api/feed?q=' + encodeURIComponent(st.q) + '&page=' + st.page + '&type=' + (st.type || 'videos') + (st.sub ? '&sub=' + st.sub : '') + (st.sort ? '&sort=' + st.sort : '') + (st.minDur ? '&min_dur=' + st.minDur : '') + '&seen=' + encodeURIComponent(v4SeenParam()) + '&r=' + v4FeedSession + '&int=' + encodeURIComponent(v4InterestTop(5).join('|')));
