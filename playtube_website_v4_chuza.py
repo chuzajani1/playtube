@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 81  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 82  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">81</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">82</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -5030,6 +5030,15 @@ async function v4AiShowCheck(){
    hai (bridge setAutoConfig). Purani rule mehfooz: Auto
    download sirf unhi dramas par jin ka mode user ne khud
    'auto' rakha ho. ---------- */
+/* Update 171: STRICT TIME (user ka faisla, 2026-11-28
+   21:20 PKT) — Auto download SIRF set check-time par
+   hogi (APK alarm wala native check, jo waqt par khud
+   download + nishan aage karta hai). App/AI kholne par
+   (v4AutoCheckShow) auto shows ke liye download NAHI
+   hota — sirf khabar (v4AutoKhabarCard) milti hai aur
+   lastEp aage NAHI barhta. Notify mode ka Haan/Nahi
+   card bilkul waisa ka waisa (Haan = user ka apna tap,
+   wo manual hai). */
 function v4AutoGet(){
   let c = null;
   try{ c = JSON.parse(localStorage.getItem('pt_ai_auto') || 'null'); }catch(e){}
@@ -5068,12 +5077,43 @@ function v4AutoNewer(eps, lastEp){
   out.sort(function(a, b){ return a.episode - b.episode; });
   return out;
 }
+/* '21:20' -> '9:20 PM' (khabar card ke liye) */
+function v4AutoTime12(t){
+  const p = String(t || '').split(':');
+  let h = Number(p[0]); if(!(h >= 0 && h <= 23)) h = 21;
+  const mn = p[1] || '00';
+  const ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if(h === 0) h = 12;
+  return h + ':' + mn + ' ' + ap;
+}
+/* Update 171: app kholne par Auto check ka saaf faisla
+   (pure — testable). Inputs: mode, lastEp (nishan),
+   latestEp (list ki sab se bari episode), lastNotifiedEp
+   (khabar kis episode tak ja chuki). Output {act, notifyEp}:
+   'mark' = pehli dafa sirf nishan lagao, khamosh;
+   'khabar' = auto: sirf khabar do, download NAHI, nishan
+   aage NAHI — notifyEp naya lastNotifiedEp banega;
+   'khabar_hn' = notify: Haan/Nahi card (purana rasta);
+   'none' = kuch nahi. */
+function v4AutoDecide(mode, lastEp, latestEp, lastNotifiedEp){
+  lastEp = Number(lastEp || 0); latestEp = Number(latestEp || 0);
+  lastNotifiedEp = Number(lastNotifiedEp || 0);
+  if(!mode || mode === 'off' || !(latestEp > 0)) return {act: 'none', notifyEp: lastNotifiedEp};
+  if(!(lastEp > 0)) return {act: 'mark', notifyEp: lastNotifiedEp};
+  if(!(latestEp > lastEp)) return {act: 'none', notifyEp: lastNotifiedEp};
+  if(mode === 'auto'){
+    if(latestEp > lastNotifiedEp) return {act: 'khabar', notifyEp: latestEp};
+    return {act: 'none', notifyEp: lastNotifiedEp};
+  }
+  if(mode === 'notify') return {act: 'khabar_hn', notifyEp: lastNotifiedEp};
+  return {act: 'none', notifyEp: lastNotifiedEp};
+}
 function v4AutoPanel(){ const b = v4AiBubble('🤖 Auto Mode — Mere Auto Hukam'); v4AutoRender(b); }
 function v4AutoRender(b){
   const c = v4AutoGet();
   b.innerHTML = '';
   const hd = document.createElement('div');
-  hd.textContent = '🤖 Auto Mode — drama save karein: nayi episode ane par khud phone par download hogi (Auto download) ya sirf khabar milegi (Sirf khabar). Server par kuch download nahi hota — sab phone ke Playza folder mein jata hai.';
+  hd.textContent = '🤖 Auto Mode — drama save karein: Auto download SIRF set kiye gaye check-time par khud phone par hogi — app kholne par sirf khabar milegi, download waqt par hi hogi. Sirf khabar mode mein khabar ke sath Haan/Nahi milega. Server par kuch download nahi hota — sab phone ke Playza folder mein jata hai.';
   b.appendChild(hd);
   const trow = document.createElement('div'); trow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap';
   const tl = document.createElement('span'); tl.style.cssText = 'font-size:13px;font-weight:700'; tl.textContent = '⏰ Rozana check ka waqt:'; trow.appendChild(tl);
@@ -5182,27 +5222,44 @@ function v4AutoNotifyCard(showName, newer, quality){
   row.appendChild(haan); row.appendChild(nahi); card.appendChild(row);
   box.insertBefore(card, box.firstChild);
 }
+/* Update 171: Auto mode ki KHABAR card — sirf maloomat,
+   koi button / download nahi. Asal download sirf set
+   check-time par (APK alarm) hoga. */
+function v4AutoKhabarCard(showName, newer, checkTime){
+  const box = v4$('v4-ai-msgs'); if(!box || !newer.length) return;
+  const maxEp = newer[newer.length - 1].episode;
+  const card = document.createElement('div'); card.className = 'v4-bubble ai v4-showalert'; card.setAttribute('data-ts', String(Date.now()));
+  const tx = document.createElement('div');
+  tx.textContent = '📺 ' + showName + ' ki nayi Episode ' + maxEp + ' aa gayi hai' + (newer.length > 1 ? ' (' + newer.length + ' nayi episodes)' : '') + ' — ⏰ ' + v4AutoTime12(checkTime) + ' par khud download ho jayegi.';
+  card.appendChild(tx);
+  if(newer[newer.length - 1].title){ const t2 = document.createElement('div'); t2.className = 'v4-muted'; t2.textContent = newer[newer.length - 1].title; card.appendChild(t2); }
+  box.insertBefore(card, box.firstChild);
+}
 async function v4AutoCheckShow(s){
   const r = await v4Post('/api/ai/episodes', {show: s.name});
   const d = r.data || {}; if(!r.ok || !d.episodes) return;
   const c = v4AutoGet(); const sh = v4AutoFindShow(c, s.name);
   if(!sh || !sh.mode || sh.mode === 'off') return;
-  if(!(sh.lastEp > 0)){
+  let mx = 0;
+  (d.episodes || []).forEach(function(e){ if(e && Number(e.episode || 0) > mx) mx = Number(e.episode || 0); });
+  const dec = v4AutoDecide(sh.mode, sh.lastEp, mx, sh.lastNotifiedEp);
+  if(dec.act === 'mark'){
     /* Pehli dafa: maujooda aakhri episode par nishan —
        purani saari episodes Auto mein nahi utrein gi. */
-    let mx = 0;
-    (d.episodes || []).forEach(function(e){ if(e && Number(e.episode || 0) > mx) mx = Number(e.episode || 0); });
     if(mx > 0){ sh.lastEp = mx; v4AutoSet(c); }
     return;
   }
+  if(dec.act === 'none') return;
   const newer = v4AutoNewer(d.episodes, sh.lastEp || 0);
   if(!newer.length) return;
-  if(sh.mode === 'auto' && v4PhoneAiOk()){
-    const items = newer.map(function(e){ return {video_id: e.video_id, title: e.title}; });
-    v4PhoneJobStart(items, sh.quality || '360p', 'mp4', '🤖 Auto: ' + sh.name + ' ki nayi episodes phone par download ho rahi hain:', sh.name, {key: 'show:' + sh.name.toLowerCase(), title: '📂 ' + sh.name});
-    sh.lastEp = newer[newer.length - 1].episode;
-    v4AutoSet(c);
-    v4AiBubble('🤖 Auto Mode: "' + sh.name + '" ki nayi Episode ' + sh.lastEp + ' phone par download start kar di hai.');
+  if(dec.act === 'khabar'){
+    /* Update 171: Auto mode — app kholne par download
+       NAHI, sirf khabar. Nishan (lastEp) bhi aage nahi
+       barhta; wo set time par asal download ke sath hi
+       barhega (native check). Khabar har nayi episode
+       par sirf EK dafa (lastNotifiedEp mehfooz). */
+    v4AutoKhabarCard(sh.name, newer, c.time);
+    sh.lastNotifiedEp = dec.notifyEp; v4AutoSet(c);
   } else {
     v4AutoNotifyCard(sh.name, newer, sh.quality || '360p');
   }
