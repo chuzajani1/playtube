@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 74  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 75  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">74</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">75</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -12956,7 +12956,12 @@ def _ocr_pick_title(ocr_text):
 
 
 def _audd_token():
-    """Admin Panel se lagaya gaya AudD token (file)."""
+    """AudD token: pehle Railway variable AUDD_API_TOKEN
+    (Update 164 — owner ne wahan lagaya), warna Admin
+    Panel se lagayi gayi file."""
+    _env = (os.environ.get('AUDD_API_TOKEN') or '').strip()
+    if _env:
+        return _env
     try:
         _p = os.path.join(DATA_DIR, 'audd_token.txt')
         if os.path.exists(_p):
