@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 83  # Update 83: har update par +1 — More page par dikhta hai
+APP_VERSION = 84  # Update 83: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">83</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">84</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -5157,6 +5157,42 @@ function v4AutoFindShow(c, name){
   const l = (name || '').toLowerCase();
   return (c.shows || []).filter(function(s){ return (s.name || '').toLowerCase() === l; })[0] || null;
 }
+/* Update 173: playlist link/ID se asal playlist ID —
+   server (_ai_playlist_id_of) aur APK (playlistIdOf)
+   ka rule EK hi hai: 'list=' wala hissa, warna bare
+   ID; samajh na aye to ''. */
+function v4AutoPlaylistId(v){
+  let s = String(v || '').trim();
+  const i = s.indexOf('list=');
+  if(i >= 0){ s = s.slice(i + 5); const a = s.indexOf('&'); if(a >= 0) s = s.slice(0, a); s = s.trim(); }
+  return /^[A-Za-z0-9_-]{6,}$/.test(s) ? s : '';
+}
+/* Update 173: native (alarm) config ka JS mein merge.
+   Nishan (lastEp) ka naya rule: jis taraf ne nishan
+   AAKHRI mein likha (bara markEpoch), usi ka number
+   jeet ta hai — is liye lock ke neeche native ka
+   GHATA hua nishan (fake episode ki safai) JS ke
+   purane barhe nishan se wapas nahi barhta. Epoch
+   barabar (ya dono taraf na) ho to purana max wala
+   rule. Channel/playlist JS ke paas khali ho to
+   native se le lo (aam tor par JS hi likhta hai).
+   Pure function — testable. */
+function v4AutoMergeNative(c0, nc){
+  if(!nc || !Array.isArray(nc.shows)) return false;
+  let ch = false;
+  nc.shows.forEach(function(ns){
+    const ls = v4AutoFindShow(c0, ns.name); if(!ls) return;
+    if(!ls.channel && ns.channel){ ls.channel = ns.channel; ch = true; }
+    if(!ls.playlist && ns.playlist){ ls.playlist = ns.playlist; ch = true; }
+    const le = Number(ls.markEpoch || 0), ne = Number(ns.markEpoch || 0);
+    const lv = Number(ls.lastEp || 0), nv = Number(ns.lastEp || 0);
+    if(ne > le){ ls.lastEp = nv; ls.markEpoch = ne; ch = true; }
+    else if(ne === le && nv > lv){ ls.lastEp = nv; ch = true; }
+    const ln = Number(ls.lastNotifiedEp || 0), nn = Number(ns.lastNotifiedEp || 0);
+    if(nn > ln){ ls.lastNotifiedEp = nn; ch = true; }
+  });
+  return ch;
+}
 /* Saaf logic: episodes ki list se sirf woh jo lastEp se
    aage hon — tartib se (chhoti pehle), duplicate nahi,
    baghair video_id wali nahi. */
@@ -5203,10 +5239,32 @@ function v4AutoDecide(mode, lastEp, latestEp, lastNotifiedEp){
   if(mode === 'notify') return {act: 'khabar_hn', notifyEp: lastNotifiedEp};
   return {act: 'none', notifyEp: lastNotifiedEp};
 }
+/* Update 173: channel lock ke liye tajweez — show ki
+   episodes list se asal channel naam nikal kar
+   datalist mein bhar do (user khud bhi likh sakta
+   hai, ye sirf madad hai). Ek show ki list ek dafa
+   hi mangti hai (cache). */
+window._v4AutoChanCache = window._v4AutoChanCache || {};
+async function v4AutoSuggestChannels(name){
+  name = (name || '').trim(); if(!name) return;
+  const key = name.toLowerCase();
+  try{
+    if(!window._v4AutoChanCache[key]){
+      const r = await v4Post('/api/ai/episodes', {show: name});
+      const d = r.data || {}; const seen = {}; const out = [];
+      (d.episodes || []).forEach(function(e){ const ch = ((e && e.channel) || '').trim(); if(ch && !seen[ch.toLowerCase()]){ seen[ch.toLowerCase()] = 1; out.push(ch); } });
+      window._v4AutoChanCache[key] = out;
+    }
+    const dl = document.getElementById('v4-auto-chans'); if(!dl) return;
+    dl.innerHTML = '';
+    window._v4AutoChanCache[key].forEach(function(ch){ const op = document.createElement('option'); op.value = ch; dl.appendChild(op); });
+  }catch(e){}
+}
 function v4AutoPanel(){ const b = v4AiBubble('🤖 Auto Mode — Mere Auto Hukam'); v4AutoRender(b); }
 function v4AutoRender(b){
   const c = v4AutoGet();
   b.innerHTML = '';
+  const chdl = document.createElement('datalist'); chdl.id = 'v4-auto-chans'; b.appendChild(chdl);
   const hd = document.createElement('div');
   hd.textContent = '🤖 Auto Mode — drama save karein: Auto download SIRF set kiye gaye check-time par khud phone par hogi — app kholne par sirf khabar milegi, download waqt par hi hogi. Sirf khabar mode mein khabar ke sath Haan/Nahi milega. Server par kuch download nahi hota — sab phone ke Playza folder mein jata hai.';
   b.appendChild(hd);
@@ -5258,6 +5316,30 @@ function v4AutoRender(b){
     const sub = document.createElement('div'); sub.className = 'v4-muted'; sub.style.marginTop = '4px';
     sub.textContent = 'Aakhri episode ka nishan: ' + (s.lastEp ? ('Ep ' + s.lastEp) : 'abhi nahi laga');
     row.appendChild(sub);
+    /* Update 173: SOURCE LOCK — official channel ya
+       playlist bandh do, phir Auto sirf usi source se
+       episode layega; fake review/upcoming wali videos
+       bahar ke channels se nahi ghus sakengi. */
+    const lk = document.createElement('div'); lk.style.cssText = 'margin-top:6px;border-top:1px dashed rgba(255,255,255,.12);padding-top:6px';
+    const lstate = document.createElement('div'); lstate.style.cssText = 'font-size:12px;font-weight:700';
+    lstate.textContent = s.playlist ? '🔒 Playlist lock — episode sirf isi playlist se ayegi' : (s.channel ? ('🔒 Channel lock: ' + s.channel) : '🔓 Koi lock nahi — kisi bhi channel se aa sakti hai (fake ka khatra)');
+    lk.appendChild(lstate);
+    const lrow = document.createElement('div'); lrow.style.cssText = 'display:flex;gap:6px;margin-top:4px;flex-wrap:wrap';
+    const cin = document.createElement('input'); cin.className = 'v4-input'; cin.placeholder = '📺 Official channel (optional)'; cin.value = s.channel || ''; cin.style.cssText = 'flex:1;min-width:120px'; cin.setAttribute('list', 'v4-auto-chans');
+    cin.onfocus = function(){ v4AutoSuggestChannels(s.name); };
+    lrow.appendChild(cin);
+    const pin = document.createElement('input'); pin.className = 'v4-input'; pin.placeholder = '📂 Playlist link (optional)'; pin.value = s.playlist || ''; pin.style.cssText = 'flex:1;min-width:120px';
+    lrow.appendChild(pin);
+    const lbtn = document.createElement('button'); lbtn.className = 'v4-btn2'; lbtn.textContent = '🔒 Lock save';
+    lbtn.onclick = function(){
+      const pv = pin.value.trim();
+      if(pv && !v4AutoPlaylistId(pv)){ v4Toast('Playlist link samajh nahi aya — sahi link paste karein'); return; }
+      const cc = v4AutoGet(); const sh = v4AutoFindShow(cc, s.name); if(!sh) return;
+      sh.channel = cin.value.trim(); sh.playlist = pv ? v4AutoPlaylistId(pv) : '';
+      v4AutoSet(cc); v4Toast('✓ "' + s.name + '" ka source lock save ho gaya');
+      v4AutoRender(b);
+    };
+    lrow.appendChild(lbtn); lk.appendChild(lrow); row.appendChild(lk);
     b.appendChild(row);
   });
   const h3 = document.createElement('div'); h3.style.cssText = 'font-size:12px;font-weight:800;margin-top:12px;opacity:.9'; h3.textContent = '➕ Drama add karein'; b.appendChild(h3);
@@ -5274,14 +5356,22 @@ function v4AutoRender(b){
     const nm = ain.value.trim(); if(!nm) return;
     const cc = v4AutoGet();
     if(v4AutoFindShow(cc, nm)){ v4Toast('Ye drama pehle se Auto mein hai'); return; }
-    cc.shows.push({name: nm, mode: amode.value, quality: aq.value, lastEp: 0});
+    const _pv = apin.value.trim();
+    if(_pv && !v4AutoPlaylistId(_pv)){ v4Toast('Playlist link samajh nahi aya — sahi link paste karein'); return; }
+    cc.shows.push({name: nm, mode: amode.value, quality: aq.value, lastEp: 0, channel: acin.value.trim(), playlist: _pv ? v4AutoPlaylistId(_pv) : ''});
     v4AutoSet(cc);
     v4Toast('✓ "' + nm + '" Auto mein save ho gaya');
     v4AutoRender(b);
   };
   arow.appendChild(abtn); b.appendChild(arow);
+  const arow2 = document.createElement('div'); arow2.style.cssText = 'display:flex;gap:6px;margin-top:4px;flex-wrap:wrap';
+  const acin = document.createElement('input'); acin.className = 'v4-input'; acin.placeholder = '📺 Official channel (optional)'; acin.style.cssText = 'flex:1;min-width:120px'; acin.setAttribute('list', 'v4-auto-chans');
+  acin.onfocus = function(){ v4AutoSuggestChannels(ain.value.trim()); };
+  arow2.appendChild(acin);
+  const apin = document.createElement('input'); apin.className = 'v4-input'; apin.placeholder = '📂 Playlist link (optional)'; apin.style.cssText = 'flex:1;min-width:120px';
+  arow2.appendChild(apin); b.appendChild(arow2);
   const note = document.createElement('div'); note.className = 'v4-muted'; note.style.marginTop = '8px';
-  note.textContent = 'Note: Add karne par maujooda aakhri episode par nishan lag jayega — Auto us ke BAAD ane wali nayi episodes par chalega, purani saari episodes khud nahi utrein gi.';
+  note.textContent = 'Note: Add karne par maujooda aakhri episode par nishan lag jayega — Auto us ke BAAD ane wali nayi episodes par chalega, purani saari episodes khud nahi utrein gi. 🔒 Lock lagayein to episode sirf official channel / playlist se hi ayegi — fake review/upcoming wali videos ruk jayengi.';
   b.appendChild(note);
 }
 function v4AutoNotifyCard(showName, newer, quality){
@@ -5300,7 +5390,7 @@ function v4AutoNotifyCard(showName, newer, quality){
   const haan = document.createElement('button'); haan.className = 'v4-btn2'; haan.textContent = 'Haan, download karein';
   haan.onclick = function(){
     const cc = v4AutoGet(); const sh = v4AutoFindShow(cc, showName);
-    if(sh){ sh.lastEp = Math.max(sh.lastEp || 0, maxEp); v4AutoSet(cc); }
+    if(sh){ sh.lastEp = Math.max(sh.lastEp || 0, maxEp); sh.markEpoch = Date.now(); v4AutoSet(cc); }
     card.remove();
     if(v4PhoneAiOk()){
       v4PhoneJobStart(newer.map(function(e){ return {video_id: e.video_id, title: e.title}; }), quality || '360p', 'mp4', '📱 ' + showName + ' ki nayi episodes phone par download ho rahi hain:', showName, {key: 'show:' + showName.toLowerCase(), title: '📂 ' + showName});
@@ -5311,7 +5401,7 @@ function v4AutoNotifyCard(showName, newer, quality){
   const nahi = document.createElement('button'); nahi.className = 'v4-btn2'; nahi.textContent = 'Nahi';
   nahi.onclick = function(){
     const cc = v4AutoGet(); const sh = v4AutoFindShow(cc, showName);
-    if(sh){ sh.lastEp = Math.max(sh.lastEp || 0, maxEp); v4AutoSet(cc); }
+    if(sh){ sh.lastEp = Math.max(sh.lastEp || 0, maxEp); sh.markEpoch = Date.now(); v4AutoSet(cc); }
     card.remove();
   };
   row.appendChild(haan); row.appendChild(nahi); card.appendChild(row);
@@ -5331,7 +5421,7 @@ function v4AutoKhabarCard(showName, newer, checkTime){
   box.insertBefore(card, box.firstChild);
 }
 async function v4AutoCheckShow(s){
-  const r = await v4Post('/api/ai/episodes', {show: s.name});
+  const r = await v4Post('/api/ai/episodes', {show: s.name, channel: (s.channel || ''), playlist: (s.playlist || '')});
   const d = r.data || {}; if(!r.ok || !d.episodes) return;
   const c = v4AutoGet(); const sh = v4AutoFindShow(c, s.name);
   if(!sh || !sh.mode || sh.mode === 'off') return;
@@ -5341,7 +5431,7 @@ async function v4AutoCheckShow(s){
   if(dec.act === 'mark'){
     /* Pehli dafa: maujooda aakhri episode par nishan —
        purani saari episodes Auto mein nahi utrein gi. */
-    if(mx > 0){ sh.lastEp = mx; v4AutoSet(c); }
+    if(mx > 0){ sh.lastEp = mx; sh.markEpoch = Date.now(); v4AutoSet(c); }
     return;
   }
   if(dec.act === 'none') return;
@@ -5370,14 +5460,10 @@ async function v4AutoOnOpen(){
         const nj = PlayTubeApp.getAutoConfig();
         if(nj){
           const nc = JSON.parse(nj);
-          if(nc && Array.isArray(nc.shows)){
-            let ch = false;
-            nc.shows.forEach(function(ns){
-              const ls = v4AutoFindShow(c0, ns.name);
-              if(ls && (ns.lastEp || 0) > (ls.lastEp || 0)){ ls.lastEp = ns.lastEp; ch = true; }
-            });
-            if(ch){ try{ localStorage.setItem('pt_ai_auto', JSON.stringify(c0)); }catch(e){} v4AutoSyncNative(c0); }
-          }
+          /* Update 173: merge ab v4AutoMergeNative se —
+             markEpoch wala rule (lock ke neeche ghataya
+             gaya nishan JS se wapas nahi barhta). */
+          if(v4AutoMergeNative(c0, nc)){ try{ localStorage.setItem('pt_ai_auto', JSON.stringify(c0)); }catch(e){} v4AutoSyncNative(c0); }
         }
       }
     }catch(e){}
@@ -5401,7 +5487,7 @@ async function v4AutoOnOpen(){
               const list = byShow[nm].sort(function(a, b){ return a.episode - b.episode; });
               if(sh.mode === 'auto' && v4PhoneAiOk()){
                 v4PhoneJobStart(list.map(function(e){ return {video_id: e.video_id, title: e.title}; }), sh.quality || '360p', 'mp4', '🤖 Auto: ' + nm + ' ki nayi episodes phone par download ho rahi hain:', nm, {key: 'show:' + nm.toLowerCase(), title: '📂 ' + nm});
-                sh.lastEp = list[list.length - 1].episode; v4AutoSet(c0);
+                sh.lastEp = list[list.length - 1].episode; sh.markEpoch = Date.now(); v4AutoSet(c0);
               } else {
                 v4AutoNotifyCard(nm, list, sh.quality || '360p');
               }
@@ -12021,7 +12107,46 @@ def _ai_episode_candidates(parsed):
     return out
 
 
-def _ai_episode_list(show):
+def _ai_norm_channel(s):
+    """Update 173: channel naam ki safai — chhote harf,
+    harf/number ke ilawa sab kuch ek space, kinare saaf.
+    Server aur APK (AutoCheck.normChannel) ka rule EK
+    hi hai."""
+    return re.sub(r'[^a-z0-9]+', ' ', (s or '').lower()).strip()
+
+
+def _ai_channel_match(lock, item_channel):
+    """Update 173: SOURCE LOCK ka channel rule — saaf
+    kiye naamon mein ya to barabar hon, ya ek dusre ke
+    ANDAR ho (chhota naam kam az kam 3 harf ka ho).
+    Masalan lock 'Dangal TV' item 'Dangal TV' /
+    'DANGAL TV' / 'Dangal TV Official' sab par match
+    karta hai, 'Dangal Play' par nahi. Item ka channel
+    khali ho to match NAHI — lock ke neeche source ki
+    tasdeeq zaroori hai."""
+    a = _ai_norm_channel(lock)
+    b = _ai_norm_channel(item_channel)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    if len(min(a, b, key=len)) < 3:
+        return False
+    return a in b or b in a
+
+
+def _ai_playlist_id_of(v):
+    """Update 173: playlist link/ID se asal playlist ID
+    — 'list=' wala hissa, warna bare ID; samajh na aye
+    to ''. JS (v4AutoPlaylistId) aur APK (playlistIdOf)
+    ka rule bhi yahi hai."""
+    s = (v or '').strip()
+    if 'list=' in s:
+        s = s.split('list=', 1)[1].split('&', 1)[0].strip()
+    return s if re.fullmatch(r'[A-Za-z0-9_-]{6,}', s) else ''
+
+
+def _ai_episode_list(show, channel=None, playlist=None):
     """Update 160: MUKAMMAL + SAAF episode list.
     Pehle sirf search thi: naye episodes + PROMO ajate
     thay, purani episodes (2-31) gayab, aur promo asal
@@ -12038,7 +12163,17 @@ def _ai_episode_list(show):
     dono mein der se aati hai (live sabit 2026-11-28:
     Ishq Junooni Ep 264 list mein gayab thi), tareekh
     wali talash use foran pakad leti hai."""
+    # Update 173: SOURCE LOCK — channel/playlist diye
+    # jayein to list sirf usi source ki banti hai; cache
+    # key mein lock bhi shamil (bina lock wali list alag
+    # mehfooz rehti hai).
+    _pid = _ai_playlist_id_of(playlist)
+    _chan = (channel or '').strip()
     _ck = f"eplist_{(show or '').lower()}"
+    if _pid:
+        _ck += f"|p:{_pid}"
+    elif _chan:
+        _ck += f"|c:{_ai_norm_channel(_chan)}"
     if _ck in search_cache:
         _cd, _ts = search_cache[_ck]
         if time.time() - _ts < CACHE_DURATION:
@@ -12058,7 +12193,7 @@ def _ai_episode_list(show):
         return int(m.group(1)) if m else None
 
     def _scan(pairs):
-        for vid, t, dur in pairs:
+        for vid, t, dur, chan in pairs:
             if not vid or not t:
                 continue
             tl = t.lower()
@@ -12067,6 +12202,12 @@ def _ai_episode_list(show):
             # kal ki fake episode aaj ki asal ko rok na de.
             if 'promo' in tl or 'upcoming' in tl or \
                     'episode preview' in tl or _ai_is_teaser(t):
+                continue
+            # Update 173: CHANNEL LOCK — lock ho to sirf
+            # usi channel ki video episode ban sakti hai;
+            # channel maloom na ho to bhi bahar (source
+            # ki tasdeeq nahi ho sakti).
+            if _chan_eff and not _ai_channel_match(_chan_eff, chan):
                 continue
             if kws:
                 hit = sum(1 for k in kws if k in tl)
@@ -12077,65 +12218,91 @@ def _ai_episode_list(show):
                 continue
             if n not in found or (dur or 0) > (found[n].get('duration') or 0):
                 found[n] = {'episode': n, 'video_id': vid,
-                            'title': t, 'duration': dur}
+                            'title': t, 'duration': dur,
+                            'channel': chan or ''}
 
-    # 1) Playlist backbone (zyada se zyada 2 playlists)
-    try:
-        _pls = _ai_playlist_search(show, 8)
-    except Exception:
-        _pls = []
-    _tried = 0
-    for _p in _pls:
-        if _tried >= 2 or len(found) >= 40:
-            break
-        _tried += 1
+    # Update 173: PLAYLIST LOCK — user ki di hui
+    # playlist mil jaye to SIRF wahi source hai (search
+    # / backbone sab band; channel filter bhi nahi —
+    # playlist hi lock hai). Playlist na mile to
+    # fail-open: aam build chalti hai (aur channel lock
+    # agar diya ho to wo lagta hai).
+    _pl_cands = None
+    if _pid:
         try:
-            _res = _ai_playlist_candidates(_p.get('playlist_id'))
+            _pres = _ai_playlist_candidates(_pid)
         except Exception:
-            _res = None
-        if not _res:
-            continue
-        _cands, _pt = _res
+            _pres = None
+        if _pres:
+            _pl_cands = _pres[0]
+    _pl_ok = _pl_cands is not None
+    _chan_eff = '' if _pl_ok else _chan
+    if _pl_ok:
         _scan([(c.get('video_id'), c.get('title'),
-                c.get('duration')) for c in _cands])
-
-    # 2) Search se baqi khaali jaghein — pehli query
-    #    hamesha chalti hai (sab se nayi episode aksar
-    #    playlist mein der se aati hai)
-    for _q in (f"ytsearch50:{show} episode",
-               f"ytsearch50:{show} ep",
-               f"ytsearch50:{show} all episodes"):
-        if len(found) >= 60:
-            break
+                c.get('duration'), c.get('channel'))
+               for c in _pl_cands])
+    if not _pl_ok:
+        # 1) Playlist backbone (zyada se zyada 2 playlists)
         try:
-            info = _extract_with_clients(
-                _q,
-                {'quiet': True, 'no_warnings': True,
-                 'no_check_certificate': True, 'extract_flat': True,
-                 'skip_download': True, 'ignoreerrors': True,
-                 'socket_timeout': 25, 'retries': 2,
-                 'extractor_retries': 2})
+            _pls = _ai_playlist_search(show, 8)
         except Exception:
-            info = None
-        _scan([(e.get('id'), e.get('title'), e.get('duration'))
-               for e in ((info or {}).get('entries') or []) if e])
+            _pls = []
+        _tried = 0
+        for _p in _pls:
+            if _tried >= 2 or len(found) >= 40:
+                break
+            _tried += 1
+            try:
+                _res = _ai_playlist_candidates(_p.get('playlist_id'))
+            except Exception:
+                _res = None
+            if not _res:
+                continue
+            _cands, _pt = _res
+            _scan([(c.get('video_id'), c.get('title'),
+                    c.get('duration'), c.get('channel'))
+                   for c in _cands])
 
-    # 3) Update 169: DATE-SORTED probe — aaj wali episode
-    #    pakadne ke liye. _dated_search_items search page
-    #    se sab se nayi pehle deta hai; items WAHI _scan
-    #    pipeline se guzarte hain (promo/teaser bahar,
-    #    keyword filter, ek number par lambi duration
-    #    jeet ti hai). Fail-silent: probe na chale to
-    #    purani list waisi ki waisi.
-    try:
-        _fresh = _dated_search_items(f"{show} full episode", 30)
-        if not _fresh:
-            _fresh = _dated_search_items(f"{show} latest episode", 30)
-        _scan([(((it.get('id') or {}).get('videoId')),
-                ((it.get('snippet') or {}).get('title')),
-                it.get('duration')) for it in (_fresh or [])])
-    except Exception:
-        pass
+        # 2) Search se baqi khaali jaghein — pehli query
+        #    hamesha chalti hai (sab se nayi episode aksar
+        #    playlist mein der se aati hai)
+        for _q in (f"ytsearch50:{show} episode",
+                   f"ytsearch50:{show} ep",
+                   f"ytsearch50:{show} all episodes"):
+            if len(found) >= 60:
+                break
+            try:
+                info = _extract_with_clients(
+                    _q,
+                    {'quiet': True, 'no_warnings': True,
+                     'no_check_certificate': True, 'extract_flat': True,
+                     'skip_download': True, 'ignoreerrors': True,
+                     'socket_timeout': 25, 'retries': 2,
+                     'extractor_retries': 2})
+            except Exception:
+                info = None
+            _scan([(e.get('id'), e.get('title'), e.get('duration'),
+                    e.get('channel') or e.get('uploader'))
+                   for e in ((info or {}).get('entries') or []) if e])
+
+        # 3) Update 169: DATE-SORTED probe — aaj wali episode
+        #    pakadne ke liye. _dated_search_items search page
+        #    se sab se nayi pehle deta hai; items WAHI _scan
+        #    pipeline se guzarte hain (promo/teaser bahar,
+        #    keyword filter, ek number par lambi duration
+        #    jeet ti hai). Fail-silent: probe na chale to
+        #    purani list waisi ki waisi.
+        try:
+            _fresh = _dated_search_items(f"{show} full episode", 30)
+            if not _fresh:
+                _fresh = _dated_search_items(f"{show} latest episode", 30)
+            _scan([(((it.get('id') or {}).get('videoId')),
+                    ((it.get('snippet') or {}).get('title')),
+                    it.get('duration'),
+                    ((it.get('snippet') or {}).get('channelTitle')))
+                   for it in (_fresh or [])])
+        except Exception:
+            pass
 
     out = [found[n] for n in sorted(found)][:2000]
     if out:
@@ -12290,8 +12457,15 @@ def api_ai_episodes():
     show = (data.get('show') or '').strip()[:120]
     if not show:
         return jsonify({'error': 'show ka naam chahiye'}), 400
+    # Update 173: Auto Mode ka SOURCE LOCK — channel /
+    # playlist aye to episodes ki list sirf usi source
+    # ki banti hai. Na aye to purana bila-lock rasta.
+    _chan = (data.get('channel') or '').strip()[:120]
+    _plist = (data.get('playlist') or '').strip()[:300]
     return jsonify({'success': True, 'show': show,
-                    'episodes': _ai_episode_list(show)})
+                    'episodes': _ai_episode_list(
+                        show, channel=_chan or None,
+                        playlist=_plist or None)})
 
 
 # Update 109: ready channel lists (Mere Shows / Channel Mode / Taza)
