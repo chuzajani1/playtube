@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 78  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 79  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">78</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">79</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -1882,6 +1882,7 @@ HTML = '''
       <div class="v4-fixchips" id="v4-ai-fixchips">
         <button class="v4-chip" type="button" onclick="v4AiTazaOpen()">🆕 Aaj ki taza</button>
         <button class="v4-chip" type="button" onclick="v4AiShowsPanel()">📺 Mere Shows</button>
+        <button class="v4-chip" type="button" onclick="v4AutoPanel()">🤖 Auto Mode</button>
         <button class="v4-chip" type="button" onclick="v4$('v4-ai-vfile').click()">🎵 Video se Song</button>
         <button class="v4-chip" type="button" onclick="v4AiChannelPanel()">📂 Channel mode</button>
       </div>
@@ -2282,7 +2283,7 @@ function v4Show(view){
   if(view === 'ai'){ const _sb109 = function(){ window.scrollTo(0, document.body.scrollHeight); }; setTimeout(_sb109, 50); setTimeout(_sb109, 400); }
   else window.scrollTo(0, 0);
   if(view === 'downloads' || view === 'failed'){ v4LoadDownloads(); try{ v4PhoneDlRender(); v4PhonePollStart(); }catch(e){} } else v4PhonePollStop();
-  if(view === 'ai'){ v4RenderAiChips(); v4AiShowCheck(); }
+  if(view === 'ai'){ v4RenderAiChips(); v4AiShowCheck(); v4AutoOnOpen(); }
   if(view === 'private') v4RenderPrivate();
   if(view === 'compress') v4RenderCompress();
   if(view === 'sysclean') v4RenderSysClean();
@@ -4972,7 +4973,8 @@ async function v4AiShowCheck(){
   let last = 0; try{ last = Number(localStorage.getItem('pt_ai_show_check_ts') || '0'); }catch(e){}
   if(Date.now() - last < 30 * 60 * 1000) return;
   try{ localStorage.setItem('pt_ai_show_check_ts', String(Date.now())); }catch(e){}
-  const r = await v4Post('/api/ai/show-check', {shows: shows.map(function(s){ return s.name; })});
+  const _am168 = {}; try{ v4AutoGet().shows.forEach(function(s){ if(s.mode && s.mode !== 'off') _am168[(s.name || '').toLowerCase()] = 1; }); }catch(e){}
+  const r = await v4Post('/api/ai/show-check', {shows: shows.map(function(s){ return s.name; }).filter(function(n){ return !_am168[(n || '').toLowerCase()]; })});
   const d = r.data || {}; if(!r.ok || !d.results) return;
   const box = v4$('v4-ai-msgs'); if(!box) return;
   window._v4ShowAlerts = window._v4ShowAlerts || {};
@@ -4998,6 +5000,254 @@ async function v4AiShowCheck(){
       box.insertBefore(card, box.firstChild);
     }
   });
+}
+/* ---------- Update 168: AI Auto Mode — do mode: Manual
+   (jo chal raha hai) aur Auto (save kiya hua hukam khud
+   chalta hai). Auto sirf PHONE par: server se sirf episode
+   LIST ati hai, download hamesha phone engine se Playza
+   folder mein. Rozana background check APK ki ghari
+   (alarm) se hota hai — config wahan bhi mehfooz rehta
+   hai (bridge setAutoConfig). Purani rule mehfooz: Auto
+   download sirf unhi dramas par jin ka mode user ne khud
+   'auto' rakha ho. ---------- */
+function v4AutoGet(){
+  let c = null;
+  try{ c = JSON.parse(localStorage.getItem('pt_ai_auto') || 'null'); }catch(e){}
+  if(!c || typeof c !== 'object') c = {};
+  if(!c.time || !/^\d{1,2}:\d{2}$/.test(c.time)) c.time = '21:00';
+  if(!Array.isArray(c.shows)) c.shows = [];
+  return c;
+}
+function v4AutoSet(c){
+  try{ localStorage.setItem('pt_ai_auto', JSON.stringify(c)); }catch(e){}
+  v4AutoSyncNative(c);
+}
+function v4AutoSyncNative(c){
+  try{
+    if(window.PlayTubeApp && PlayTubeApp.setAutoConfig){
+      PlayTubeApp.setAutoConfig(JSON.stringify(c || v4AutoGet()));
+    }
+  }catch(e){}
+}
+function v4AutoFindShow(c, name){
+  const l = (name || '').toLowerCase();
+  return (c.shows || []).filter(function(s){ return (s.name || '').toLowerCase() === l; })[0] || null;
+}
+/* Saaf logic: episodes ki list se sirf woh jo lastEp se
+   aage hon — tartib se (chhoti pehle), duplicate nahi,
+   baghair video_id wali nahi. */
+function v4AutoNewer(eps, lastEp){
+  const seen = {}; const out = [];
+  (eps || []).forEach(function(e){
+    if(!e) return;
+    const n = Number(e.episode || 0);
+    if(!(n > (lastEp || 0)) || !e.video_id || seen[n]) return;
+    seen[n] = 1;
+    out.push({episode: n, video_id: e.video_id, title: e.title || ''});
+  });
+  out.sort(function(a, b){ return a.episode - b.episode; });
+  return out;
+}
+function v4AutoPanel(){ const b = v4AiBubble('🤖 Auto Mode — Mere Auto Hukam'); v4AutoRender(b); }
+function v4AutoRender(b){
+  const c = v4AutoGet();
+  b.innerHTML = '';
+  const hd = document.createElement('div');
+  hd.textContent = '🤖 Auto Mode — drama save karein: nayi episode ane par khud phone par download hogi (Auto download) ya sirf khabar milegi (Sirf khabar). Server par kuch download nahi hota — sab phone ke Playza folder mein jata hai.';
+  b.appendChild(hd);
+  const trow = document.createElement('div'); trow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap';
+  const tl = document.createElement('span'); tl.style.cssText = 'font-size:13px;font-weight:700'; tl.textContent = '⏰ Rozana check ka waqt:'; trow.appendChild(tl);
+  const tin = document.createElement('input'); tin.type = 'time'; tin.className = 'v4-input'; tin.style.cssText = 'width:130px'; tin.value = c.time; trow.appendChild(tin);
+  const tbtn = document.createElement('button'); tbtn.className = 'v4-btn2'; tbtn.textContent = 'Waqt save karein';
+  tbtn.onclick = function(){
+    const cc = v4AutoGet(); cc.time = tin.value || '21:00'; v4AutoSet(cc);
+    v4Toast('✓ Check ka waqt ' + cc.time + ' save ho gaya');
+    v4AutoRender(b);
+  };
+  trow.appendChild(tbtn); b.appendChild(trow);
+  const h2 = document.createElement('div'); h2.style.cssText = 'font-size:12px;font-weight:800;margin-top:12px;opacity:.9'; h2.textContent = '📺 Mere Auto Dramas'; b.appendChild(h2);
+  if(!c.shows.length){
+    const em = document.createElement('div'); em.className = 'v4-muted'; em.style.marginTop = '4px'; em.textContent = 'Abhi koi drama Auto mein nahi — neeche se add karein.'; b.appendChild(em);
+  }
+  c.shows.forEach(function(s){
+    const row = document.createElement('div'); row.style.cssText = 'border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px;margin-top:6px';
+    const top = document.createElement('div'); top.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap';
+    const nm = document.createElement('span'); nm.style.cssText = 'font-weight:800;font-size:14px;flex:1;min-width:90px'; nm.textContent = s.name; top.appendChild(nm);
+    const msel = document.createElement('select'); msel.className = 'v4-input'; msel.style.cssText = 'width:122px';
+    [['auto', '⬇ Auto download'], ['notify', '🔔 Sirf khabar'], ['off', '⏸ Band']].forEach(function(o){
+      const op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; if(s.mode === o[0]) op.selected = true; msel.appendChild(op);
+    });
+    msel.onchange = function(){
+      const cc = v4AutoGet(); const sh = v4AutoFindShow(cc, s.name);
+      if(sh){ sh.mode = msel.value; v4AutoSet(cc); v4Toast('✓ ' + s.name + ' ka mode badal gaya'); }
+      v4AutoRender(b);
+    };
+    top.appendChild(msel);
+    const qsel = document.createElement('select'); qsel.className = 'v4-input'; qsel.style.cssText = 'width:86px';
+    ['360p', '720p'].forEach(function(q){
+      const op = document.createElement('option'); op.value = q; op.textContent = q; if((s.quality || '360p') === q) op.selected = true; qsel.appendChild(op);
+    });
+    qsel.onchange = function(){
+      const cc = v4AutoGet(); const sh = v4AutoFindShow(cc, s.name);
+      if(sh){ sh.quality = qsel.value; v4AutoSet(cc); }
+    };
+    top.appendChild(qsel);
+    const del = document.createElement('button'); del.className = 'v4-btn2'; del.textContent = '🗑';
+    del.onclick = function(){
+      const cc = v4AutoGet(); cc.shows = cc.shows.filter(function(x){ return (x.name || '').toLowerCase() !== (s.name || '').toLowerCase(); }); v4AutoSet(cc);
+      v4Toast('🗑 "' + s.name + '" Auto se hata diya');
+      v4AutoRender(b);
+    };
+    top.appendChild(del);
+    row.appendChild(top);
+    const sub = document.createElement('div'); sub.className = 'v4-muted'; sub.style.marginTop = '4px';
+    sub.textContent = 'Aakhri episode ka nishan: ' + (s.lastEp ? ('Ep ' + s.lastEp) : 'abhi nahi laga');
+    row.appendChild(sub);
+    b.appendChild(row);
+  });
+  const h3 = document.createElement('div'); h3.style.cssText = 'font-size:12px;font-weight:800;margin-top:12px;opacity:.9'; h3.textContent = '➕ Drama add karein'; b.appendChild(h3);
+  const arow = document.createElement('div'); arow.style.cssText = 'display:flex;gap:6px;margin-top:4px;flex-wrap:wrap';
+  const ain = document.createElement('input'); ain.className = 'v4-input'; ain.placeholder = 'Drama ka naam...'; ain.style.cssText = 'flex:1;min-width:110px'; arow.appendChild(ain);
+  const amode = document.createElement('select'); amode.className = 'v4-input'; amode.style.cssText = 'width:122px';
+  [['auto', '⬇ Auto download'], ['notify', '🔔 Sirf khabar']].forEach(function(o){ const op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; amode.appendChild(op); });
+  arow.appendChild(amode);
+  const aq = document.createElement('select'); aq.className = 'v4-input'; aq.style.cssText = 'width:86px';
+  ['360p', '720p'].forEach(function(q){ const op = document.createElement('option'); op.value = q; op.textContent = q; aq.appendChild(op); });
+  arow.appendChild(aq);
+  const abtn = document.createElement('button'); abtn.className = 'v4-btn2'; abtn.textContent = '+ Add';
+  abtn.onclick = function(){
+    const nm = ain.value.trim(); if(!nm) return;
+    const cc = v4AutoGet();
+    if(v4AutoFindShow(cc, nm)){ v4Toast('Ye drama pehle se Auto mein hai'); return; }
+    cc.shows.push({name: nm, mode: amode.value, quality: aq.value, lastEp: 0});
+    v4AutoSet(cc);
+    v4Toast('✓ "' + nm + '" Auto mein save ho gaya');
+    v4AutoRender(b);
+  };
+  arow.appendChild(abtn); b.appendChild(arow);
+  const note = document.createElement('div'); note.className = 'v4-muted'; note.style.marginTop = '8px';
+  note.textContent = 'Note: Add karne par maujooda aakhri episode par nishan lag jayega — Auto us ke BAAD ane wali nayi episodes par chalega, purani saari episodes khud nahi utrein gi.';
+  b.appendChild(note);
+}
+function v4AutoNotifyCard(showName, newer, quality){
+  const box = v4$('v4-ai-msgs'); if(!box || !newer.length) return;
+  const maxEp = newer[newer.length - 1].episode;
+  window._v4AutoAlerted = window._v4AutoAlerted || {};
+  const _ak = showName.toLowerCase() + ':' + maxEp;
+  if(window._v4AutoAlerted[_ak]) return;
+  window._v4AutoAlerted[_ak] = 1;
+  const card = document.createElement('div'); card.className = 'v4-bubble ai v4-showalert'; card.setAttribute('data-ts', String(Date.now()));
+  const tx = document.createElement('div');
+  tx.textContent = '📺 ' + showName + ' ki nayi episode aa gayi hai: Episode ' + maxEp + (newer.length > 1 ? ' (' + newer.length + ' nayi episodes)' : '');
+  card.appendChild(tx);
+  if(newer[newer.length - 1].title){ const t2 = document.createElement('div'); t2.className = 'v4-muted'; t2.textContent = newer[newer.length - 1].title; card.appendChild(t2); }
+  const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;margin-top:8px';
+  const haan = document.createElement('button'); haan.className = 'v4-btn2'; haan.textContent = 'Haan, download karein';
+  haan.onclick = function(){
+    const cc = v4AutoGet(); const sh = v4AutoFindShow(cc, showName);
+    if(sh){ sh.lastEp = Math.max(sh.lastEp || 0, maxEp); v4AutoSet(cc); }
+    card.remove();
+    if(v4PhoneAiOk()){
+      v4PhoneJobStart(newer.map(function(e){ return {video_id: e.video_id, title: e.title}; }), quality || '360p', 'mp4', '📱 ' + showName + ' ki nayi episodes phone par download ho rahi hain:', showName, {key: 'show:' + showName.toLowerCase(), title: '📂 ' + showName});
+    } else {
+      v4AiQuickSend(showName + ' episode ' + maxEp);
+    }
+  };
+  const nahi = document.createElement('button'); nahi.className = 'v4-btn2'; nahi.textContent = 'Nahi';
+  nahi.onclick = function(){
+    const cc = v4AutoGet(); const sh = v4AutoFindShow(cc, showName);
+    if(sh){ sh.lastEp = Math.max(sh.lastEp || 0, maxEp); v4AutoSet(cc); }
+    card.remove();
+  };
+  row.appendChild(haan); row.appendChild(nahi); card.appendChild(row);
+  box.insertBefore(card, box.firstChild);
+}
+async function v4AutoCheckShow(s){
+  const r = await v4Post('/api/ai/episodes', {show: s.name});
+  const d = r.data || {}; if(!r.ok || !d.episodes) return;
+  const c = v4AutoGet(); const sh = v4AutoFindShow(c, s.name);
+  if(!sh || !sh.mode || sh.mode === 'off') return;
+  if(!(sh.lastEp > 0)){
+    /* Pehli dafa: maujooda aakhri episode par nishan —
+       purani saari episodes Auto mein nahi utrein gi. */
+    let mx = 0;
+    (d.episodes || []).forEach(function(e){ if(e && Number(e.episode || 0) > mx) mx = Number(e.episode || 0); });
+    if(mx > 0){ sh.lastEp = mx; v4AutoSet(c); }
+    return;
+  }
+  const newer = v4AutoNewer(d.episodes, sh.lastEp || 0);
+  if(!newer.length) return;
+  if(sh.mode === 'auto' && v4PhoneAiOk()){
+    const items = newer.map(function(e){ return {video_id: e.video_id, title: e.title}; });
+    v4PhoneJobStart(items, sh.quality || '360p', 'mp4', '🤖 Auto: ' + sh.name + ' ki nayi episodes phone par download ho rahi hain:', sh.name, {key: 'show:' + sh.name.toLowerCase(), title: '📂 ' + sh.name});
+    sh.lastEp = newer[newer.length - 1].episode;
+    v4AutoSet(c);
+    v4AiBubble('🤖 Auto Mode: "' + sh.name + '" ki nayi Episode ' + sh.lastEp + ' phone par download start kar di hai.');
+  } else {
+    v4AutoNotifyCard(sh.name, newer, sh.quality || '360p');
+  }
+}
+async function v4AutoOnOpen(){
+  try{
+    const c0 = v4AutoGet();
+    v4AutoSyncNative(c0);
+    if(!c0.shows.some(function(s){ return s.mode && s.mode !== 'off'; })) return;
+    /* Native (alarm) taraf barhi hui lastEp pehle merge */
+    try{
+      if(window.PlayTubeApp && PlayTubeApp.getAutoConfig){
+        const nj = PlayTubeApp.getAutoConfig();
+        if(nj){
+          const nc = JSON.parse(nj);
+          if(nc && Array.isArray(nc.shows)){
+            let ch = false;
+            nc.shows.forEach(function(ns){
+              const ls = v4AutoFindShow(c0, ns.name);
+              if(ls && (ns.lastEp || 0) > (ls.lastEp || 0)){ ls.lastEp = ns.lastEp; ch = true; }
+            });
+            if(ch){ try{ localStorage.setItem('pt_ai_auto', JSON.stringify(c0)); }catch(e){} v4AutoSyncNative(c0); }
+          }
+        }
+      }
+    }catch(e){}
+    /* Background check ke pending alerts istemal karo */
+    try{
+      if(window.PlayTubeApp && PlayTubeApp.getAutoPending){
+        const pj = PlayTubeApp.getAutoPending();
+        if(pj){
+          const pend = JSON.parse(pj);
+          if(Array.isArray(pend) && pend.length){
+            const byShow = {};
+            pend.forEach(function(p){
+              if(!p || !p.name || !p.videoId) return;
+              const sh = v4AutoFindShow(c0, p.name);
+              if(!sh || !sh.mode || sh.mode === 'off') return;
+              if((p.ep || 0) <= (sh.lastEp || 0)) return;
+              (byShow[sh.name] = byShow[sh.name] || []).push({episode: p.ep, video_id: p.videoId, title: p.title || ''});
+            });
+            Object.keys(byShow).forEach(function(nm){
+              const sh = v4AutoFindShow(c0, nm); if(!sh) return;
+              const list = byShow[nm].sort(function(a, b){ return a.episode - b.episode; });
+              if(sh.mode === 'auto' && v4PhoneAiOk()){
+                v4PhoneJobStart(list.map(function(e){ return {video_id: e.video_id, title: e.title}; }), sh.quality || '360p', 'mp4', '🤖 Auto: ' + nm + ' ki nayi episodes phone par download ho rahi hain:', nm, {key: 'show:' + nm.toLowerCase(), title: '📂 ' + nm});
+                sh.lastEp = list[list.length - 1].episode; v4AutoSet(c0);
+              } else {
+                v4AutoNotifyCard(nm, list, sh.quality || '360p');
+              }
+            });
+          }
+        }
+      }
+    }catch(e){}
+    /* Server se check — sirf list ke liye (30 min throttle) */
+    let last = 0; try{ last = Number(localStorage.getItem('pt_ai_auto_check_ts') || '0'); }catch(e){}
+    if(Date.now() - last < 30 * 60 * 1000) return;
+    try{ localStorage.setItem('pt_ai_auto_check_ts', String(Date.now())); }catch(e){}
+    const c = v4AutoGet();
+    for(const s of c.shows){
+      if(!s.mode || s.mode === 'off') continue;
+      try{ await v4AutoCheckShow(s); }catch(e){}
+    }
+  }catch(e){}
 }
 function v4AiChannelPanel(){
   const b = v4AiBubble('📂 Channel Mode — channel chunein, us ki latest 50 videos ki list aa jayegi:');
