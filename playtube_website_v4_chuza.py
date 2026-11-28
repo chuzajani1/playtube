@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 82  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 83  # Update 83: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">82</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">83</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -3766,8 +3766,16 @@ function v4PickFmt(el){
   v4Sheet.sel = {format: el.getAttribute('data-fmt'), quality: el.getAttribute('data-q') || null, nk: el.getAttribute('data-nk') || ''};
 }
 function v4CloseSheet(){ v4$('v4-sheetwrap').classList.remove('open'); v4Lock(false); }
-function v4SheetDownload(){
+function v4SheetDownload(force){
   if(!v4Sheet.sel){ v4Toast('Pehle ek quality chunein'); return; }
+  /* Update 172: duplicate guard — phone par pehle se ho to
+     SnapTube-style sawal; 'Phir bhi download karo' user ki
+     apni marzi hai, wohi rasta aage chalta hai. */
+  if(!force){
+    const _kind172 = (v4Sheet.sel.format === 'mp3' || v4Sheet.sel.format === 'm4a') ? 'audio' : 'video';
+    const _have172 = v4AlreadyHave(v4Sheet.id, _kind172);
+    if(_have172){ v4DupModal(_have172, v4$('v4-sheet-title').textContent || _have172.title || '', function(){ v4SheetDownload(true); }); return; }
+  }
   if(v4NativeMode() && v4Sheet.sel.nk && !v4GuestGate()){ v4CloseSheet(); v4OpenAuth('signin', false, 'limit'); v4Toast('Guest limit khatam — pehle account banayein'); return; }
   if(v4NativeMode() && v4Sheet.sel.nk){ try{ PlayTubeApp.nativeDownload(v4Sheet.id, v4Sheet.sel.nk, v4$('v4-sheet-title').textContent || ''); v4CloseSheet(); }catch(e){ v4Toast('Phone download shuru nahi ho saka'); } return; }
   const params = {video_id: v4Sheet.id, format: v4Sheet.sel.format, quality: v4Sheet.sel.quality, title: v4$('v4-sheet-title').textContent || ''};
@@ -3778,7 +3786,7 @@ async function v4StartDownload(params){
   if(params && params.title) v4InterestAdd(params.title.replace(/[^a-zA-Z0-9 ]/g, ' ').split(/\s+/).filter(function(w){ return w.length > 2; }).slice(0, 3).join(' '), 1);
   const body = Object.assign({}, params, {download_id: 'v4_' + Date.now()});
   const r = await v4Post('/api/start-download', body);
-  if(r.ok && r.data && r.data.success){ if(r.data.already){ v4CloseSheet(); v4Toast('Ye video pehle se Downloads mein hai'); v4LoadDownloads(); return; } v4CloseSheet(); if(r.data.guest_remaining != null){ const left = Math.max(0, r.data.guest_remaining - 1); v4Toast(left > 0 ? ('Download shuru — guest ke ab ' + left + ' free downloads baqi hain') : 'Download shuru — ye guest ka akhri free download hai, agli ke liye account banayein'); } else v4Toast('Download shuru ho gaya — Downloads me dekhein'); v4LoadDownloads(); return; }
+  if(r.ok && r.data && r.data.success){ if(r.data.already){ const _rec172 = {videoId: params.video_id, title: params.title || '', quality: r.data.already_quality || params.quality || '', totalMB: r.data.already_size_mb || ''}; v4DupModal(_rec172, params.title || '', function(){ v4StartDownload(Object.assign({}, params, {force: 1})); }); return; } v4CloseSheet(); if(r.data.guest_remaining != null){ const left = Math.max(0, r.data.guest_remaining - 1); v4Toast(left > 0 ? ('Download shuru — guest ke ab ' + left + ' free downloads baqi hain') : 'Download shuru — ye guest ka akhri free download hai, agli ke liye account banayein'); } else v4Toast('Download shuru ho gaya — Downloads me dekhein'); v4LoadDownloads(); return; }
   const d = r.data || {};
   if(d.login_required){ v4Pending = {type:'start', params:params}; v4CloseSheet(); v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); return; }
   if(d.premium_required){ v4CloseSheet(); v4Toast('HD quality ke liye Premium chahiye'); v4Show('premium'); return; }
@@ -3857,7 +3865,7 @@ function v4PhoneRowHtml(p){
   let t2 = '', btns = '';
   const pid = v4Esc(p.id || '');
   if(p.status === 'running'){
-    t2 = '<span data-pdmb>' + v4Esc(p.doneMB || '0') + ' / ' + v4Esc(p.totalMB || '?') + ' MB</span> • <span data-pdsp>' + v4Esc(p.speed || '') + '</span> • <span data-pdpct>' + (p.percent || 0) + '%</span>' + (p.quality ? ' • ' + v4Esc(p.quality) : '');
+    t2 = '<span data-pdmb>' + v4Esc(p.doneMB || '0') + ' / ' + v4Esc(p.totalMB || '?') + ' MB</span> • <span data-pdsp>' + v4Esc(p.speed || '') + '</span> • <span data-pdpct>' + (p.percent || 0) + '%</span>' + (p.quality ? ' • ' + v4Esc(p.quality) : '') + (p.phase === 'convert' ? ' • 🔄 MP3 ban raha hai…' : '');
     btns = '<button class="v4-roundbtn" title="Pause" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="pause">❚❚</button><button class="v4-roundbtn" title="Band karein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="cancel">✕</button>';
   } else if(p.status === 'paused'){
     t2 = '⏸ Pause hai — ' + v4Esc(p.doneMB || '0') + ' / ' + v4Esc(p.totalMB || '?') + ' MB' + (p.quality ? ' • ' + v4Esc(p.quality) : '');
@@ -3881,6 +3889,75 @@ function v4PhoneRowHtml(p){
 /* Update 137: complete video ki pic ya naam par click —
    wahi downloaded file player mein khulti hai (us player
    mein download option nahi, sirf play). */
+/* Update 172: duplicate guard — ye video is qisam (video /
+   audio) mein pehle se phone par download hai? pt_phone_dl
+   ke record se jawab; qisam file ke ext ya quality se
+   pehchani jati hai (MP3 wala record video ko nahi rokega,
+   video wala MP3 ko nahi). */
+function v4RecKind(s){
+  /* Pehle quality — wo hamesha asal qisam batati hai
+     ('160 kbps' = gana, '360p' = video); file ext us ke
+     baad (purane .webm gana-record ki wajah se). */
+  const q = (s.quality || '').toLowerCase();
+  if(/kbps|mp3|m4a/.test(q)) return 'audio';
+  if(/^\d{2,3}$/.test(q)) return 'audio';
+  if(/\d+p|hd|3gp/.test(q)) return 'video';
+  const fn = (s.fileName || '').toLowerCase();
+  if(/\.(mp3|m4a|aac|ogg)$/.test(fn)) return 'audio';
+  if(/\.(mp4|mkv|webm|3gp|mov)$/.test(fn)) return 'video';
+  return '';
+}
+function v4AlreadyHave(videoId, kind){
+  if(!videoId) return null;
+  let stored = []; try{ stored = JSON.parse(localStorage.getItem('pt_phone_dl') || '[]'); }catch(e){}
+  for(let i = 0; i < stored.length; i++){
+    const s = stored[i];
+    if(!s || s.videoId !== videoId) continue;
+    const rk = v4RecKind(s);
+    if(kind && rk && rk !== kind) continue;
+    return s;
+  }
+  return null;
+}
+function v4DupPartition(items, kind){
+  const fresh = [], dups = [];
+  (items || []).forEach(function(it){
+    if(it && it.video_id && v4AlreadyHave(it.video_id, kind)) dups.push(it);
+    else fresh.push(it);
+  });
+  return {fresh: fresh, dups: dups};
+}
+function v4DupNote(dups){
+  if(!dups || !dups.length) return;
+  v4AiBubble('⏭ ' + dups.length + ' pehle se downloaded ' + (dups.length === 1 ? 'hai' : 'hain') + ' — skip kar di' + (dups.length <= 3 ? ': ' + dups.map(function(d){ return d.title || d.video_id; }).join(' • ') : ''));
+}
+/* SnapTube-style modal: file pehle se hai — Dekho (wahi
+   file chalao) ya Phir bhi download karo (user ki marzi). */
+function v4DupModal(rec, title, onAnyway){
+  const old = document.getElementById('v4-dup-modal'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'v4-dup-modal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:18px';
+  const meta = [rec.quality || '', rec.totalMB ? rec.totalMB + ' MB' : ''].filter(Boolean).join(' • ');
+  m.innerHTML = '<div style="background:var(--v4card,#141b2d);border:1px solid var(--v4border,#26314d);border-radius:16px;max-width:340px;width:100%;padding:16px;color:var(--v4text,#e8edf7)">'
+    + '<div style="display:flex;gap:10px;align-items:center"><img src="https://i.ytimg.com/vi/' + v4Esc(rec.videoId || '') + '/hqdefault.jpg" style="width:86px;height:64px;object-fit:cover;border-radius:10px" onerror="this.remove()"><div style="flex:1;font-size:14px;font-weight:700;line-height:1.35">' + v4Esc(title || rec.title || '') + '</div></div>'
+    + '<div style="margin-top:10px;font-size:13px;opacity:.9">📥 Ye pehle se download hai' + (meta ? ' — ' + v4Esc(meta) : '') + '. Dobara download karein?</div>'
+    + '<div style="display:flex;gap:8px;margin-top:14px"><button id="v4-dup-dekho" style="flex:1;padding:11px;border:none;border-radius:999px;background:linear-gradient(90deg,#14b8a6,#06b6d4);color:#fff;font-weight:700;cursor:pointer">▶ Dekho</button><button id="v4-dup-anyway" style="flex:1;padding:11px;border-radius:999px;background:transparent;border:1px solid var(--v4border,#26314d);color:inherit;font-weight:700;cursor:pointer">Phir bhi download karo</button></div>'
+    + '<button id="v4-dup-close" style="margin-top:8px;width:100%;padding:8px;border:none;background:transparent;color:inherit;opacity:.7;cursor:pointer">Band karein</button></div>';
+  document.body.appendChild(m);
+  const close = function(){ m.remove(); };
+  m.querySelector('#v4-dup-close').onclick = close;
+  m.onclick = function(e){ if(e.target === m) close(); };
+  m.querySelector('#v4-dup-dekho').onclick = function(){
+    close();
+    try{ v4CloseSheet(); }catch(e){}
+    v4Show('downloads');
+    if(rec.fileName && window.PlayTubeApp && PlayTubeApp.playDownloaded){
+      setTimeout(function(){ try{ PlayTubeApp.playDownloaded(rec.fileName, rec.title || title || ''); }catch(e){} }, 350);
+    }
+  };
+  m.querySelector('#v4-dup-anyway').onclick = function(){ close(); if(onAnyway) onAnyway(); };
+}
 function v4PlayStored(el){
   const fn = el.getAttribute('data-fn') || '', t = el.getAttribute('data-t') || '';
   if(window.PlayTubeApp && PlayTubeApp.playDownloaded){ PlayTubeApp.playDownloaded(fn, t); }
@@ -3942,7 +4019,7 @@ function v4PhoneDlRender(){
   live.forEach(function(p){
     if(p.status === 'done'){
       const k = (p.title || '') + '|' + (p.quality || '');
-      if(!stored.some(function(s){ return ((s.title || '') + '|' + (s.quality || '')) === k; })){ stored.unshift({title: p.title || '', quality: p.quality || '', videoId: p.videoId || '', totalMB: p.totalMB || '', fileName: p.fileName || '', src: p.src || '', ts: Date.now()}); changed = true; v4GuestPhoneDone(p.videoId || ''); }
+      if(!stored.some(function(s){ return ((s.title || '') + '|' + (s.quality || '')) === k; })){ stored.unshift({title: p.title || '', quality: p.quality || '', videoId: p.videoId || '', totalMB: p.totalMB || '', fileName: p.fileName || '', src: p.src || '', ts: Date.now()}); changed = true; if(!p.already) v4GuestPhoneDone(p.videoId || ''); }
     }
   });
   if(changed){ try{ localStorage.setItem('pt_phone_dl', JSON.stringify(stored.slice(0, 50))); }catch(e){} }
@@ -4504,23 +4581,33 @@ async function v4CandStart(quality, format){
   window._v4AttachCtx = ctx;
   const items = ctx.selItems || [];
   if(!items.length) return;
+  /* Update 172: duplicate guard — pehle se downloaded
+     items job mein jati hi nahi (phone ho ya server);
+     sirf note banta hai, phantom rows nahi. */
+  const _part172 = v4DupPartition(items, (format === 'mp3' || format === 'm4a') ? 'audio' : 'video');
+  if(_part172.dups.length) v4DupNote(_part172.dups);
+  const items2 = _part172.fresh;
+  if(!items2.length) return;
   if(v4PhoneAiOk()){
-    v4PhoneJobStart(items, quality, format, '📱 ' + items.length + ' videos phone par download ho rahi hain — one by one:', ctx.show || '', {key:v4AiFolderKeyFor(ctx), title:v4AiFolderTitleFor(ctx)});
+    v4PhoneJobStart(items2, quality, format, '📱 ' + items2.length + ' videos phone par download ho rahi hain — one by one:', ctx.show || '', {key:v4AiFolderKeyFor(ctx), title:v4AiFolderTitleFor(ctx)});
     return;
   }
   const submit = async function(){
-    const r = await v4Post('/api/ai/pick-many', {items:items, quality:quality, format:format, show:ctx.show || ''});
+    const r = await v4Post('/api/ai/pick-many', {items:items2, quality:quality, format:format, show:ctx.show || ''});
     const d = r.data || {};
     if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); v4AiBubble('Limit khatam — pehle account banayein.'); return; } v4AiBubble(d.error || 'Download start nahi ho saka'); return; }
     const b = v4AiBubble(d.message || 'Download start ho gayi');
+    if(d.already && d.already.length) v4DupNote(d.already);
     if(d.job_id){ v4AiAttachJob(d.job_id); }
   };
-  v4SrvEnqueue(items, submit);
+  v4SrvEnqueue(items2, submit);
 }
 async function v4AiDoPick(vid, title, quality, format){
   const ctx = window._v4CandCtx || {};
   if(!ctx.show && window._v4AttachCtx && window._v4AttachCtx.show) ctx.show = window._v4AttachCtx.show;
   window._v4AttachCtx = ctx;
+  /* Update 172: duplicate guard — pehle se ho to skip. */
+  if(v4AlreadyHave(vid, (format === 'mp3' || format === 'm4a') ? 'audio' : 'video')){ v4AiBubble('⏭ Ye pehle se downloaded hai — skip kar di: ' + title); return; }
   if(v4PhoneAiOk()){
     v4PhoneJobStart([{video_id:vid, title:title}], quality, format, '✅ Yahi phone par download ho rahi hai: ' + title, ctx.show || '', {key:v4AiFolderKeyFor(ctx), title:v4AiFolderTitleFor(ctx)});
     return;
@@ -4530,6 +4617,7 @@ async function v4AiDoPick(vid, title, quality, format){
     const d = r.data || {};
     if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); v4AiBubble('Limit khatam — pehle account banayein.'); return; } v4AiBubble(d.error || 'Download start nahi ho saka'); return; }
     const b = v4AiBubble(d.message || 'Download start ho gayi');
+    if(d.already && d.already.length) v4DupNote(d.already);
     if(d.job_id){ v4AiAttachJob(d.job_id); }
   };
   v4SrvEnqueue([{video_id:vid, title:title}], submit);
@@ -4601,21 +4689,28 @@ async function v4AiPickAll(el){
   const _epshow = (el.parentNode && el.parentNode._epShow) || '';
   const items = (window._v4EpItems || []).map(function(ep){ return {video_id:ep.video_id, title:ep.title}; });
   if(!items.length) return;
+  /* Update 172: duplicate guard — pehle se downloaded
+     episodes dobara nahi utarti. */
+  const _part172 = v4DupPartition(items, 'video');
+  if(_part172.dups.length) v4DupNote(_part172.dups);
+  const items2 = _part172.fresh;
+  if(!items2.length) return;
   if(v4PhoneAiOk()){
     const cx = window._v4CandCtx || {};
-    v4PhoneJobStart(items, cx.qexp ? (cx.quality || '360p') : '360p', 'mp4', '📱 ' + items.length + ' episodes phone par download ho rahi hain — one by one:', _epshow, {key: _epshow ? ('show:' + _epshow.toLowerCase()) : v4AiFolderKeyFor(cx), title: _epshow ? ('📂 ' + _epshow) : v4AiFolderTitleFor(cx)});
+    v4PhoneJobStart(items2, cx.qexp ? (cx.quality || '360p') : '360p', 'mp4', '📱 ' + items2.length + ' episodes phone par download ho rahi hain — one by one:', _epshow, {key: _epshow ? ('show:' + _epshow.toLowerCase()) : v4AiFolderKeyFor(cx), title: _epshow ? ('📂 ' + _epshow) : v4AiFolderTitleFor(cx)});
     return;
   }
   const ctx = window._v4CandCtx || {};
   window._v4AttachCtx = _epshow ? {show:_epshow} : ctx;
   const submit = async function(){
-    const r = await v4Post('/api/ai/pick-many', {items:items, quality: ctx.qexp ? (ctx.quality || '360p') : '360p', format:'mp4', show: _epshow || ctx.show || ''});
+    const r = await v4Post('/api/ai/pick-many', {items:items2, quality: ctx.qexp ? (ctx.quality || '360p') : '360p', format:'mp4', show: _epshow || ctx.show || ''});
     const d = r.data || {};
     if(!r.ok){ if(d.login_required){ v4Pending = {type:'ai'}; v4OpenAuth('signin', false, d.guest_limit ? 'limit' : ''); } v4AiBubble(d.error || 'Download start nahi ho saka'); return; }
     const b = v4AiBubble(d.message || 'Sab episodes download start');
+    if(d.already && d.already.length) v4DupNote(d.already);
     if(d.job_id){ v4AiAttachJob(d.job_id); }
   };
-  v4SrvEnqueue(items, submit);
+  v4SrvEnqueue(items2, submit);
 }
 
 /* Update 103: AI jobs APK mein PHONE par — server bot-check se mehfooz */
@@ -4846,7 +4941,7 @@ function v4PhoneItemPoll(job, it){
       return;
     }
   }
-  if(ent.status === 'done'){ v4ShowTrackTitle(it.title || ''); it._pct = 100; v4PhoneItemFinish(job, it, 'done', ''); return; }
+  if(ent.status === 'done'){ v4ShowTrackTitle(it.title || ''); it._pct = 100; if(ent.already) it._alreadySkip = true; v4PhoneItemFinish(job, it, 'done', ''); return; }
   if(ent.status === 'failed'){ v4PhoneItemFinish(job, it, 'failed', ent.error || 'Download fail ho gaya — ↻ se dobara try karein'); return; }
   if(ent.status === 'stopped'){
     if(it._wantStop){ it._wantStop = false; it._hold = true; v4PhoneItemFinish(job, it, 'ustop', ''); return; }
@@ -4854,12 +4949,12 @@ function v4PhoneItemPoll(job, it){
        'stopped' kabhi khud nahi banta. */
     v4PhoneItemFinish(job, it, 'failed', 'Download ruk gaya — ↻ se dobara try karein'); return;
   }
-  it._pct = ent.percent; v4PhoneJobRender(job);
+  it._pct = ent.percent; it._phase = ent.phase || ''; v4PhoneJobRender(job);
 }
 function v4PhoneItemFinish(job, it, st, err){
   if(it._timer){ clearInterval(it._timer); it._timer = null; }
   it._st = st; if(err) it._err = err;
-  if(st === 'done'){ job.done++; v4GuestPhoneDone(it.video_id || ''); } else if(st === 'failed') job.failed++;
+  if(st === 'done'){ job.done++; if(!it._alreadySkip) v4GuestPhoneDone(it.video_id || ''); } else if(st === 'failed') job.failed++;
   v4PhoneJobRender(job);
   v4FolderSched();
 }
@@ -5680,7 +5775,7 @@ function v4AiFolderRowHtml(F, r){
   let icon, right = '', bar = '';
   const st = r.status;
   if(st === 'completed') icon = '<span class="v4-ai-ic ok">✓</span>';
-  else if(st === 'downloading'){ icon = '<span class="v4-ai-ic dl">⬇</span>'; right = '<span class="pct">' + (r.pct || 0) + '%</span>'; bar = '<div class="v4-ai-bar"><i style="width:' + (r.pct || 0) + '%"></i></div>'; }
+  else if(st === 'downloading'){ icon = '<span class="v4-ai-ic dl">⬇</span>'; right = '<span class="pct">' + (r.phase === 'convert' ? '🔄 MP3 ban raha hai…' : (r.pct || 0) + '%') + '</span>'; bar = '<div class="v4-ai-bar"><i style="width:' + (r.pct || 0) + '%"></i></div>'; }
   else if(st === 'searching'){ icon = '<span class="v4-ai-ic dl">⬇</span>'; right = '<span class="pct">…</span>'; }
   else if(st === 'failed') icon = '<span class="v4-ai-ic bad">✗</span>';
   else if(st === 'stopped') icon = '<span class="v4-ai-ic stop">⏹</span>';
@@ -5726,7 +5821,7 @@ function v4AiFolderRender(key){
       else if(it._st === 'failed') st = 'failed';
       else if(it._st === 'starting' || it._st === 'downloading') st = 'downloading';
       else if(it._st === 'ustop' || it._hold || job.userStopped) st = 'stopped';
-      rows.push({title: it.title || '', status: st, pct: it._pct || 0, kind:'phone', jobKey: jk, idx: i, ord: rows.length, seq: job.id || 0, err: it._err || ''});
+      rows.push({title: it.title || '', status: st, pct: it._pct || 0, phase: it._phase || '', kind:'phone', jobKey: jk, idx: i, ord: rows.length, seq: job.id || 0, err: it._err || ''});
     });
   });
   Object.keys(F.serverJobs || {}).forEach(function(jid){
@@ -9095,8 +9190,12 @@ def _find_duplicate(video_id, format_type, quality):
             if _q and _eq and _q != _eq and _q != 'best' and _eq != 'best':
                 continue
         elif _f in ('MP3', 'M4A'):
-            _d1 = ''.join(c for c in _q if c.isdigit())
-            _d2 = ''.join(c for c in _eq if c.isdigit())
+            # Update 172: 'MP3 192K' label ke digits '3192'
+            # ban jate thay ('MP3' ka 3 bhi gin liya jata
+            # tha) — pehle format ka lafz hata kar digits lo,
+            # taake '192' aur 'MP3 192K' ek hi bitrate manein.
+            _d1 = ''.join(c for c in re.sub(r'(?i)mp3|m4a', '', _q) if c.isdigit())
+            _d2 = ''.join(c for c in re.sub(r'(?i)mp3|m4a', '', _eq) if c.isdigit())
             if _d1 and _d2 and _d1 != _d2:
                 continue
         if _e.get('file_path') and os.path.exists(_e['file_path']):
@@ -9143,10 +9242,17 @@ def start_download():
     if not video_id:
         return jsonify({"error": "Video ID missing"}), 400
 
-    _dup = _find_duplicate(video_id, format_type, quality)
+    # Update 172: force=1 = user ne 'Phir bhi download karo'
+    # chuna — duplicate check us ki marzi se skip hota hai.
+    _dup = None if data.get('force') else _find_duplicate(
+        video_id, format_type, quality)
     if _dup:
         return jsonify({'success': True, 'already': True,
                         'download_id': _dup.get('downloadId'),
+                        'already_quality': _dup.get('quality') or '',
+                        'already_format': _dup.get('format') or '',
+                        'already_size_mb': (round(_dup['file_size'] / 1048576, 1)
+                                            if _dup.get('file_size') else ''),
                         'message': 'Ye video is quality mein pehle se '
                                    'Downloads mein hai'})
 
@@ -9444,7 +9550,7 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
                 ydl_opts['format'] = (
                     f'bestvideo[height<={height}][ext=mp4]+bestaudio[language_preference>=0][ext=m4a]/'
                     f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/'
-                    f'bestvideo[height<={height}]+bestaudio/best[height<={height}]/'
+                    f'bestvideo[height<={height}]+bestaudio/best[height<={height}][ext=mp4]/'
                     f'bestvideo+bestaudio/best')
                 quality_label = quality
             else:
@@ -12101,6 +12207,13 @@ def api_ai_pick():
     _parsed = {'title': show or title, 'quality': quality, 'format': fmt,
                'episodes': [], 'category': data.get('category'),
                'count': None, 'latest_count': None}
+    # Update 172: duplicate guard — server par pehle se ho
+    # to job hi na bane; jawab 'already' mein jaye.
+    if _find_duplicate(vid, fmt, quality):
+        return jsonify({'success': True, 'job_id': None,
+                        'already': [{'video_id': vid, 'title': title}],
+                        'message': (f"⏭ Ye pehle se downloaded hai "
+                                    f"— skip kar di: '{title}'")})
     _jid = _ai_create_direct_job(
         [{'video_id': vid, 'title': title}], _parsed, _gdev,
         f'pick: {title}')
@@ -12127,17 +12240,43 @@ def api_ai_pick_many():
     _err, _gdev = _ai_guest_guard()
     if _err:
         return _err
+    fmt = (data.get('format') or 'mp4').strip().lower()
+    if fmt not in ('mp4', 'mp3', 'm4a'):
+        fmt = 'mp4'
     quality = str(data.get('quality') or '360p').strip()
+    if fmt == 'mp3' and not quality.isdigit():
+        quality = '192'
     show = (data.get('show') or '').strip()[:120]
+    # Update 172: duplicate guard — server par pehle se
+    # complete items job mein NAHI jatin; 'already' list
+    # mein wapas jati hain (guest ginti bhi nahi lagti,
+    # kyun ke koi download banta hi nahi).
+    fresh, already = [], []
+    for _it in items:
+        if _find_duplicate(_it['video_id'], fmt, quality):
+            already.append({'video_id': _it['video_id'],
+                            'title': _it['title']})
+        else:
+            fresh.append(_it)
+    if not fresh:
+        return jsonify({'success': True, 'job_id': None,
+                        'already': already,
+                        'message': (f"⏭ {len(already)} pehle se "
+                                    f"downloaded hain — sab skip "
+                                    f"kar di")})
     _parsed = {'title': show or 'Episodes', 'quality': quality,
-               'format': 'mp4', 'episodes': [], 'category': None,
+               'format': fmt, 'episodes': [], 'category': None,
                'count': None, 'latest_count': None}
-    _jid = _ai_create_direct_job(items, _parsed, _gdev,
+    _jid = _ai_create_direct_job(fresh, _parsed, _gdev,
                                  f'pick-many: {show}')
+    _msg = (f"✅ {len(fresh)} episodes download start "
+            f"kar di hain — one by one hongi. "
+            f"Job ID: {_jid}")
+    if already:
+        _msg += f" ({len(already)} pehle se downloaded skip ho gayin)"
     return jsonify({'success': True, 'job_id': _jid,
-                    'message': (f"✅ {len(items)} episodes download start "
-                                f"kar di hain — one by one hongi. "
-                                f"Job ID: {_jid}")})
+                    'already': already,
+                    'message': _msg})
 
 
 @app.route('/api/ai/episodes', methods=['POST'])
