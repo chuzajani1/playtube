@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 72  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 73  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">72</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">73</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -1882,6 +1882,7 @@ HTML = '''
       <div class="v4-fixchips" id="v4-ai-fixchips">
         <button class="v4-chip" type="button" onclick="v4AiTazaOpen()">🆕 Aaj ki taza</button>
         <button class="v4-chip" type="button" onclick="v4AiShowsPanel()">📺 Mere Shows</button>
+        <button class="v4-chip" type="button" onclick="v4$('v4-ai-vfile').click()">🎵 Video se Song</button>
         <button class="v4-chip" type="button" onclick="v4AiChannelPanel()">📂 Channel mode</button>
       </div>
       <div id="v4-ai-msgs">
@@ -1891,6 +1892,7 @@ HTML = '''
         <button class="v4-searchbtn" type="button" title="Pic bhejein — AI parh kar download kare ga" onclick="v4$('v4-ai-file').click()">📎</button>
         <input id="v4-ai-input" placeholder="AI ko command likhein, link ya pic bhejein..." autocomplete="off">
         <input type="file" id="v4-ai-file" accept="image/*" style="display:none" onchange="v4AiImage(this)">
+        <input type="file" id="v4-ai-vfile" accept="video/*" style="display:none" onchange="v4AiVideoSong(this)">
         <button class="v4-searchbtn" type="button" id="v4-ai-mic" title="Bol kar command dein" style="display:none" onclick="v4AiMic()">🎤</button>
         <button class="v4-searchbtn" type="submit">➤</button>
       </form>
@@ -5067,6 +5069,29 @@ function v4AiImage(input){
   };
   rd.readAsDataURL(file);
 }
+/* Update 162: Video se Song — chhoti video upload,
+   AI full song ki list deta hai (select -> download) */
+function v4AiVideoSong(input){
+  const file = input.files && input.files[0];
+  input.value = '';
+  if(!file) return;
+  if(file.size > 80 * 1024 * 1024){ v4AiBubble('🎵 Video bheja', true); v4AiBubble('Video bohat bari hai (80 MB se zyada) — chhoti clip bhejein.'); return; }
+  v4AiBubble('🎵 Video bheja — ' + file.name, true);
+  const b = v4AiBubble('🤖 Video se gana dhoondh raha hoon — thoda waqt lage ga...');
+  const fd = new FormData(); fd.append('file', file);
+  fetch('/api/ai/video-song', {method:'POST', body: fd}).then(function(r){ return r.json(); }).then(function(d){
+    if(!d || !d.success){ b.textContent = (d && d.message) || 'Gana nahi mil saka — naam likh kar command dein.'; return; }
+    if(d.intent === 'candidates'){
+      b.textContent = d.message || 'Full song ki list:';
+      const ctx = v4RenderCandidates(b, d.candidates || [], {quality:'360p', format:'mp4', qexp:false, show:'', category:'', kind:'', src:'🎵 Video se Song'});
+      window._v4CandCtx = ctx;
+      v4AiCandTrack(b, ctx);
+      setTimeout(function(){ window.scrollTo(0, document.body.scrollHeight); }, 60);
+    } else {
+      b.textContent = d.message || 'Ho gaya';
+    }
+  }).catch(function(){ b.textContent = 'Video bhejne mein masla aya — dobara try karein.'; });
+}
 /* Update 45: Private Folder (PIN) */
 async function v4RenderPrivate(){
   const body = v4$('v4-priv-body'); if(!body) return;
@@ -6028,6 +6053,7 @@ async function v4RenderAdmin(){
   h += '<div class="v4-stats"><div class="v4-stat"><b>' + (ss.total_visits || 0) + '</b><span>Total Visits</span></div><div class="v4-stat"><b>' + (ss.today_visits || 0) + '</b><span>Aaj ke Visits</span></div><div class="v4-stat"><b>' + (ss.today_unique || 0) + '</b><span>Aaj ke Visitors (alag log)</span></div></div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">💾 STORAGE (SERVER)</div><div id="v4-storage-box" class="v4-muted">Loading...</div></div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">🍪 YOUTUBE COOKIES</div><div id="v4-cookies-box" class="v4-muted">Loading...</div></div>';
+  h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">🎵 SONG PEHCHAN (AWAAZ SE)</div><div id="v4-audd-box" class="v4-muted">Loading...</div></div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">WEBSITE ON / OFF</div>';
   h += tog('ai_enabled', 'AI Assistant') + tog('downloads_enabled', 'Downloads') + tog('premium_enabled', 'Premium System') + tog('social_enabled', 'Social Tab') + tog('shorts_enabled', 'Shorts') + tog('music_enabled', 'Music Tab') + tog('signup_enabled', 'Naya Signup (registration)') + tog('floating_enabled', 'Floating Button (APK)') + tog('maintenance_mode', 'Maintenance (site band)') + '</div>';
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">ELAAN (ANNOUNCEMENT)</div><input class="v4-input" id="v4-adm-ann" placeholder="Home par sab ko dikhne wala message" value="' + v4Esc(cfg.announcement || '') + '"><button class="v4-btn2" onclick="v4AdminSaveAnn()">Save Elaan</button></div>';
@@ -6075,11 +6101,13 @@ async function v4RenderAdmin(){
   h += '<div class="v4-admincard"><div class="v4-sect" style="margin-top:0">PRIVATE FOLDER</div><div class="v4-row"><div class="grow">PIN ki halat<div class="v4-muted">' + (cfg.pin_set ? 'PIN set hai' : 'Abhi PIN set nahi hai') + '</div></div>' + (cfg.pin_set ? '<button class="v4-btn2" onclick="v4AdminResetPin()">PIN Reset karein</button>' : '') + '</div><div class="v4-muted">PIN bhool jayein to yahan se reset karein — phir naya PIN banana pare ga.</div></div>';
   h += '<button class="v4-bigbtn" style="background:var(--v4card);border:1px solid var(--v4border)" onclick="v4AdminLogout()">Admin Logout</button>';
   body.innerHTML = h;
-  v4LoadStorage(); v4LoadCookies();
+  v4LoadStorage(); v4LoadCookies(); v4LoadAudd();
 }
 async function v4LoadStorage(){ const box = v4$('v4-storage-box'); if(!box) return; const r = await v4Fetch('/api/admin/storage'); if(!r.ok || !r.data){ box.textContent = 'Storage ki maloomat nahi mil sakin'; return; } const d = r.data; const pct = Math.min(100, d.used_pct || 0); const col = pct >= 80 ? '#f87171' : (pct >= 60 ? '#fbbf24' : '#14b8a6'); let h = '<div class="v4-row"><div class="grow">Istemaal shuda jagah</div><b>' + d.used_mb + ' / ' + d.total_mb + ' MB (' + pct + '%)</b></div>'; h += '<div style="height:10px;border-radius:99px;background:var(--v4border);overflow:hidden;margin:6px 0"><div style="height:100%;width:' + pct + '%;background:' + col + '"></div></div>'; h += '<div class="v4-muted">Khaali jagah: ' + d.free_mb + ' MB - Downloads folder: ' + (d.disk_files || 0) + ' files (' + (d.disk_downloads_mb != null ? d.disk_downloads_mb : d.downloads_mb) + ' MB)</div>'; if(d.breakdown && d.breakdown.length){ h += '<div class="v4-muted" style="margin-top:4px">Volume par hai kya:<br>' + d.breakdown.map(function(b){ return '• ' + b.name + ': ' + b.mb + ' MB'; }).join('<br>') + '</div>'; } h += '<div class="v4-muted" style="margin-top:4px">Auto rule: jagah 80% bharne par sab se purani downloads khud delete hoti hain jab tak 40% na reh jaye (Private folder wali kabhi nahi) — storage kabhi full nahi hota.</div>'; h += '<button class="v4-btn2" style="margin-top:8px" onclick="v4AdminCleanup()">Abhi safai karein</button>'; box.innerHTML = h; }
 async function v4LoadCookies(){ const box = v4$('v4-cookies-box'); if(!box) return; const r = await v4Fetch('/api/admin/cookies-status'); const on = r.ok && r.data && r.data.active; box.innerHTML = '<div class="v4-muted">' + (on ? '✅ Cookies lagi hui hain' + (r.data.size_kb ? ' (' + r.data.size_kb + ' KB)' : '') + ' — downloads mazboot hain, bot-check wala issue nahi ayega.' : '⚠ Cookies nahi lagin — YouTube kabhi kabhi server ko rok deta hai (bot-check), tab downloads fail hoti hain. Spare Google account ki cookies.txt yahan lagayein to ye rukawat khatam ho jayegi.') + '</div><label class="v4-btn2" style="display:inline-block;margin-top:8px;cursor:pointer">🍪 Cookies file chunein<input type="file" accept=".txt" style="display:none" onchange="v4AdminCookiesUpload(this)"></label>'; }
 async function v4AdminCookiesUpload(inp){ const f = inp.files && inp.files[0]; if(!f) return; const fd = new FormData(); fd.append('file', f); v4Toast('Cookies lag rahi hain...'); try{ const r = await fetch('/api/admin/cookies', {method:'POST', body:fd}); const d = await r.json(); if(d && d.success){ v4Toast('✅ Cookies lag gayin'); v4LoadCookies(); } else v4Toast((d && d.error) || 'Cookies nahi lag sakin'); }catch(e){ v4Toast('Upload fail ho gaya'); } }
+async function v4LoadAudd(){ const box = v4$('v4-audd-box'); if(!box) return; const r = await v4Fetch('/api/admin/audd-status'); const on = r.ok && r.data && r.data.active; box.innerHTML = '<div class="v4-muted">' + (on ? '✅ Token laga hua hai — AI mein video upload karne par gana AWAAZ se pehchana jayega.' : '⚠ Token nahi laga — video se song sirf video mein likhe hue naam se milega. Awaaz se pehchan ke liye audd.io ka free API token yahan lagayein.') + '</div><div style="display:flex;gap:8px;margin-top:8px"><input class="v4-input" id="v4-audd-token" type="text" placeholder="AudD API token yahan paste karein" style="flex:1;margin:0"><button class="v4-btn2" onclick="v4AdminAuddSave()">Lagayein</button></div>'; }
+async function v4AdminAuddSave(){ const inp = v4$('v4-audd-token'); const tok = inp ? inp.value.trim() : ''; if(!tok){ v4Toast('Pehle token likhein'); return; } try{ const r = await fetch('/api/admin/audd-token', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({token: tok})}); const d = await r.json(); if(d && d.success){ v4Toast('✅ Token lag gaya'); v4LoadAudd(); } else v4Toast((d && d.error) || 'Token nahi laga'); }catch(e){ v4Toast('Fail ho gaya'); } }
 async function v4AdminCleanup(){ const r = await v4Post('/api/admin/storage-cleanup', {}); if(r.ok && r.data){ if(r.data.removed) v4Toast(r.data.removed + ' files delete — ' + r.data.freed_mb + ' MB khaali; ab sirf website ka apna data bacha hai'); else v4Toast('Sab pehle se saaf hai — saaf karne ko kuch nahi bacha'); v4LoadStorage(); } else v4Toast('Safai nahi ho saki'); }
 function v4DealRowDel(btn){ const r = btn.closest('.v4-dealrow'); if(r) r.remove(); }
 function v4DealRow(d){
@@ -12891,14 +12919,19 @@ def api_ai_command():
 
 
 def _ocr_image(path):
-    """Tesseract se pic ka text parho. Binary na ho to None."""
-    try:
-        r = subprocess.run(['tesseract', path, 'stdout', '--psm', '6'],
-                           capture_output=True, text=True, timeout=60)
-        if r.returncode == 0:
-            return r.stdout or ''
-    except Exception:
-        pass
+    """Tesseract se pic ka text parho. Binary na ho to None.
+    Update 162: pehle eng+urd dono (Urdu titles bhi
+    parhe jayein), pack na ho to sirf eng."""
+    for _langs in ('eng+urd', 'eng'):
+        try:
+            r = subprocess.run(['tesseract', path, 'stdout', '-l',
+                                _langs, '--psm', '6'],
+                               capture_output=True, text=True,
+                               timeout=60)
+            if r.returncode == 0:
+                return r.stdout or ''
+        except Exception:
+            pass
     return None
 
 
@@ -12919,6 +12952,264 @@ def _ocr_pick_title(ocr_text):
     title = ' '.join(pick)
     title = re.sub(r'[^A-Za-z0-9 ]', ' ', title)
     return re.sub(r'\s+', ' ', title).strip()
+
+
+def _audd_token():
+    """Admin Panel se lagaya gaya AudD token (file)."""
+    try:
+        _p = os.path.join(DATA_DIR, 'audd_token.txt')
+        if os.path.exists(_p):
+            return (open(_p, encoding='utf-8').read() or '').strip()
+    except Exception:
+        pass
+    return ''
+
+
+def _audd_recognize(clip_path):
+    """AudD se gana pehchano -> (title, artist) ya None.
+    Token na ho / match na mile / service band ho —
+    sab par None, taake doosra rasta chal sake."""
+    _tok = _audd_token()
+    if not _tok:
+        return None
+    try:
+        with open(clip_path, 'rb') as _f:
+            r = requests.post(
+                'https://api.audd.io/',
+                data={'api_token': _tok,
+                      'return': 'spotify,apple_music'},
+                files={'file': _f}, timeout=35)
+        _d = r.json() or {}
+        if _d.get('status') == 'success' and _d.get('result'):
+            _res = _d['result']
+            _t = (_res.get('title') or '').strip()
+            _a = (_res.get('artist') or '').strip()
+            if _t:
+                return _t, _a
+    except Exception:
+        pass
+    return None
+
+
+def _vsong_queries(ocr_text, meta_title, fname):
+    """Video se mile text se search queries — sab se
+    umeed wali pehle. Urdu + English dono rakhe jate
+    hain (purana _ocr_pick_title Urdu hata deta tha)."""
+    _junk = ('subscribe', 'follow', 'like', 'share', 'comment',
+             'tiktok', 'original sound', 'watch till', 'viral',
+             'foryou', 'fyp', 'views', 'www.', 'http')
+    lines = []
+    for ln in (ocr_text or '').splitlines():
+        ln = re.sub(r'\s+', ' ', ln).strip(' |•·-–—')
+        if len(ln) < 4:
+            continue
+        if not re.search(r'[A-Za-z\u0600-\u06FF]', ln):
+            continue
+        ll = ln.lower()
+        if any(j in ll for j in _junk):
+            continue
+        if ' ' not in ln and re.match(r'^@?[A-Za-z0-9_.]+$', ln):
+            continue
+        lines.append(ln)
+    seen = set()
+    uniq = []
+    for l in lines:
+        k = l.lower()
+        if k not in seen:
+            seen.add(k)
+            uniq.append(l)
+    uniq.sort(key=lambda l: -(len(l.split()) * 10 + len(l)))
+    qs = []
+    if meta_title and len(meta_title.split()) >= 2:
+        qs.append(meta_title)
+    for l in uniq[:3]:
+        qs.append(l)
+    if fname:
+        base = re.sub(r'\.[A-Za-z0-9]{2,5}$', '', fname)
+        base = re.sub(r'^(VID|IMG|MV)[-_ ]?', '', base, flags=re.I)
+        base = re.sub(r'[-_]+', ' ', base).strip()
+        if len(base.split()) >= 3:
+            qs.append(base)
+    out = []
+    for q in qs:
+        q = re.sub(r'\s+', ' ', q).strip()
+        if q and q not in out:
+            out.append(q)
+    return out[:4]
+
+
+def _vsong_candidates(query, cap=25):
+    """Ek query ke candidates (AI wali shakal mein)."""
+    try:
+        info = _extract_with_clients(
+            f"ytsearch{cap}:{query}",
+            {'quiet': True, 'no_warnings': True,
+             'no_check_certificate': True, 'extract_flat': True,
+             'skip_download': True, 'ignoreerrors': True,
+             'socket_timeout': 25, 'retries': 2,
+             'extractor_retries': 2})
+    except Exception:
+        info = None
+    entries = [e for e in ((info or {}).get('entries') or [])
+               if e and e.get('id')]
+    return _ai_cand_from_entries(entries, cap)
+
+
+@app.route('/api/ai/video-song', methods=['POST'])
+def api_ai_video_song():
+    """Update 162: chhoti video (Short/TikTok) upload
+    karo — AI us ka FULL song dhoondh kar LIST deta
+    hai. Pehle AWAAZ se pehchan (AudD token laga ho
+    to), warna video ke andar LIKHE hue naam se
+    (frames ka OCR). Nateeja hamesha candidates list
+    hai — user khud select karke download karega
+    (koi auto-download nahi)."""
+    if not feature_enabled('ai_enabled'):
+        return jsonify({'error': 'AI Assistant abhi band hai (admin ne off kiya hai)',
+                        'ai_disabled': True}), 403
+    f = request.files.get('file')
+    if not f:
+        return jsonify({'success': False,
+                        'message': 'Video mili nahi — dobara bhejein.'}), 400
+    _raw = f.read()
+    if not _raw:
+        return jsonify({'success': False,
+                        'message': 'Video khaali hai — dobara bhejein.'}), 400
+    if len(_raw) > 80 * 1024 * 1024:
+        return jsonify({'success': False,
+                        'message': 'Video bohat bari hai (80 MB se zyada) — chhoti clip bhejein.'}), 400
+    _vpath = None
+    try:
+        try:
+            _td = os.path.join(DATA_DIR, 'ocr_tmp')
+            os.makedirs(_td, exist_ok=True)
+        except Exception:
+            _td = tempfile.mkdtemp(prefix='vsong_')
+        _sfx = os.path.splitext(f.filename or '')[1][:6] or '.mp4'
+        _tf = tempfile.NamedTemporaryFile(delete=False, dir=_td,
+                                          suffix=_sfx)
+        _tf.write(_raw)
+        _tf.close()
+        _vpath = _tf.name
+        _dur = 0.0
+        _meta = ''
+        try:
+            _pr = subprocess.run(
+                ['ffprobe', '-v', 'quiet', '-print_format', 'json',
+                 '-show_format', _vpath],
+                capture_output=True, text=True, timeout=30)
+            _pj = json.loads(_pr.stdout or '{}')
+            _fmt = _pj.get('format') or {}
+            _dur = float(_fmt.get('duration') or 0)
+            _meta = ((_fmt.get('tags') or {}).get('title')
+                     or '').strip()
+        except Exception:
+            pass
+        _song = None
+        _artist = ''
+        _via = ''
+        _queries = []
+        # 1) AWAAZ se pehchan (token laga ho to)
+        if _audd_token():
+            _clip = None
+            try:
+                _cf = tempfile.NamedTemporaryFile(
+                    delete=False, dir=_td, suffix='.mp3')
+                _cf.close()
+                _clip = _cf.name
+                _ss = max(0.0, _dur * 0.3) if _dur else 0
+                subprocess.run(
+                    ['ffmpeg', '-y', '-ss', str(_ss), '-t', '25',
+                     '-i', _vpath, '-vn', '-c:a', 'libmp3lame',
+                     '-q:a', '4', _clip],
+                    capture_output=True, timeout=90)
+                if os.path.exists(_clip) and \
+                        os.path.getsize(_clip) > 20000:
+                    _rec = _audd_recognize(_clip)
+                    if _rec:
+                        _song, _artist = _rec
+                        _via = 'audio'
+                        _queries = [(_song + ' ' + _artist).strip(),
+                                    _song]
+            except Exception:
+                pass
+            finally:
+                if _clip:
+                    try:
+                        os.remove(_clip)
+                    except Exception:
+                        pass
+        # 2) LIKHA hua naam (frames ka OCR)
+        if not _song:
+            _texts = []
+            try:
+                for _i, _frac in enumerate((0.08, 0.3, 0.55, 0.8)):
+                    _ts = (_dur * _frac) if _dur else (1.0 + _i * 2.0)
+                    _ip = os.path.join(_td, f'vsf_{_i}.jpg')
+                    subprocess.run(
+                        ['ffmpeg', '-y', '-ss', str(_ts), '-i',
+                         _vpath, '-frames:v', '1', '-vf',
+                         'scale=720:-1', _ip],
+                        capture_output=True, timeout=60)
+                    if os.path.exists(_ip):
+                        _t = _ocr_image(_ip)
+                        if _t:
+                            _texts.append(_t)
+                        try:
+                            os.remove(_ip)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+            _queries = _vsong_queries('\n'.join(_texts), _meta,
+                                      f.filename or '')
+            _via = 'text'
+        # Queries se candidates — sab se achhi list
+        _best = []
+        _bestq = ''
+        for _q in _queries[:3]:
+            _cands = _vsong_candidates(_q)
+            if len(_cands) > len(_best):
+                _best, _bestq = _cands, _q
+            if len(_cands) >= 5:
+                break
+        if _best:
+            if _via == 'audio':
+                _msg = (f"🔊 Awaaz se pehchana gaya gana: "
+                        f"'{_song}'"
+                        + (f" — {_artist}" if _artist else '')
+                        + ". Us ke full song ki list — jo wala "
+                          "chahiye select karein:")
+            else:
+                _msg = (f"🔤 Video se ye naam parha: '{_bestq}'. "
+                        f"Full song ki list — jo wala chahiye "
+                        f"select karein:")
+            return jsonify({'success': True,
+                            'intent': 'candidates',
+                            'candidates': _best,
+                            'parsed': {'quality': '360p',
+                                       'format': 'mp4'},
+                            'show': '', 'kind': '',
+                            'src': '🎵 Video se Song',
+                            'message': _msg})
+        return jsonify({'success': False,
+                        'message': 'Is video se gana pehchana nahi '
+                                   'ja saka — gana saaf sunai de '
+                                   'ya us ka naam video mein likha '
+                                   'ho to dobara try karein, warna '
+                                   'song ka naam likh kar command '
+                                   'dein.'})
+    except Exception:
+        return jsonify({'success': False,
+                        'message': 'Video parhne mein masla aya — '
+                                   'dobara try karein, ya song ka '
+                                   'naam likh kar command dein.'})
+    finally:
+        if _vpath:
+            try:
+                os.remove(_vpath)
+            except Exception:
+                pass
 
 
 @app.route('/api/ai/image', methods=['POST'])
@@ -13408,6 +13699,38 @@ def api_admin_cookies_status():
         except Exception:
             _kb = 0
     return jsonify({'active': bool(_p), 'size_kb': _kb})
+
+
+@app.route('/api/admin/audd-token', methods=['POST'])
+def api_admin_audd_token():
+    _g = _v4_admin_guard()
+    if _g:
+        return _g
+    data = request.json or {}
+    _tok = (data.get('token') or '').strip()
+    _p = os.path.join(DATA_DIR, 'audd_token.txt')
+    if not _tok:
+        try:
+            os.remove(_p)
+        except Exception:
+            pass
+        return jsonify({'success': True,
+                        'message': 'Token hata diya gaya'})
+    if len(_tok) < 8:
+        return jsonify({'success': False,
+                        'error': 'Token bohat chhota lagta hai'}), 400
+    with open(_p, 'w', encoding='utf-8') as _f:
+        _f.write(_tok)
+    return jsonify({'success': True,
+                    'message': 'Token lag gaya — ab awaaz se pehchan chalegi'})
+
+
+@app.route('/api/admin/audd-status')
+def api_admin_audd_status():
+    _g = _v4_admin_guard()
+    if _g:
+        return _g
+    return jsonify({'active': bool(_audd_token())})
 
 
 @app.route('/api/system-clean', methods=['POST'])
