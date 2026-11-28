@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 76  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 77  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">76</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">77</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -2980,12 +2980,20 @@ async function v4LoadFeed(elId, q, type, sub, opts){
     try{ const _cs = el.querySelectorAll('.v4-card'); if(_cs.length > 3){ const _o = 1 + ((Math.random() * Math.min(6, _cs.length - 1)) | 0); for(let _i = 0; _i < _o; _i++){ const _f = el.querySelector('.v4-card'); if(_f && _f.parentNode) _f.parentNode.appendChild(_f); } } }catch(e){}
   } else {
     const g0 = v4FeedGen[elId];
+    /* Update 166: 20s wali deadline ab gen BUMP nahi karti —
+       slow lekin kamyab jawab dustbin mein jata tha aur user
+       ke paas sirf error bachta tha. Pehle sabr wala note,
+       asal error 50s par; late jawab phir bhi lag sakta hai. */
     setTimeout(function(){
       if(v4FeedGen[elId] === g0 && el.isConnected && el.textContent.indexOf('Load ho raha hai') >= 0){
-        v4FeedGen[elId] = g0 + 1;
-        el.innerHTML = '<p class="v4-muted">Load honay mein dair ho rahi hai — dobara try karein.</p><div style="text-align:center;padding:6px"><button class="v4-btn2" data-feed="' + elId + '" onclick="v4FeedRetry(this)">↻ Dobara try karein</button></div>';
+        el.innerHTML = '<p class="v4-muted">⏳ Abhi load ho raha hai — thoda aur intezar karein...</p>';
       }
     }, 20000);
+    setTimeout(function(){
+      if(v4FeedGen[elId] === g0 && el.isConnected && !el.querySelector('.v4-card') && (el.textContent.indexOf('Load ho raha hai') >= 0 || el.textContent.indexOf('intezar karein') >= 0)){
+        el.innerHTML = '<p class="v4-muted">Videos load nahi ho sakin — dobara try karein.</p><div style="text-align:center;padding:6px"><button class="v4-btn2" data-feed="' + elId + '" onclick="v4FeedRetry(this)">↻ Dobara try karein</button></div>';
+      }
+    }, 50000);
   }
   await p;
   try{ if(el.querySelector('.v4-card') && el.innerHTML.length < 150000) localStorage.setItem(key, el.innerHTML); }catch(e){}
@@ -3421,11 +3429,11 @@ async function v4ShortsLoad(){
     .then(function(d){
       v4ShortsLoading = false;
       const items = (d.items || []).filter(function(it){ return it.id && it.id.videoId; });
-      if(!items.length){ v4ShortsPhoneLoad().then(function(ok){ if(!ok) v4ShortsDone = true; }); return; }
+      if(!items.length){ v4ShortsPhoneLoad().then(function(ok){ if(!ok) v4ShortsServerFail(); }); return; }
       if(v4ShortsPage === 0 && items.length > 4){ const _o3 = 1 + ((Math.random() * Math.min(8, items.length - 1)) | 0); items = items.slice(_o3).concat(items.slice(0, _o3)); }
       v4ShortsRenderItems(items, !!d.has_more);
     })
-    .catch(function(){ v4ShortsLoading = false; v4ShortsPhoneLoad(); });
+    .catch(function(){ v4ShortsLoading = false; v4ShortsPhoneLoad().then(function(ok){ if(!ok) v4ShortsServerFail(); }); });
 }
 /* Update 121: phone ki direct stream (Shorts ke liye) — cache +
    waiter; Java v4PhoneStreamResult se jawab deta hai. */
@@ -3533,18 +3541,51 @@ function v4OpenShorts(query){
      loading; fail ho to 12s wala paigham + retry. */
   try{ const _tr0 = v4$('v4-shorts-track'); if(_tr0 && !_wasOpen && !_tr0.querySelector('.v4-short') && !_tr0.querySelector('#v4-shorts-loading')){ const _ld = document.createElement('div'); _ld.id = 'v4-shorts-loading'; _ld.style.cssText = 'height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px'; _ld.textContent = '⏳ Nayi shorts aa rahi hain...'; _tr0.appendChild(_ld); } }catch(e){}
   if(!ov.getAttribute('data-init')){ ov.setAttribute('data-init', '1'); v4ShortsSeq = Date.now(); v4ShortsLoad(); }
-  /* Update 139: list bilkul khali rahe to kaali screen
-     nahi — saaf paigham + dobara wala button. */
-  setTimeout(function(){
-    const tr = v4$('v4-shorts-track');
-    if(ov.classList.contains('open') && tr && !tr.querySelector('.v4-short') && !tr.querySelector('.v4-shorts-msg')){
-      tr.innerHTML = '<div class="v4-shorts-msg" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;padding:24px;text-align:center"><div>Shorts load nahi ho sakin</div><button class="v4-btn2" onclick="v4ShortsRetry()">↻ Dobara try karein</button></div>';
+  /* Update 166: 12s wali sakht ghari khatam (wo 30s wale
+     fetch ke chalte hue hi fail keh deti thi) — ab watcher
+     load ki asal halat par paigham deta hai. */
+  window._v4ShortsAutoRetried = 0;
+  v4ShortsWatchStart();
+}
+/* Update 166: server wala rasta khali/fail ho to phone ke
+   baad EK khamosh auto-retry (feed wali tarah); phir bhi na
+   aye to Done — watcher paigham dikhata hai. */
+function v4ShortsServerFail(){
+  if(v4ShortsPage === 0 && !window._v4ShortsAutoRetried){
+    window._v4ShortsAutoRetried = 1;
+    setTimeout(function(){ if(!v4ShortsDone) v4ShortsLoad(); }, 3000);
+  } else {
+    v4ShortsDone = true;
+  }
+}
+/* Update 166: Shorts ka watcher — 12s wali andhi ghari ki
+   jagah load ki ASAL halat dekhta hai: section a jaye to
+   khatam; load khatam + khali, ya 40s ki hadd, tab hi
+   'load nahi ho sakin' wala paigham. */
+function v4ShortsWatch(){
+  try{
+    const ov = v4$('v4-shorts'); const tr = v4$('v4-shorts-track');
+    if(!ov || !tr || !ov.classList.contains('open')){ window._v4ShortsWatching = 0; return; }
+    if(tr.querySelector('.v4-short')){ window._v4ShortsWatching = 0; const _l = v4$('v4-shorts-loading'); if(_l) _l.remove(); return; }
+    if((!v4ShortsLoading && v4ShortsDone) || Date.now() > (window._v4ShortsWatchUntil || 0)){
+      if(!tr.querySelector('.v4-shorts-msg')) tr.innerHTML = '<div class="v4-shorts-msg" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;padding:24px;text-align:center"><div>Shorts load nahi ho sakin</div><button class="v4-btn2" onclick="v4ShortsRetry()">↻ Dobara try karein</button></div>';
+      window._v4ShortsWatching = 0; return;
     }
-  }, 12000);
+    setTimeout(v4ShortsWatch, 4000);
+  }catch(e){ window._v4ShortsWatching = 0; }
+}
+function v4ShortsWatchStart(){
+  window._v4ShortsWatchUntil = Date.now() + 40000;
+  if(window._v4ShortsWatching) return;
+  window._v4ShortsWatching = 1;
+  setTimeout(v4ShortsWatch, 4000);
 }
 function v4ShortsRetry(){
   const tr = v4$('v4-shorts-track'); if(tr) tr.innerHTML = '';
   v4ShortsDone = false; v4ShortsPage = 0; v4ShortsSeq = Date.now();
+  window._v4ShortsAutoRetried = 0;
+  try{ if(tr){ const _ld2 = document.createElement('div'); _ld2.id = 'v4-shorts-loading'; _ld2.style.cssText = 'height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px'; _ld2.textContent = '⏳ Nayi shorts aa rahi hain...'; tr.appendChild(_ld2); } }catch(e){}
+  v4ShortsWatchStart();
   v4ShortsLoad();
 }
 function v4CloseShorts(){
