@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 70  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 71  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">70</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">71</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -11519,42 +11519,82 @@ def _ai_episode_candidates(parsed):
 
 
 def _ai_episode_list(show):
-    """Update 102/113: ek show ki episodes (number ke sath, tartib
-    mein) — AI chat ke folder ke liye. Update 113: Dangal-style
-    titles ('Ep. 15', '| Episode 15', 'Part 15', naam ke baad seedha
-    number) bhi pakro; pehli search se kam milein to aur queries
-    bhi try karo (Rimjhim miss fix)."""
+    """Update 160: MUKAMMAL + SAAF episode list.
+    Pehle sirf search thi: naye episodes + PROMO ajate
+    thay, purani episodes (2-31) gayab, aur promo asal
+    episode ka number le leta tha (user recording
+    2026-11-28: Bano ke sirf 13-14, un mein 32/35/45
+    promo). Ab pehle PLAYLIST ko backbone banaya jata
+    hai (Full Episodes wali playlists mein saari
+    episodes tartib se hoti hain), phir search se
+    khaali jaghein bharti hain. Promo/teaser hamesha
+    bahar; ek number par sab se LAMBI video (asal
+    episode) jeet ti hai. Nateeja 30 min cache mein."""
+    _ck = f"eplist_{(show or '').lower()}"
+    if _ck in search_cache:
+        _cd, _ts = search_cache[_ck]
+        if time.time() - _ts < CACHE_DURATION:
+            return _cd
     _stop = {'tv', 'hd', 'full', 'new', 'official', 'the', 'a', 'an',
              'hai', 'aur', 'video', 'videos', 'drama'}
     kws = [w for w in re.findall(r'[a-z0-9]+', (show or '').lower())
            if len(w) >= 3 and w not in _stop]
     found = {}
 
-    def _scan(entries):
-        for e in entries or []:
-            if not e or not e.get('id'):
+    def _num(tl):
+        m = re.search(r'episode\s*#?\s*(\d{1,3})', tl) or \
+            re.search(r'\bep\.?\s*#?\s*(\d{1,3})\b', tl) or \
+            re.search(r'\bpart\s*#?\s*(\d{1,3})\b', tl) or \
+            re.search(r'\bqist\s*#?\s*(\d{1,3})\b', tl) or \
+            re.search(r'(?:^|[|\-\u2013\u2014\u2022:])\s*(\d{1,3})\s*(?:$|[|\-\u2013\u2014\u2022:])', tl)
+        return int(m.group(1)) if m else None
+
+    def _scan(pairs):
+        for vid, t, dur in pairs:
+            if not vid or not t:
                 continue
-            t = e.get('title') or ''
             tl = t.lower()
+            if 'promo' in tl or _ai_is_teaser(t):
+                continue
             if kws:
                 hit = sum(1 for k in kws if k in tl)
                 if hit < max(1, int(len(kws) * 0.6)):
                     continue
-            m = re.search(r'episode\s*#?\s*(\d{1,3})', tl) or \
-                re.search(r'\bep\.?\s*#?\s*(\d{1,3})\b', tl) or \
-                re.search(r'\bpart\s*#?\s*(\d{1,3})\b', tl) or \
-                re.search(r'\bqist\s*#?\s*(\d{1,3})\b', tl) or \
-                re.search(r'(?:^|[|\-\u2013\u2014\u2022:])\s*(\d{1,3})\s*(?:$|[|\-\u2013\u2014\u2022:])', tl)
-            if not m:
+            n = _num(tl)
+            if n is None or n < 1 or n > 500:
                 continue
-            n = int(m.group(1))
-            if n < 1 or n > 500 or n in found:
-                continue
-            found[n] = {'episode': n, 'video_id': e['id'], 'title': t,
-                        'duration': e.get('duration')}
+            if n not in found or (dur or 0) > (found[n].get('duration') or 0):
+                found[n] = {'episode': n, 'video_id': vid,
+                            'title': t, 'duration': dur}
 
-    for _q in (f"ytsearch40:{show} episode", f"ytsearch40:{show} ep",
-               f"ytsearch40:{show}"):
+    # 1) Playlist backbone (zyada se zyada 2 playlists)
+    try:
+        _pls = _ai_playlist_search(show, 8)
+    except Exception:
+        _pls = []
+    _tried = 0
+    for _p in _pls:
+        if _tried >= 2 or len(found) >= 40:
+            break
+        _tried += 1
+        try:
+            _res = _ai_playlist_candidates(_p.get('playlist_id'))
+        except Exception:
+            _res = None
+        if not _res:
+            continue
+        _cands, _pt = _res
+        _scan([(c.get('video_id'), c.get('title'),
+                c.get('duration')) for c in _cands])
+
+    # 2) Search se baqi khaali jaghein — pehli query
+    #    hamesha chalti hai (sab se nayi episode aksar
+    #    playlist mein der se aati hai)
+    for _q in (f"ytsearch50:{show} episode",
+               f"ytsearch50:{show} ep",
+               f"ytsearch50:{show} all episodes"):
+        if len(found) >= 60:
+            break
         try:
             info = _extract_with_clients(
                 _q,
@@ -11565,10 +11605,13 @@ def _ai_episode_list(show):
                  'extractor_retries': 2})
         except Exception:
             info = None
-        _scan((info or {}).get('entries') or [])
-        if len(found) >= 5:
-            break
-    return [found[n] for n in sorted(found)][:80]
+        _scan([(e.get('id'), e.get('title'), e.get('duration'))
+               for e in ((info or {}).get('entries') or []) if e])
+
+    out = [found[n] for n in sorted(found)][:80]
+    if out:
+        search_cache[_ck] = (out, time.time())
+    return out
 
 
 def _ai_create_direct_job(items, parsed_like, guest_device,
@@ -11853,6 +11896,35 @@ def _ai_playlist_search(query, n=12):
         except Exception:
             items = items or []
     if items:
+        # Update 160: ranking — jo playlist asal mein is
+        # show ki hai wo upar; bilkul be-joor (score 0)
+        # bahar, jab achhi wali kaafi hon.
+        _qw = [w for w in re.findall(r'[a-z0-9]+',
+                                     (query or '').lower())
+               if len(w) >= 3]
+
+        def _pl_score(_p):
+            _t = (_p.get('title') or '').lower()
+            _s = 0
+            for _w in _qw:
+                if re.search(r'\b' + re.escape(_w) + r'\b', _t):
+                    _s += 2
+            if 'episode' in _t:
+                _s += 2
+            if 'full' in _t:
+                _s += 1
+            if 'drama' in _t:
+                _s += 1
+            if _p.get('count'):
+                _s += min(3, _p['count'] // 15)
+            return _s
+
+        _scored = [(_pl_score(_p), _p) for _p in items]
+        _good = [x for x in _scored if x[0] >= 2]
+        if len(_good) >= 4:
+            _scored = [x for x in _scored if x[0] > 0]
+        _scored.sort(key=lambda x: -x[0])
+        items = [_p for _s2, _p in _scored]
         search_cache[cache_key] = (items, time.time())
     return items
 
