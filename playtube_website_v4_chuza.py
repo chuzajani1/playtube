@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 71  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 72  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -871,7 +871,7 @@ def get_deals():
 
 
 _MAINTENANCE_EXEMPT = ('/admin', '/api/admin', '/api/user-info', '/api/site-config',
-                       '/sw.js', '/manifest.json', '/app-icon.svg', '/playtube.apk',
+                       '/sw.js', '/manifest.json', '/app-icon.svg', '/playtube.apk', '/playza.apk',
                        '/api/apk-status')
 
 
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">71</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">72</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -13588,6 +13588,7 @@ def _apk_file_path():
 
 
 @app.route('/playtube.apk')
+@app.route('/playza.apk')
 def playtube_apk_file():
     apk_path = _apk_file_path()
     if os.path.exists(apk_path):
