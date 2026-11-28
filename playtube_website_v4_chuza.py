@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 73  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 74  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">73</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">74</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -9050,13 +9050,13 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
                 q = str(quality).lower().replace('k', '')
                 if q in ('70', '128', '160', '320'):
                     bitrate = q
-            ydl_opts['format'] = 'bestaudio/best'
+            ydl_opts['format'] = 'bestaudio[language_preference>=0]/bestaudio/best'
             ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio',
                                            'preferredcodec': 'mp3',
                                            'preferredquality': bitrate}]
             quality_label = f"MP3 {bitrate}K"
         elif format_type == 'm4a':
-            ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio/best'
+            ydl_opts['format'] = 'bestaudio[language_preference>=0][ext=m4a]/bestaudio[ext=m4a]/bestaudio/best'
             ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio',
                                            'preferredcodec': 'm4a',
                                            'preferredquality': '128'}]
@@ -9074,12 +9074,13 @@ def download_in_background(video_id, format_type, quality, download_id, user_id=
             if quality and quality != 'best':
                 height = str(quality).replace('p', '')
                 ydl_opts['format'] = (
+                    f'bestvideo[height<={height}][ext=mp4]+bestaudio[language_preference>=0][ext=m4a]/'
                     f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/'
                     f'bestvideo[height<={height}]+bestaudio/best[height<={height}]/'
                     f'bestvideo+bestaudio/best')
                 quality_label = quality
             else:
-                ydl_opts['format'] = 'best[ext=mp4]/bestvideo+bestaudio/best'
+                ydl_opts['format'] = 'best[ext=mp4]/bestvideo+bestaudio[language_preference>=0]/bestvideo+bestaudio/best'
                 quality_label = 'Best'
             ydl_opts['merge_output_format'] = 'mp4'
 
