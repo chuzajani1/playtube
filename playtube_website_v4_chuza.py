@@ -124,7 +124,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 68  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 69  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1670,7 +1670,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">68</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">69</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -2344,20 +2344,55 @@ function v4ShowKey(v){
 }
 function v4Diverse(list){
   if(!list || list.length < 3) return list || [];
-  /* Update 142: sliding window — ek show ya channel ki
-     item pichli 4 mein dobara nahi aati; jo takraye wo
-     peeche chali jati hai (list ke aakhir mein). */
+  /* Update 158: khidki 4 se 6; takrao sirf show-key/
+     channel par nahi — title ke 2 bare lafz kahin bhi
+     milein to bhi topic takrao (ek topic ki bharmaar
+     khatam). Atki items aakhir mein dher nahi banti —
+     faslay par wapas ghusayi jati hain. */
+  const words = function(v){ return (v.title || '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').split(/\s+/).filter(function(w){ return w.length > 3; }); };
   const out = [], hold = [], win = [];
   list.forEach(function(v){
-    const k = v4ShowKey(v), c = (v.channel || '').toLowerCase();
+    const k = v4ShowKey(v), c = (v.channel || '').toLowerCase(), ws = words(v);
     let clash = false;
-    for(let i = Math.max(0, win.length - 4); i < win.length; i++){
+    for(let i = Math.max(0, win.length - 6); i < win.length && !clash; i++){
       if(win[i].k === k || (c && win[i].c === c)){ clash = true; break; }
+      let shared = 0;
+      for(let j = 0; j < ws.length; j++){ if(win[i].ws.indexOf(ws[j]) >= 0) shared++; }
+      if(shared >= 2) clash = true;
     }
     if(clash) hold.push(v);
-    else { out.push(v); win.push({k:k, c:c}); }
+    else { out.push(v); win.push({k:k, c:c, ws:ws}); }
   });
-  return out.concat(hold);
+  if(!hold.length) return out;
+  if(!out.length) return hold;
+  if(hold.length <= out.length){
+    /* Atki items ko hisaab se phaila do (jis hisse ka
+       jitna share, utni jagah) — dher nahi banta. */
+    const res = [];
+    let oi = 0, hi = 0;
+    while(oi < out.length || hi < hold.length){
+      if(hi < hold.length && (oi >= out.length || (hi / hold.length) < (oi / out.length))){ res.push(hold[hi]); hi++; }
+      else { res.push(out[oi]); oi++; }
+    }
+    return res;
+  }
+  /* Ek hi topic aadhi se zyada list par bhari — sab
+     se bari tokri nikaal kar doosri items ko barabar
+     faslay par rakho, topic un ke beech mein (lagatar
+     lambay block ka yahi ilaaj hai). */
+  const bkey = function(v){ return words(v).slice(0, 2).join(' ') || (v.channel || '').toLowerCase(); };
+  const counts = {};
+  list.forEach(function(v){ const k = bkey(v); counts[k] = (counts[k] || 0) + 1; });
+  let topK = null;
+  Object.keys(counts).forEach(function(k){ if(topK === null || counts[k] > counts[topK]) topK = k; });
+  const maj = [], min = [];
+  list.forEach(function(v){ if(bkey(v) === topK) maj.push(v); else min.push(v); });
+  const total = list.length;
+  const res2 = new Array(total);
+  min.forEach(function(v, j){ let pos = Math.floor((j + 1) * total / (min.length + 1)); while(res2[pos]) pos = (pos + 1) % total; res2[pos] = v; });
+  let mi = 0;
+  for(let i2 = 0; i2 < total; i2++){ if(!res2[i2]){ res2[i2] = maj[mi]; mi++; } }
+  return res2;
 }
 /* Update 142: app khulne par pehli video pichli dafa
    wali na ho — wahi first item ho to list ghuma do. */
@@ -3045,7 +3080,7 @@ function v4ShortSkip(sec, v, spin){
   if(track) track.dataset.skips = '' + n;
   if(spin){
     spin.dataset.repl = '1';
-    if(n >= 5){ spin.innerHTML = '<span style="color:#fff;font-size:13px;padding:0 18px;text-align:center">Shorts load nahi ho rahi — net check karke Shorts dobara kholein</span>'; spin.style.display = 'flex'; return; }
+    if(n >= 8){ spin.style.flexDirection = 'column'; spin.innerHTML = '<span style="color:#fff;font-size:13px;padding:0 18px;text-align:center">Shorts abhi load nahi ho rahi</span><button class="v4-btn2" style="margin-top:10px" onclick="v4ShortsRetry()">↻ Dobara try karein</button>'; spin.style.display = 'flex'; return; }
     spin.innerHTML = '<span style="color:#fff;font-size:26px">⏭</span>';
     spin.style.display = 'flex';
   }
@@ -3053,6 +3088,9 @@ function v4ShortSkip(sec, v, spin){
     const nx = sec.nextElementSibling;
     if(nx && track) track.scrollTo({top: nx.offsetTop, behavior: 'smooth'});
   }, 650);
+  /* Update 158: kharab short list se DELETE — isi
+     session mein dobara samne nahi ghumti. */
+  setTimeout(function(){ try{ v4ShortDeactivate(sec); sec.remove(); }catch(e){} }, 1100);
 }
 function v4ShortActivate(sec){
   const vid = sec.getAttribute('data-vid');
@@ -3087,13 +3125,13 @@ function v4ShortActivate(sec){
         });
       };
       _tryStream(false);
-      setTimeout(function(){ if(sec.contains(v) && !_got && !v.getAttribute('src')) v4ShortSkip(sec, v, spin); }, 9000);
+      setTimeout(function(){ if(sec.contains(v) && !_got && !v.getAttribute('src')) v4ShortSkip(sec, v, spin); }, window._v4StreamWarm ? 9000 : 20000);
     }
   }
   else { v.src = '/api/stream/' + vid; setTimeout(function(){ if(sec.contains(v) && v.readyState < 3) v4ShortSkip(sec, v, spin); }, 14000); }
   /* Update 143: 10s ki hard deadline — latki hui short
      khud skip; koi embed wala rasta baqi nahi. */
-  let wdT = setTimeout(function(){ if(sec.contains(v) && v.readyState < 3) v4ShortSkip(sec, v, spin); }, 10000);
+  let wdT = setTimeout(function(){ if(sec.contains(v) && v.readyState < 3) v4ShortSkip(sec, v, spin); }, window._v4StreamWarm ? 10000 : 22000);
   /* Update 150: beech mein atki short ka ilaaj — pehle
      watchdog sirf shuru ke 10 second dekhta tha; video
      chal kar ruk jaye (buffering) to spinner ghumta
@@ -3121,19 +3159,13 @@ function v4ShortDeactivate(sec){
 function v4FetchT(url, ms){ const c = new AbortController(); const t = setTimeout(function(){ c.abort(); }, ms || 30000); return fetch(url, {signal: c.signal}).then(function(r){ clearTimeout(t); return r; }, function(e){ clearTimeout(t); throw e; }); }
 function v4ShortsRenderItems(items, hasMore){
   const track = v4$('v4-shorts-track'); if(!track) return;
+  const _ld0 = track.querySelector('#v4-shorts-loading'); if(_ld0) _ld0.remove();
   /* Update 151: khulne par pehle mehfooz (purani) list
      lagti hai taake screen khaali na ho — taza list ate
      hi pehli (chalti hui) short ke ILAWA purani saari
      hata kar taza un ki jagah lag jati hain. Pehle taza
      aakhir mein jurti theen, is liye har dafa pehli
      short wahi purani hoti thi. */
-  if(window._v4ShortsFreshSwap && (Date.now() - window._v4ShortsFreshSwap) < 15000){
-    const _newOnes = items.filter(function(it){ return it.id && it.id.videoId && !track.querySelector('[data-vid="' + it.id.videoId + '"]'); });
-    if(_newOnes.length >= 3){
-      window._v4ShortsFreshSwap = 0;
-      track.querySelectorAll('.v4-short').forEach(function(s, i){ if(i > 0){ try{ v4ShortDeactivate(s); }catch(e){} s.remove(); } });
-    }
-  }
   const _titleSet = {};
   track.querySelectorAll('.v4-short').forEach(function(s){ const _oi = v4ShortsItems[s.getAttribute('data-vid')]; if(_oi && _oi.snippet) _titleSet[v4TitleKey(_oi.snippet.title)] = 1; });
   items.forEach(function(it){
@@ -3256,7 +3288,7 @@ const v4StreamCache = {};
 const v4StreamWait = {};
 const v4StreamFail = {};
 function v4PhoneStreamResult(vid, url){
-  if(url) v4StreamCache[vid] = url;
+  if(url){ v4StreamCache[vid] = url; window._v4StreamWarm = 1; }
   else if(vid) v4StreamFail[vid] = Date.now();
   const w = v4StreamWait[vid]; delete v4StreamWait[vid];
   if(w) w(url || null);
@@ -3350,9 +3382,11 @@ function v4OpenShorts(query){
      user ke apne YouTube home ki shorts (sync) —
      bahir wala YouTube nahi khulta. */
   if(!_wasOpen && _q === 'trending shorts') v4ShortsSyncTry();
-  /* Update 147: mehfooz shorts hon to pehle wo — screen
-     khaali/kaali nahi rehti, taza peeche aati rahengi. */
-  try{ const _sc = JSON.parse(localStorage.getItem('pt_shorts_cache') || '[]'); const _tr0 = v4$('v4-shorts-track'); if(_sc.length && _tr0 && !_tr0.querySelector('.v4-short')){ /* Update 151: mehfooz list har dafa GHUMA kar lagti hai — pehli short pichli dafa wali nahi hoti. */ const _off = _sc.length > 1 ? (1 + ((Math.random() * (_sc.length - 1)) | 0)) : 0; v4ShortsRenderItems(_sc.slice(_off).concat(_sc.slice(0, _off)), true); window._v4ShortsFreshSwap = Date.now(); } }catch(e){}
+  /* Update 158: har open par SIRF nayi shorts — purani
+     mehfooz list ab NAHI lagti (user ka hukum: open
+     karte hi new, old delete). List ane tak halki si
+     loading; fail ho to 12s wala paigham + retry. */
+  try{ const _tr0 = v4$('v4-shorts-track'); if(_tr0 && !_wasOpen && !_tr0.querySelector('.v4-short') && !_tr0.querySelector('#v4-shorts-loading')){ const _ld = document.createElement('div'); _ld.id = 'v4-shorts-loading'; _ld.style.cssText = 'height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px'; _ld.textContent = '⏳ Nayi shorts aa rahi hain...'; _tr0.appendChild(_ld); } }catch(e){}
   if(!ov.getAttribute('data-init')){ ov.setAttribute('data-init', '1'); v4ShortsSeq = Date.now(); v4ShortsLoad(); }
   /* Update 139: list bilkul khali rahe to kaali screen
      nahi — saaf paigham + dobara wala button. */
@@ -3598,7 +3632,7 @@ function v4QueueToggle(el, hold){
 }
 function v4PhoneFolderHtml(active, queue){
   const run = active.filter(function(p){ return p.status === 'running' || p.status === 'starting'; });
-  const wait = active.filter(function(p){ return p.status === 'paused'; });
+  const wait = active.filter(function(p){ return p.status === 'paused' || p.status === 'waiting'; });
   const ordered = run.concat(wait);
   const first = ordered[0] || {};
   const open = window._v4DlFolderOpen !== false;
@@ -3623,6 +3657,9 @@ function v4PhoneRowHtml(p){
     btns = '<button class="v4-roundbtn teal" title="Dobara chalayein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="resume">▶</button><button class="v4-roundbtn" title="Hata dein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="remove">🗑</button>';
   } else if(p.status === 'starting'){
     t2 = 'Shuru ho raha hai...' + (p.quality ? ' • ' + v4Esc(p.quality) : '');
+    btns = '<button class="v4-roundbtn" title="Band karein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="cancel">✕</button>';
+  } else if(p.status === 'waiting'){
+    t2 = '⏳ Waiting — bari aane par khud start hogi' + (p.quality ? ' • ' + v4Esc(p.quality) : '');
     btns = '<button class="v4-roundbtn" title="Band karein" data-pid="' + pid + '" onclick="v4PhoneAct(this)" data-act="cancel">✕</button>';
   } else if(p.status === 'failed'){
     t2 = '<span style="color:var(--v4danger)">Fail ho gaya — sheet se dobara try karein</span>';
@@ -3706,7 +3743,7 @@ function v4PhoneDlRender(){
   /* Update 146 (user ka hukum badla): Downloads tab
      par SAB — AI wali bhi, Home/YouTube wali bhi, aur
      AI ki waiting queue bhi; dono jagah same list. */
-  const active = live.filter(function(p){ return p.status === 'running' || p.status === 'paused' || p.status === 'starting'; });
+  const active = live.filter(function(p){ return p.status === 'running' || p.status === 'paused' || p.status === 'starting' || p.status === 'waiting'; });
   const bad = live.filter(function(p){ return p.status === 'failed' || p.status === 'stopped'; });
   const queue = v4AiQueueList(live);
   const sig = live.map(function(p){ return p.id + ':' + p.status; }).join(',') + '#' + stored.length + '#' + queue.map(function(q){ return q.jobKey + ':' + q.idx + ':' + q.st; }).join(',') + (window._v4DlFolderOpen === false ? '#c' : '#o');
@@ -4516,6 +4553,19 @@ function v4DlLimit(){
   const n = parseInt((v4State.settings && v4State.settings.maxConc) || 3, 10);
   return (n >= 1 && n <= 5) ? n : 3;
 }
+/* Update 158: Settings ki limit JAVA ko bhi bhejo —
+   wahan sakht gate hai (sheet wali download bhi JS
+   scheduler se bahir thi, wahi 1-ki-jagah-2 wala
+   masla tha). */
+function v4SyncDlLimit(){
+  try{
+    if(!(window.PlayTubeApp && PlayTubeApp.setDlLimit)) return;
+    const n = v4DlLimit();
+    if(window._v4DlLimSent === n) return;
+    window._v4DlLimSent = n;
+    PlayTubeApp.setDlLimit('' + n);
+  }catch(e){}
+}
 function v4PhoneActiveCount(){
   let n = 0;
   const F = (window._v4Folders || {})[V4_FOLDER_KEY]; if(!F) return 0;
@@ -4535,6 +4585,7 @@ function v4SrvActiveCount(){
   return n;
 }
 function v4PhoneSched(){
+  v4SyncDlLimit();
   const F = (window._v4Folders || {})[V4_FOLDER_KEY]; if(!F) return;
   let active = v4PhoneActiveCount() + v4SrvActiveCount();
   const lim = v4DlLimit();
@@ -4581,7 +4632,7 @@ function v4PhoneItemPoll(job, it){
        SE PURANI unclaimed hai (FIFO) — dusre job ki nayi entry
        galti se nahi bandhti. */
     ent = cand.length ? cand[cand.length - 1] : null;
-    if(ent){ it._entId = ent.id; claims[ent.id] = job.key; it._st = 'downloading'; }
+    if(ent){ it._entId = ent.id; claims[ent.id] = job.key; if(ent.status !== 'waiting') it._st = 'downloading'; }
     else {
       it._wait = (it._wait || 0) + 1;
       if(it._wait > 40) v4PhoneItemFinish(job, it, 'failed', 'Download start nahi hua — ↻ se dobara try karein');
@@ -5740,6 +5791,7 @@ function v4SaveSettings(silent){
   const f = v4$('v4-set-folder'); if(f) s.folder = f.value || 'Playza';
   const q = v4$('v4-set-quality'); if(q) s.defQuality = q.value;
   const c = v4$('v4-set-conc'); if(c) s.maxConc = parseInt(c.value);
+  v4SyncDlLimit();
   const sp = v4$('v4-set-speed'); if(sp) s.speed = sp.value;
   try{ localStorage.setItem('pt_v4_settings', JSON.stringify(s)); }catch(e){}
   if(!silent) v4Toast('Settings save ho gayi');
