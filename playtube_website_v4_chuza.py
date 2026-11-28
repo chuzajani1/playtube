@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 77  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 78  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">77</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">78</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -6957,7 +6957,7 @@ def api_playlist():
         ydl_opts = {
             'quiet': True, 'no_warnings': True, 'no_check_certificate': True,
             'extract_flat': True, 'skip_download': True,
-            'ignoreerrors': True, 'playlistend': 100,
+            'ignoreerrors': True,
         }
         info = _extract_with_clients(
             f"https://www.youtube.com/playlist?list={pid}", ydl_opts)
@@ -11678,7 +11678,7 @@ def _ai_episode_list(show):
         _scan([(e.get('id'), e.get('title'), e.get('duration'))
                for e in ((info or {}).get('entries') or []) if e])
 
-    out = [found[n] for n in sorted(found)][:80]
+    out = [found[n] for n in sorted(found)][:2000]
     if out:
         search_cache[_ck] = (out, time.time())
     return out
@@ -11763,7 +11763,9 @@ def api_ai_pick_many():
     sirf wahi video_ids download hongi."""
     data = request.json or {}
     items = []
-    for _it in (data.get('items') or [])[:100]:
+    # Update 167: bari playlist ki full selection — 100 ki
+    # hadd khamoshi se kaat deti thi, ab 2000 tak.
+    for _it in (data.get('items') or [])[:2000]:
         if isinstance(_it, dict) and _it.get('video_id'):
             items.append({'video_id': str(_it['video_id']),
                           'title': str(_it.get('title') or 'Video')[:200]})
@@ -12001,7 +12003,11 @@ def _ai_playlist_search(query, n=12):
 
 def _ai_playlist_candidates(pid, vid=None):
     """Update 113: playlist ki videos CANDIDATES ki shakal mein —
-    user khud select karega, auto-download NAHI hoga."""
+    user khud select karega, auto-download NAHI hoga.
+    Update 167 (user rule): playlist FULL aati hai — jitni
+    videos hon (20/200/2000) saari; 50 wali hadd sirf aam
+    search/candidates par hai, playlist par nahi. Is liye
+    yahan na playlistend hai na 50 ka cap."""
     if pid.startswith('RD') and vid:
         _url = f"https://www.youtube.com/watch?v={vid}&list={pid}"
     else:
@@ -12012,14 +12018,14 @@ def _ai_playlist_candidates(pid, vid=None):
             {'quiet': True, 'no_warnings': True, 'no_check_certificate': True,
              'extract_flat': 'in_playlist', 'skip_download': True,
              'ignoreerrors': True, 'socket_timeout': 25,
-             'retries': 2, 'extractor_retries': 2, 'playlistend': 60})
+             'retries': 2, 'extractor_retries': 2})
     except Exception:
         return None
     entries = [e for e in ((info or {}).get('entries') or [])
                if e and e.get('id')]
     if not entries:
         return None
-    out = _ai_cand_from_entries(entries, 50)
+    out = _ai_cand_from_entries(entries, 5000)
     if not out:
         return None
     _t = (info or {}).get('title') or ''
