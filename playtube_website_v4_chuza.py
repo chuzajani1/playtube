@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 85  # Update 85: har update par +1 — More page par dikhta hai
+APP_VERSION = 86  # Update 86: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">85</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">86</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -3383,6 +3383,13 @@ function v4ShortsRenderItems(items, hasMore){
     secs.forEach(function(s){ const it2 = v4ShortsItems[s.getAttribute('data-vid')]; if(it2) snap.push(it2); });
     if(snap.length) localStorage.setItem('pt_shorts_cache', JSON.stringify(snap.slice(0, 20)));
   }catch(e){}
+  /* Update 176: is open ki pehli kamyab list lag gayi —
+     ab sync chal sakti hai (har open par sirf ek dafa;
+     load fail ho to ye hook kabhi nahi chalta). */
+  if(window._v4ShortsSyncPending && v4ShortsQuery === 'trending shorts'){
+    window._v4ShortsSyncPending = 0;
+    v4ShortsSyncTry();
+  }
 }
 /* Update 125: Shorts bhi har dafa NAYI — dikhi hui shorts
    localStorage mein yaad (500 tak), agli list un ke baghair;
@@ -3502,6 +3509,14 @@ function v4ShortPreloadNext(sec){
     if(nxt && nxt.getAttribute('data-vid')) v4PhoneStreamGet(nxt.getAttribute('data-vid'));
   }catch(e){}
 }
+/* Update 176: sync lead-in ki seen-parakh — sirf wo
+   shorts jo dono seen-store (pt_shorts_seen + global
+   pt_seen) mein NA hon, aur zyada se zyada 4. */
+function v4ShortsSyncFilter(items){
+  const g = {}; v4SeenGet().forEach(function(x){ if(x && x.id) g[x.id] = 1; });
+  const s = {}; v4ShortsSeenGet().forEach(function(x){ if(x) s[x] = 1; });
+  return (items || []).filter(function(it){ const id = it && it.id && it.id.videoId; return !!id && !g[id] && !s[id]; }).slice(0, 4);
+}
 async function v4ShortsSyncTry(){
   try{
     if(!v4YtLinked()) return;
@@ -3513,19 +3528,34 @@ async function v4ShortsSyncTry(){
     const ov = v4$('v4-shorts'); if(!ov || !ov.classList.contains('open')) return;
     if(v4ShortsQuery !== 'trending shorts') return;
     const items = data.shorts.map(function(s){ return {id:{videoId:s.id}, snippet:{title:s.title || '', channelTitle:s.channel || ''}, view_count:s.views || ''}; }).filter(function(it){ return it.id.videoId; });
-    if(!items.length) return;
+    /* Update 176: sync wali bhi seen-store se guzar kar —
+       jo pehle dikh chuki hain wo dobara sar par NAHI
+       atin; sar par zyada se zyada 4; sab dekhi hui hon
+       to sync se kuch nahi lagta (taza list hi aage). */
+    const fresh = v4ShortsSyncFilter(items);
+    if(!fresh.length) return;
     const tr = v4$('v4-shorts-track'); if(!tr) return;
-    if(!tr.querySelector('.v4-short')){ v4ShortsRenderItems(items, true); return; }
+    if(!tr.querySelector('.v4-short')){ v4ShortsRenderItems(fresh, true); return; }
     /* Kuchh list lag chuki ho aur user abhi sar par ho
        to sync wali PEHLE laga kar baqi peeche kar do. */
     if(tr.scrollTop < 10){
       const cur = [];
       tr.querySelectorAll('.v4-short').forEach(function(s){ const it = v4ShortsItems[s.getAttribute('data-vid')]; if(it) cur.push(it); });
       tr.innerHTML = '';
-      v4ShortsRenderItems(items, true);
+      v4ShortsRenderItems(fresh, true);
       if(cur.length) v4ShortsRenderItems(cur, true);
     }
   }catch(e){}
+}
+/* Update 176: Shorts ki loading ab sirf spinner —
+   koi text nahi (user: "kuch ni ana chiya bs short
+   play ho"). Fail/retry wala paigham (Update 166)
+   bilkul waisa hi hai. */
+function v4ShortsLoadingEl(){
+  const d = document.createElement('div'); d.id = 'v4-shorts-loading';
+  d.style.cssText = 'height:100%;display:flex;align-items:center;justify-content:center;background:#000';
+  d.innerHTML = '<i style="display:block;width:40px;height:40px;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:var(--v4teal);animation:v4spin .8s linear infinite"></i>';
+  return d;
 }
 function v4OpenShorts(query){
   v4MiniClose();
@@ -3569,15 +3599,21 @@ function v4OpenShorts(query){
       }
     });
   }
-  /* Update 154: account link ho to Shorts mein PEHLE
-     user ke apne YouTube home ki shorts (sync) —
-     bahir wala YouTube nahi khulta. */
-  if(!_wasOpen && _q === 'trending shorts') v4ShortsSyncTry();
+  /* Update 154 + 176: account link ho to user ke apne
+     YouTube home ki shorts (sync) aati hain — lekin
+     Update 176 se sync KHULNE par foran NAHI chalti:
+     pehle aam load shuru hota hai, sync is open ki
+     pehli kamyab list ke BAAD chalti hai
+     (v4ShortsRenderItems ka hook) — taake sust
+     ytHomeFeed bridge ki kataar mein phoneSearch /
+     phoneStream se aage na lag jaye. Load fail ho to
+     sync bhi nahi chalti. */
+  window._v4ShortsSyncPending = (!_wasOpen && _q === 'trending shorts') ? 1 : 0;
   /* Update 158: har open par SIRF nayi shorts — purani
      mehfooz list ab NAHI lagti (user ka hukum: open
      karte hi new, old delete). List ane tak halki si
      loading; fail ho to 12s wala paigham + retry. */
-  try{ const _tr0 = v4$('v4-shorts-track'); if(_tr0 && !_wasOpen && !_tr0.querySelector('.v4-short') && !_tr0.querySelector('#v4-shorts-loading')){ const _ld = document.createElement('div'); _ld.id = 'v4-shorts-loading'; _ld.style.cssText = 'height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px'; _ld.textContent = '⏳ Nayi shorts aa rahi hain...'; _tr0.appendChild(_ld); } }catch(e){}
+  try{ const _tr0 = v4$('v4-shorts-track'); if(_tr0 && !_wasOpen && !_tr0.querySelector('.v4-short') && !_tr0.querySelector('#v4-shorts-loading')){ _tr0.appendChild(v4ShortsLoadingEl()); } }catch(e){}
   if(!ov.getAttribute('data-init')){ ov.setAttribute('data-init', '1'); v4ShortsSeq = Date.now(); v4ShortsLoad(); }
   /* Update 166: 12s wali sakht ghari khatam (wo 30s wale
      fetch ke chalte hue hi fail keh deti thi) — ab watcher
@@ -3622,7 +3658,7 @@ function v4ShortsRetry(){
   const tr = v4$('v4-shorts-track'); if(tr) tr.innerHTML = '';
   v4ShortsDone = false; v4ShortsPage = 0; v4ShortsSeq = Date.now();
   window._v4ShortsAutoRetried = 0;
-  try{ if(tr){ const _ld2 = document.createElement('div'); _ld2.id = 'v4-shorts-loading'; _ld2.style.cssText = 'height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px'; _ld2.textContent = '⏳ Nayi shorts aa rahi hain...'; tr.appendChild(_ld2); } }catch(e){}
+  try{ if(tr){ tr.appendChild(v4ShortsLoadingEl()); } }catch(e){}
   v4ShortsWatchStart();
   v4ShortsLoad();
 }
@@ -8096,6 +8132,62 @@ def _parallel_lists(queries, n, fn):
         return [_safe(_q) for _q in queries]
 
 
+def _interleave(lists, limit=30, cap_window=20, cap_share=0.5,
+                chan_cap=0):
+    # Update 176: kai source lists ko ROUND-ROBIN mila kar
+    # ek list — videoId duplicate ek dafa hi. Pehle
+    # cap_window items mein kisi EK source ka hissa
+    # cap_share (default 50%) se zyada nahi: rok se ruke
+    # hue items window ke baad apni tartib mein ajate
+    # hain, is liye kul tadaad / has_more bilkul waisi
+    # rehti hai — sirf tartib badalti hai. chan_cap > 0
+    # ho to ek channel ki items bhi us se zyada nahi
+    # (wo ruke hue nahi, bahar — purani mixed-feed
+    # rawish).
+    lists = [list(l) for l in (lists or []) if l]
+    if not lists:
+        return []
+    cap = max(1, int(cap_window * cap_share))
+    out = []
+    seen = set()
+    held = []
+    counts = [0] * len(lists)
+    chans = {}
+    idx = 0
+    while len(out) < limit:
+        progressed = False
+        for si, lst in enumerate(lists):
+            if idx < len(lst):
+                progressed = True
+                it = lst[idx]
+                vid = (it.get('id') or {}).get('videoId')
+                if vid and vid in seen:
+                    continue
+                if chan_cap:
+                    _ch = ((it.get('snippet') or {})
+                           .get('channelTitle') or '')
+                    if chans.get(_ch, 0) >= chan_cap:
+                        continue
+                    chans[_ch] = chans.get(_ch, 0) + 1
+                if vid:
+                    seen.add(vid)
+                if len(out) < cap_window and counts[si] >= cap:
+                    held.append(it)
+                    continue
+                counts[si] += 1
+                out.append(it)
+                if len(out) >= limit:
+                    break
+        idx += 1
+        if not progressed:
+            break
+    for it in held:
+        if len(out) >= limit:
+            break
+        out.append(it)
+    return out
+
+
 @app.route('/api/feed')
 def api_feed():
     q = (request.args.get('q', 'trending') or 'trending').strip()
@@ -8452,25 +8544,12 @@ def api_feed():
                 lambda _sq: _feed_search_items(_sq, 12), _seeds))
     except Exception:
         _buckets = [_feed_search_items(_sq, 12) for _sq in _seeds]
-    items, _seen, _chan = [], set(), {}
-    _idx = 0
-    while len(items) < 30:
-        _progressed = False
-        for _b in _buckets:
-            if _idx < len(_b):
-                _progressed = True
-                _it = _b[_idx]
-                _vid = (_it.get('id') or {}).get('videoId')
-                _ch = ((_it.get('snippet') or {}).get('channelTitle') or '')
-                if _vid and _vid not in _seen and _chan.get(_ch, 0) < 4:
-                    _seen.add(_vid)
-                    _chan[_ch] = _chan.get(_ch, 0) + 1
-                    items.append(_it)
-                if len(items) >= 30:
-                    break
-        _idx += 1
-        if not _progressed:
-            break
+    # Update 176: merge ab _interleave se — round-robin
+    # waisa hi, lekin pehle 20 mein kisi EK source ka
+    # hissa 50% se zyada nahi (ek topic sar par na
+    # bhare); ek channel ki zyada se zyada 4 wali
+    # purani hadd bhi waisi hi (chan_cap=4).
+    items = _interleave(_buckets, limit=30, chan_cap=4)
     return _R(items, has_more)
 
 
