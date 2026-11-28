@@ -267,7 +267,7 @@ def search_youtube_web(query, max_results=20):
         return None
 
 
-APP_VERSION = 79  # Update 82: har update par +1 — More page par dikhta hai
+APP_VERSION = 80  # Update 82: har update par +1 — More page par dikhta hai
 
 # Cache system
 search_cache = {}
@@ -1813,7 +1813,7 @@ HTML = '''
       <div class="v4-ratecard" id="v4-aboutcard">
         <div style="text-align:center;font-weight:800;font-size:20px;background:linear-gradient(90deg,#8b6dff,#14b8a6);-webkit-background-clip:text;background-clip:text;color:transparent">▶ Playza</div>
         <p class="v4-muted" style="text-align:center;margin-top:6px">All in One Video Downloader</p>
-        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">79</span></div>
+        <div class="v4-row"><span>🔢</span><div class="grow">Version</div><span class="val" id="v4-ver">80</span></div>
         <div class="v4-row"><span>👨‍💻</span><div class="grow">Developer</div><span class="val">Chuza</span></div>
         <div class="v4-row"><span>🌐</span><div class="grow">Website</div><span class="val">playza.up.railway.app</span></div>
         <div class="v4-row"><span>💻</span><div class="grow">PC App</div><span class="val">Chrome / Edge → Install</span></div>
@@ -11849,7 +11849,12 @@ def _ai_episode_list(show):
     episodes tartib se hoti hain), phir search se
     khaali jaghein bharti hain. Promo/teaser hamesha
     bahar; ek number par sab se LAMBI video (asal
-    episode) jeet ti hai. Nateeja 30 min cache mein."""
+    episode) jeet ti hai. Nateeja 30 min cache mein.
+    Update 169: teesra source DATE-SORTED probe hai —
+    aaj upload hui episode playlist/relevance search
+    dono mein der se aati hai (live sabit 2026-11-28:
+    Ishq Junooni Ep 264 list mein gayab thi), tareekh
+    wali talash use foran pakad leti hai."""
     _ck = f"eplist_{(show or '').lower()}"
     if _ck in search_cache:
         _cd, _ts = search_cache[_ck]
@@ -11874,7 +11879,11 @@ def _ai_episode_list(show):
             if not vid or not t:
                 continue
             tl = t.lower()
-            if 'promo' in tl or _ai_is_teaser(t):
+            # Update 169 follow-up: fan-made 'upcoming' /
+            # 'episode preview' bhi asal episode nahi —
+            # kal ki fake episode aaj ki asal ko rok na de.
+            if 'promo' in tl or 'upcoming' in tl or \
+                    'episode preview' in tl or _ai_is_teaser(t):
                 continue
             if kws:
                 hit = sum(1 for k in kws if k in tl)
@@ -11927,6 +11936,23 @@ def _ai_episode_list(show):
             info = None
         _scan([(e.get('id'), e.get('title'), e.get('duration'))
                for e in ((info or {}).get('entries') or []) if e])
+
+    # 3) Update 169: DATE-SORTED probe — aaj wali episode
+    #    pakadne ke liye. _dated_search_items search page
+    #    se sab se nayi pehle deta hai; items WAHI _scan
+    #    pipeline se guzarte hain (promo/teaser bahar,
+    #    keyword filter, ek number par lambi duration
+    #    jeet ti hai). Fail-silent: probe na chale to
+    #    purani list waisi ki waisi.
+    try:
+        _fresh = _dated_search_items(f"{show} full episode", 30)
+        if not _fresh:
+            _fresh = _dated_search_items(f"{show} latest episode", 30)
+        _scan([(((it.get('id') or {}).get('videoId')),
+                ((it.get('snippet') or {}).get('title')),
+                it.get('duration')) for it in (_fresh or [])])
+    except Exception:
+        pass
 
     out = [found[n] for n in sorted(found)][:2000]
     if out:
